@@ -1,0 +1,9 @@
+{
+  "name": "@repo/charts",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "echarts": "^6.1.0"
+  }
+}

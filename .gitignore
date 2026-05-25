@@ -1,0 +1,140 @@
+# =========================
+# Dependencies
+# =========================
+node_modules/
+.pnpm-store/
+.npmrc
+
+# =========================
+# Build Output
+# =========================
+dist/
+build/
+temp/
+tmp/
+.cache/
+.turbo/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# TypeScript
+# =========================
+*.tsbuildinfo
+
+# =========================
+# Taro
+# =========================
+/apps/mobile/dist/
+/apps/mobile/.temp/
+/apps/mobile/.taro/
+/apps/mobile/.cache
+/apps/mobile/.temp
+
+# 微信小程序本地配置
+/apps/mobile/project.private.config.json
+
+# 微信开发者工具
+/apps/mobile/.wechat-web-devtools/
+
+# =========================
+# React
+# =========================
+coverage/
+
+# =========================
+# NestJS
+# =========================
+/apps/server/dist/
+
+# =========================
+# Prisma
+# =========================
+/apps/server/prisma/dev.db
+/apps/server/prisma/dev.db-journal
+
+# =========================
+# Upload Files
+# =========================
+uploads/
+storage/
+
+# =========================
+# AI / Model Cache
+# =========================
+models/
+ollama-models/
+
+# =========================
+# Docker
+# =========================
+docker-data/
+
+# =========================
+# Turbo
+# =========================
+.turbo/
+
+# =========================
+# Testing
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# Misc
+# =========================
+*.pem
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+# Mac
+# =========================
+.AppleDouble
+.LSOverride
+
+# =========================
+# Linux
+# =========================
+*~
+
+# =========================
+# Windows
+# =========================
+Desktop.ini
+ehthumbs.db
+
+# =========================
+# Editor swap
+# =========================
+*.swp
+*.swo

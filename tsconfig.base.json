@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "strict": true,
+    "jsx": "react-jsx",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@repo/types/*": ["packages/types/src/*"],
+      "@repo/utils/*": ["packages/utils/src/*"],
+      "@repo/ai/*": ["packages/ai/src/*"],
+      "@repo/charts/*": ["packages/charts/src/*"]
+    }
+  }
+}
