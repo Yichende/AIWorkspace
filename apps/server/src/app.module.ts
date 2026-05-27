@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
 
     SequelizeModule.forRoot({
@@ -21,7 +22,8 @@ import { AuthModule } from './modules/auth/auth.module';
       database: process.env.DB_NAME,
       autoLoadModels: true,
       synchronize: true,
-      logging: false,
+      timezone: '+08:00',
+      logging: console.log,
     }),
     UserModule,
     AuthModule,

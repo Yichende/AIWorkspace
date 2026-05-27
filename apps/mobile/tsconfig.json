@@ -18,7 +18,6 @@
     "allowJs": true,
     "resolveJsonModule": true,
     "typeRoots": ["node_modules/@types"],
-    "ignoreDeprecations": "6.0",
     "paths": {
       // TS5090 leading './'
       "@/*": ["./src/*"]
