@@ -1,4 +1,5 @@
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
+import path from "path";
 
 import devConfig from './dev'
 import prodConfig from './prod'
@@ -18,7 +19,7 @@ export default defineConfig<'vite'>(async (merge, { command, mode }) => {
     sourceRoot: 'src',
     outputRoot: 'dist',
     plugins: [
-      "@tarojs/plugin-generator"
+      "@tarojs/plugin-generator",
     ],
     defineConstants: {
     },
@@ -30,6 +31,19 @@ export default defineConfig<'vite'>(async (merge, { command, mode }) => {
     },
     framework: 'react',
     compiler: 'vite',
+    
+    alias: {
+      "@": path.resolve(__dirname, "..", "src"),
+    },
+    vite: {
+      resolve: {
+        alias: {
+          'react': '@tarojs/react',
+          'react-dom': '@tarojs/react'
+        }
+      }
+    },
+
     mini: {
       postcss: {
         pxtransform: {
@@ -77,7 +91,7 @@ export default defineConfig<'vite'>(async (merge, { command, mode }) => {
           enable: false, // 默认为 false，如需使用 css modules 功能，则设为 true
         }
       }
-    }
+    },
   }
 
 

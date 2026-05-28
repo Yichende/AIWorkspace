@@ -62,7 +62,7 @@
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
     "xlsx": "^0.18.5",
-    "zustand": "^5.0.13"
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
     "@babel/core": "^7.24.4",
