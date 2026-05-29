@@ -1,9 +1,325 @@
+@use '../../styles/theme.scss' as *;
+@use 'sass:color';
+
 .login-page {
-  padding: 40rpx;
+  position: relative;
+
+  width: 100vw;
+
+  height: 100vh;
+
+  overflow: hidden;
+
+  background: linear-gradient(
+    180deg,
+    color.adjust($bg-page, $lightness: 3%) 0%,
+    $bg-page 100%
+  );
 
   display: flex;
 
   flex-direction: column;
 
-  gap: 24rpx;
+  align-items: center;
+}
+
+/* 背景光 */
+.bg-light {
+  position: absolute;
+
+  top: -200rpx;
+
+  width: 700rpx;
+
+  height: 700rpx;
+
+  border-radius: 50%;
+
+  background: rgba($color-accent, 0.22);
+
+  filter: blur(100rpx);
+}
+
+/* Logo区域 */
+.logo-section {
+  position: absolute;
+
+  top: 50%;
+
+  left: 50%;
+
+  transform: translate(-50%, -50%) scale(1.2);
+
+  transition: all $transition-slow;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+}
+
+.logo-active {
+  top: 120rpx;
+
+  transform: translateX(-50%) scale(0.72);
+}
+
+/* Logo */
+.logo {
+  width: 180rpx;
+
+  height: 180rpx;
+
+  border-radius: 48rpx;
+
+  background: linear-gradient(
+    135deg,
+    $color-accent,
+    color.adjust($color-accent, $lightness: -8%)
+  );
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: $text-white;
+
+  font-size: 72rpx;
+
+  font-weight: 700;
+
+  box-shadow: 0 20rpx 60rpx rgba($color-secondary, 0.24);
+}
+
+/* 标题 */
+.app-title {
+  margin-top: 20rpx;
+
+  color: $text-primary;
+
+  font-size: 42rpx;
+
+  font-weight: 700;
+
+  opacity: 0;
+
+  transform: translateY(20rpx);
+
+  transition: all $transition-slow;
+}
+
+.title-show {
+  opacity: 1;
+
+  transform: translateY(0);
+}
+
+/* 登录区域 */
+.login-wrapper {
+  position: absolute;
+
+  top: 500rpx;
+
+  width: 100%;
+
+  padding: 0 48rpx;
+
+  box-sizing: border-box;
+
+  opacity: 0;
+
+  transform: translateY(40rpx);
+
+  transition: all $transition-slow;
+}
+
+.wrapper-show {
+  opacity: 1;
+
+  transform: translateY(0);
+}
+
+/* 面板 */
+.panel {
+  position: absolute;
+
+  width: calc(100% - 96rpx);
+
+  transition:
+    transform $transition-normal,
+    opacity $transition-normal;
+}
+
+/* 当前显示 */
+.panel-active {
+  transform: translateX(0);
+
+  opacity: 1;
+
+  pointer-events: auto;
+}
+
+/* 左侧 */
+.panel-left {
+  transform: translateX(-120%);
+
+  opacity: 0;
+
+  pointer-events: none;
+}
+
+/* 右侧 */
+.panel-right {
+  transform: translateX(120%);
+
+  opacity: 0;
+
+  pointer-events: none;
+}
+
+/* 注册 */
+.register-active {
+  transform: translateY(0);
+
+  opacity: 1;
+
+  pointer-events: auto;
+}
+
+.register-hidden {
+  transform: translateY(-80rpx);
+
+  opacity: 0;
+
+  pointer-events: none;
+}
+
+/* 输入框 */
+.input {
+  width: 100%;
+
+  height: 92rpx;
+
+  margin-bottom: 24rpx;
+
+  padding: 0 28rpx;
+
+  box-sizing: border-box;
+
+  border-radius: 28rpx;
+
+  background: $bg-input;
+
+  /**
+   * 原:
+   * rgba(255,255,255,.12)
+   */
+  border: 1px solid $border-light;
+
+  color: $text-primary;
+
+  font-size: 30rpx;
+
+  transition: all $transition-fast;
+}
+
+/* placeholder */
+.placeholder {
+  color: $text-placeholder;
+}
+
+/* 微信按钮 */
+.wechat-btn {
+  width: 100%;
+
+  height: 92rpx;
+
+  margin-top: 300rpx;
+
+  border-radius: 28rpx;
+
+  background: $color-wechat;
+
+  color: $text-white;
+
+  font-size: 32rpx;
+
+  font-weight: 600;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  box-shadow: $shadow-button;
+}
+
+/* 登录按钮 */
+.login-btn {
+  width: 100%;
+
+  height: 92rpx;
+
+  border-radius: 28rpx;
+
+  background: linear-gradient(
+    135deg,
+    $color-secondary,
+    color.adjust($color-secondary, $lightness: 6%)
+  );
+
+  color: $text-white;
+
+  font-size: 32rpx;
+
+  font-weight: 600;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  box-shadow: $shadow-button;
+}
+
+/* 切换文字 */
+.switch-text {
+  margin-top: 32rpx;
+
+  display: block;
+
+  text-align: center;
+
+  color: $text-secondary;
+
+  font-size: 28rpx;
+}
+
+/* 左下角返回 */
+.back-text {
+  margin-bottom: 36rpx;
+
+  display: block;
+
+  color: $text-secondary;
+
+  font-size: 28rpx;
+}
+
+/* 右上角注册 */
+.register-text {
+  position: absolute;
+
+  top: 0;
+
+  right: 0;
+
+  color: $color-secondary;
+
+  font-size: 28rpx;
 }

@@ -1,5 +1,6 @@
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 import path from "path";
+import svgr from "vite-plugin-svgr";
 
 import devConfig from './dev'
 import prodConfig from './prod'
@@ -36,6 +37,9 @@ export default defineConfig<'vite'>(async (merge, { command, mode }) => {
       "@": path.resolve(__dirname, "..", "src"),
     },
     vite: {
+      plugins: [
+        svgr(),
+      ],
       resolve: {
         alias: {
           'react': '@tarojs/react',
