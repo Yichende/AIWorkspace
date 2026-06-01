@@ -74,9 +74,9 @@ export default function LoginPage() {
   }, [])
 
   return (
-    <View className="login-page">
+    <View className='login-page'>
       {/* 背景光晕 */}
-      <View className="bg-light" />
+      <View className='bg-light' />
 
       {/* Logo 区域 */}
       <View className={`logo-section ${showLogin ? 'logo-active' : ''}`}>
@@ -96,12 +96,12 @@ export default function LoginPage() {
             loginMode === 'wechat' ? 'panel-active' : 'panel-left'
           }`}
         >
-          <Button className="wechat-btn" onClick={handleWechatLogin}>
+          <Button className='wechat-btn' onClick={handleWechatLogin}>
             微信一键登录
           </Button>
 
           <Text
-            className="switch-text"
+            className='switch-text'
             onClick={() => setLoginMode('password')}
           >
             使用邮箱密码登录 →
@@ -118,35 +118,35 @@ export default function LoginPage() {
                 : 'panel-left'
           }`}
         >
-          <Text className="back-text" onClick={() => setLoginMode('wechat')}>
+          <Text className='back-text' onClick={() => setLoginMode('wechat')}>
             ← 微信登录
           </Text>
 
           <Text
-            className="register-text"
+            className='register-text'
             onClick={() => setLoginMode('register')}
           >
             注册
           </Text>
 
           <Input
-            className="input"
-            placeholder="请输入邮箱"
-            placeholderClass="placeholder"
+            className='input'
+            placeholder='请输入邮箱'
+            placeholderClass='placeholder'
             value={email}
             onInput={(e) => setEmail(e.detail.value)}
           />
 
           <Input
-            className="input"
+            className='input'
             password
-            placeholder="请输入密码"
-            placeholderClass="placeholder"
+            placeholder='请输入密码'
+            placeholderClass='placeholder'
             value={password}
             onInput={(e) => setPassword(e.detail.value)}
           />
 
-          <Button className="login-btn" onClick={handlePwLogin}>
+          <Button className='login-btn' onClick={handlePwLogin}>
             登录
           </Button>
         </View>
@@ -157,41 +157,41 @@ export default function LoginPage() {
             loginMode === 'register' ? 'register-active' : 'register-hidden'
           }`}
         >
-          <Text className="back-text" onClick={() => setLoginMode('password')}>
+          <Text className='back-text' onClick={() => setLoginMode('password')}>
             ← 返回登录
           </Text>
 
           <Input
-            className="input"
-            placeholder="请输入邮箱"
-            placeholderClass="placeholder"
+            className='input'
+            placeholder='请输入邮箱'
+            placeholderClass='placeholder'
           />
 
           <Input
-            className="input"
-            placeholder="请输入验证码"
-            placeholderClass="placeholder"
+            className='input'
+            placeholder='请输入验证码'
+            placeholderClass='placeholder'
           />
 
           <Input
-            className="input"
+            className='input'
             password
-            placeholder="请输入密码"
-            placeholderClass="placeholder"
+            placeholder='请输入密码'
+            placeholderClass='placeholder'
             value={password}
             onInput={(e) => setPassword(e.detail.value)}
           />
 
           <Input
-            className="input"
+            className='input'
             password
-            placeholder="确认密码"
-            placeholderClass="placeholder"
+            placeholder='确认密码'
+            placeholderClass='placeholder'
             value={confirmPassword}
             onInput={(e) => setConfirmPassword(e.detail.value)}
           />
 
-          <Button className="login-btn" onClick={handleRegister}>
+          <Button className='login-btn' onClick={handleRegister}>
             注册账号
           </Button>
         </View>

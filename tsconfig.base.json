@@ -14,7 +14,9 @@
       "@repo/types/*": ["packages/types/src/*"],
       "@repo/utils/*": ["packages/utils/src/*"],
       "@repo/ai/*": ["packages/ai/src/*"],
-      "@repo/charts/*": ["packages/charts/src/*"]
+      "@repo/charts/*": ["packages/charts/src/*"],
+      "@workspace/icons": ["packages/icons/src/index.ts"],
+      "@workspace/icons/*": ["packages/icons/src/*"]
     }
   }
 }
