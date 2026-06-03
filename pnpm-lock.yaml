@@ -43,6 +43,9 @@ importers:
       '@babel/runtime':
         specifier: ^7.24.4
         version: 7.29.7
+      '@my/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: ^5.100.14
         version: 5.100.14(react@18.3.1)
@@ -226,7 +229,7 @@ importers:
         version: 11.0.1(@nestjs/common@11.1.24(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24)(reflect-metadata@0.2.2)(rxjs@7.8.2)(sequelize-typescript@2.1.6(@types/node@24.12.4)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8(mysql2@3.22.3(@types/node@24.12.4))))(sequelize@6.37.8(mysql2@3.22.3(@types/node@24.12.4)))
       '@prisma/client':
         specifier: ^7.8.0
-        version: 7.8.0(prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3))(typescript@5.9.3)
+        version: 7.8.0(prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -247,7 +250,7 @@ importers:
         version: 9.0.3
       langchain:
         specifier: ^1.4.2
-        version: 1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))(react-dom@18.3.1(react@19.2.7))(react@19.2.7)
       multer:
         specifier: ^2.1.1
         version: 2.1.1
@@ -265,7 +268,7 @@ importers:
         version: 4.0.1
       prisma:
         specifier: ^7.8.0
-        version: 7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3)
+        version: 7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -365,7 +368,7 @@ importers:
         version: 6.0.191(zod@4.4.3)
       langchain:
         specifier: ^1.4.2
-        version: 1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))(react-dom@18.3.1(react@19.2.7))(react@19.2.7)
       ollama:
         specifier: ^0.6.3
         version: 0.6.3
@@ -382,13 +385,20 @@ importers:
         specifier: ^6.1.0
         version: 6.1.0
 
-  packages/icons: {}
-
   packages/types:
     devDependencies:
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
+
+  packages/ui:
+    dependencies:
+      '@tarojs/components':
+        specifier: ^4.1.7
+        version: 4.2.0(@tarojs/helper@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15))
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
 
   packages/utils:
     dependencies:
@@ -12110,6 +12120,13 @@ packages:
       }
     engines: { node: '>=0.10.0' }
 
+  react@19.2.7:
+    resolution:
+      {
+        integrity: sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==,
+      }
+    engines: { node: '>=0.10.0' }
+
   read-cache@1.0.0:
     resolution:
       {
@@ -16361,7 +16378,7 @@ snapshots:
       '@langchain/core': 1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))
       uuid: 10.0.0
 
-  '@langchain/langgraph-sdk@1.9.6(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@langchain/langgraph-sdk@1.9.6(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(react-dom@18.3.1(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@langchain/core': 1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))
       '@langchain/protocol': 0.0.15
@@ -16370,14 +16387,14 @@ snapshots:
       p-retry: 7.1.1
       uuid: 13.0.2
     optionalDependencies:
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      react: 19.2.7
+      react-dom: 18.3.1(react@19.2.7)
 
-  '@langchain/langgraph@1.3.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@4.4.3)':
+  '@langchain/langgraph@1.3.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(zod@4.4.3)':
     dependencies:
       '@langchain/core': 1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))
       '@langchain/langgraph-checkpoint': 1.0.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))
-      '@langchain/langgraph-sdk': 1.9.6(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@langchain/langgraph-sdk': 1.9.6(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(react-dom@18.3.1(react@19.2.7))(react@19.2.7)
       '@langchain/protocol': 0.0.15
       '@standard-schema/spec': 1.1.0
       uuid: 10.0.0
@@ -16627,11 +16644,11 @@ snapshots:
 
   '@prisma/client-runtime-utils@7.8.0': {}
 
-  '@prisma/client@7.8.0(prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3))(typescript@5.9.3)':
+  '@prisma/client@7.8.0(prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@prisma/client-runtime-utils': 7.8.0
     optionalDependencies:
-      prisma: 7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3)
+      prisma: 7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       typescript: 5.9.3
 
   '@prisma/config@7.8.0':
@@ -16701,67 +16718,67 @@ snapshots:
       env-paths: 3.0.0
       proper-lockfile: 4.1.2
 
-  '@prisma/studio-core@0.27.3(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@prisma/studio-core@0.27.3(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@radix-ui/react-toggle': 1.1.10(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-toggle': 1.1.10(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)
       '@types/react': 18.3.29
       chart.js: 4.5.1
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      react: 19.2.7
+      react-dom: 18.3.1(react@19.2.7)
     transitivePeerDependencies:
       - '@types/react-dom'
 
   '@radix-ui/primitive@1.1.3': {}
 
-  '@radix-ui/react-compose-refs@1.1.2(@types/react@18.3.29)(react@18.3.1)':
+  '@radix-ui/react-compose-refs@1.1.2(@types/react@18.3.29)(react@19.2.7)':
     dependencies:
-      react: 18.3.1
+      react: 19.2.7
     optionalDependencies:
       '@types/react': 18.3.29
 
-  '@radix-ui/react-primitive@2.1.3(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@radix-ui/react-primitive@2.1.3(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@radix-ui/react-slot': 1.2.3(@types/react@18.3.29)(react@18.3.1)
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      '@radix-ui/react-slot': 1.2.3(@types/react@18.3.29)(react@19.2.7)
+      react: 19.2.7
+      react-dom: 18.3.1(react@19.2.7)
     optionalDependencies:
       '@types/react': 18.3.29
 
-  '@radix-ui/react-slot@1.2.3(@types/react@18.3.29)(react@18.3.1)':
+  '@radix-ui/react-slot@1.2.3(@types/react@18.3.29)(react@19.2.7)':
     dependencies:
-      '@radix-ui/react-compose-refs': 1.1.2(@types/react@18.3.29)(react@18.3.1)
-      react: 18.3.1
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@18.3.29)(react@19.2.7)
+      react: 19.2.7
     optionalDependencies:
       '@types/react': 18.3.29
 
-  '@radix-ui/react-toggle@1.1.10(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@radix-ui/react-toggle@1.1.10(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@radix-ui/primitive': 1.1.3
-      '@radix-ui/react-primitive': 2.1.3(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-use-controllable-state': 1.2.2(@types/react@18.3.29)(react@18.3.1)
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      '@radix-ui/react-primitive': 2.1.3(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)
+      '@radix-ui/react-use-controllable-state': 1.2.2(@types/react@18.3.29)(react@19.2.7)
+      react: 19.2.7
+      react-dom: 18.3.1(react@19.2.7)
     optionalDependencies:
       '@types/react': 18.3.29
 
-  '@radix-ui/react-use-controllable-state@1.2.2(@types/react@18.3.29)(react@18.3.1)':
+  '@radix-ui/react-use-controllable-state@1.2.2(@types/react@18.3.29)(react@19.2.7)':
     dependencies:
-      '@radix-ui/react-use-effect-event': 0.0.2(@types/react@18.3.29)(react@18.3.1)
-      '@radix-ui/react-use-layout-effect': 1.1.1(@types/react@18.3.29)(react@18.3.1)
-      react: 18.3.1
+      '@radix-ui/react-use-effect-event': 0.0.2(@types/react@18.3.29)(react@19.2.7)
+      '@radix-ui/react-use-layout-effect': 1.1.1(@types/react@18.3.29)(react@19.2.7)
+      react: 19.2.7
     optionalDependencies:
       '@types/react': 18.3.29
 
-  '@radix-ui/react-use-effect-event@0.0.2(@types/react@18.3.29)(react@18.3.1)':
+  '@radix-ui/react-use-effect-event@0.0.2(@types/react@18.3.29)(react@19.2.7)':
     dependencies:
-      '@radix-ui/react-use-layout-effect': 1.1.1(@types/react@18.3.29)(react@18.3.1)
-      react: 18.3.1
+      '@radix-ui/react-use-layout-effect': 1.1.1(@types/react@18.3.29)(react@19.2.7)
+      react: 19.2.7
     optionalDependencies:
       '@types/react': 18.3.29
 
-  '@radix-ui/react-use-layout-effect@1.1.1(@types/react@18.3.29)(react@18.3.1)':
+  '@radix-ui/react-use-layout-effect@1.1.1(@types/react@18.3.29)(react@19.2.7)':
     dependencies:
-      react: 18.3.1
+      react: 19.2.7
     optionalDependencies:
       '@types/react': 18.3.29
 
@@ -17072,6 +17089,29 @@ snapshots:
       '@tarojs/runtime': 4.2.0
       '@tarojs/shared': 4.2.0
       '@tarojs/taro': 4.2.0(@tarojs/components@4.2.0(@tarojs/helper@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(@swc/core@1.3.96)(postcss@8.5.15)))(@tarojs/helper@4.2.0)(@tarojs/shared@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(@swc/core@1.3.96)(postcss@8.5.15))
+      classnames: 2.5.1
+      hammerjs: 2.0.8
+      hls.js: 1.6.16
+      resolve-pathname: 3.0.0
+      swiper: 11.1.15
+      tslib: 2.8.1
+    optionalDependencies:
+      '@types/react': 18.3.29
+    transitivePeerDependencies:
+      - '@tarojs/helper'
+      - html-webpack-plugin
+      - postcss
+      - rollup
+      - webpack
+      - webpack-chain
+      - webpack-dev-server
+
+  '@tarojs/components@4.2.0(@tarojs/helper@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15))':
+    dependencies:
+      '@stencil/core': 2.22.3
+      '@tarojs/runtime': 4.2.0
+      '@tarojs/shared': 4.2.0
+      '@tarojs/taro': 4.2.0(@tarojs/components@4.2.0(@tarojs/helper@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15)))(@tarojs/helper@4.2.0)(@tarojs/shared@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15))
       classnames: 2.5.1
       hammerjs: 2.0.8
       hls.js: 1.6.16
@@ -17423,6 +17463,20 @@ snapshots:
       '@types/react': 18.3.29
       rollup: 3.30.0
       webpack: 5.106.0(@swc/core@1.3.96)(postcss@8.5.15)
+
+  '@tarojs/taro@4.2.0(@tarojs/components@4.2.0(@tarojs/helper@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15)))(@tarojs/helper@4.2.0)(@tarojs/shared@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15))':
+    dependencies:
+      '@tarojs/api': 4.2.0(@tarojs/runtime@4.2.0)(@tarojs/shared@4.2.0)
+      '@tarojs/components': 4.2.0(@tarojs/helper@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15))
+      '@tarojs/helper': 4.2.0
+      '@tarojs/runtime': 4.2.0
+      '@tarojs/shared': 4.2.0
+      '@types/postcss-url': 10.0.4
+      postcss: 8.5.15
+    optionalDependencies:
+      '@types/react': 18.3.29
+      rollup: 3.30.0
+      webpack: 5.106.0(postcss@8.5.15)
 
   '@tarojs/vite-runner@4.2.0(@tarojs/runtime@4.2.0)(@types/babel__core@7.20.5)(jiti@2.7.0)(postcss@8.5.15)(rollup@3.30.0)(terser@5.48.0)(tsx@4.22.3)(typescript@5.9.3)(vite@4.5.14(@types/node@24.12.4)(sass@1.100.0)(terser@5.48.0))':
     dependencies:
@@ -21190,10 +21244,10 @@ snapshots:
 
   known-css-properties@0.37.0: {}
 
-  langchain@1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  langchain@1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))(react-dom@18.3.1(react@19.2.7))(react@19.2.7):
     dependencies:
       '@langchain/core': 1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))
-      '@langchain/langgraph': 1.3.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@4.4.3)
+      '@langchain/langgraph': 1.3.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(zod@4.4.3)
       '@langchain/langgraph-checkpoint': 1.0.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)))
       langsmith: 0.7.2(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))
       zod: 4.4.3
@@ -22374,12 +22428,12 @@ snapshots:
       react-is-18: react-is@18.3.1
       react-is-19: react-is@19.2.6
 
-  prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3):
+  prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3):
     dependencies:
       '@prisma/config': 7.8.0
       '@prisma/dev': 0.24.3(typescript@5.9.3)
       '@prisma/engines': 7.8.0
-      '@prisma/studio-core': 0.27.3(@types/react@18.3.29)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@prisma/studio-core': 0.27.3(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)
       mysql2: 3.15.3
       postgres: 3.4.7
     optionalDependencies:
@@ -22486,6 +22540,12 @@ snapshots:
       react: 18.3.1
       scheduler: 0.23.2
 
+  react-dom@18.3.1(react@19.2.7):
+    dependencies:
+      loose-envify: 1.4.0
+      react: 19.2.7
+      scheduler: 0.23.2
+
   react-is@16.13.1: {}
 
   react-is@18.3.1: {}
@@ -22523,6 +22583,8 @@ snapshots:
   react@18.3.1:
     dependencies:
       loose-envify: 1.4.0
+
+  react@19.2.7: {}
 
   read-cache@1.0.0:
     dependencies:
@@ -23356,6 +23418,17 @@ snapshots:
     optionalDependencies:
       '@swc/core': 1.3.96
 
+  terser-webpack-plugin@5.6.0(postcss@8.5.15)(webpack@5.106.0(postcss@8.5.15)):
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.31
+      jest-worker: 27.5.1
+      schema-utils: 4.3.3
+      terser: 5.48.0
+      webpack: 5.106.0(postcss@8.5.15)
+    optionalDependencies:
+      postcss: 8.5.15
+    optional: true
+
   terser@5.48.0:
     dependencies:
       '@jridgewell/source-map': 0.3.11
@@ -23904,6 +23977,48 @@ snapshots:
       schema-utils: 4.3.3
       tapable: 2.3.3
       terser-webpack-plugin: 5.6.0(@swc/core@1.3.96)(postcss@8.5.15)(webpack@5.106.0(@swc/core@1.3.96)(postcss@8.5.15))
+      watchpack: 2.5.1
+      webpack-sources: 3.5.0
+    transitivePeerDependencies:
+      - '@minify-html/node'
+      - '@swc/core'
+      - '@swc/css'
+      - '@swc/html'
+      - clean-css
+      - cssnano
+      - csso
+      - esbuild
+      - html-minifier-terser
+      - lightningcss
+      - postcss
+      - uglify-js
+    optional: true
+
+  webpack@5.106.0(postcss@8.5.15):
+    dependencies:
+      '@types/eslint-scope': 3.7.7
+      '@types/estree': 1.0.9
+      '@types/json-schema': 7.0.15
+      '@webassemblyjs/ast': 1.14.1
+      '@webassemblyjs/wasm-edit': 1.14.1
+      '@webassemblyjs/wasm-parser': 1.14.1
+      acorn: 8.16.0
+      acorn-import-phases: 1.0.4(acorn@8.16.0)
+      browserslist: 4.28.2
+      chrome-trace-event: 1.0.4
+      enhanced-resolve: 5.22.0
+      es-module-lexer: 2.1.0
+      eslint-scope: 5.1.1
+      events: 3.3.0
+      glob-to-regexp: 0.4.1
+      graceful-fs: 4.2.11
+      json-parse-even-better-errors: 2.3.1
+      loader-runner: 4.3.2
+      mime-types: 2.1.35
+      neo-async: 2.6.2
+      schema-utils: 4.3.3
+      tapable: 2.3.3
+      terser-webpack-plugin: 5.6.0(postcss@8.5.15)(webpack@5.106.0(postcss@8.5.15))
       watchpack: 2.5.1
       webpack-sources: 3.5.0
     transitivePeerDependencies:

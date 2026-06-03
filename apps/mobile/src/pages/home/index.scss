@@ -93,6 +93,10 @@
 // 卡片内部：左侧图标 + 右侧文字块（所有入口通用）
 .card-row {
   display: flex;
+}
+
+.card-icon {
+  display: flex;
   align-items: center;
 }
 
@@ -100,6 +104,7 @@
   margin-left: 20rpx;         // 图标与文字间距
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 
 .card-title {
