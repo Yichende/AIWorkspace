@@ -1,0 +1,193 @@
+@use '@/styles/theme.scss' as *;
+
+.message {
+  display: flex;
+
+  width: 100%;
+
+  margin-bottom: 28rpx;
+
+  box-sizing: border-box;
+}
+
+/* =========================
+ * AI消息
+ * =========================
+ */
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+/* =========================
+ * 用户消息
+ * =========================
+ */
+
+.message.user {
+  justify-content: flex-end;
+}
+
+/* =========================
+ * AI头像
+ * =========================
+ */
+
+.avatar {
+  flex-shrink: 0;
+
+  width: 64rpx;
+  height: 64rpx;
+
+  margin-right: 16rpx;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: rgba(17, 124, 13, .12);
+
+  border: 2rpx solid $border-light;
+
+  color: $color-secondary;
+
+  font-size: 28rpx;
+  font-weight: 700;
+
+  box-shadow: $shadow-card;
+}
+
+/* =========================
+ * 消息气泡
+ * =========================
+ */
+
+.bubble {
+  max-width: 82%;
+
+  padding: 24rpx;
+
+  border-radius: $radius-large;
+
+  box-sizing: border-box;
+
+  overflow: hidden;
+
+  word-break: break-word;
+}
+
+/* =========================
+ * AI消息气泡
+ * =========================
+ */
+
+.message.assistant .bubble {
+  background: $bg-card;
+
+  border: 2rpx solid $border-light;
+
+  box-shadow: $shadow-card;
+}
+
+/* =========================
+ * 用户消息气泡
+ * =========================
+ */
+
+.message.user .bubble {
+  background: $color-secondary;
+
+  color: $text-white;
+
+  box-shadow: $shadow-button;
+}
+
+/* =========================
+ * Block间距
+ * =========================
+ */
+
+.bubble > * + * {
+  margin-top: 20rpx;
+}
+
+/* =========================
+ * Markdown文本
+ * =========================
+ */
+
+.text-block {
+  font-size: 28rpx;
+
+  line-height: 1.8;
+
+  color: inherit;
+}
+
+/* =========================
+ * CodeBlock占位
+ * =========================
+ */
+
+.code-block {
+  padding: 20rpx;
+
+  border-radius: $radius-medium;
+
+  background: rgba(0, 0, 0, .05);
+
+  overflow-x: auto;
+
+  font-size: 24rpx;
+
+  font-family:
+    Consolas,
+    Monaco,
+    monospace;
+}
+
+/* 用户消息中的代码块 */
+
+.message.user .code-block {
+  background: rgba(255,255,255,.12);
+}
+
+/* =========================
+ * TableBlock占位
+ * =========================
+ */
+
+.table-block {
+  width: 100%;
+
+  overflow-x: auto;
+
+  border-radius: $radius-medium;
+
+  background: rgba(255,255,255,.5);
+}
+
+/* =========================
+ * ChartBlock占位
+ * =========================
+ */
+
+.chart-block {
+  width: 100%;
+
+  min-height: 360rpx;
+
+  border-radius: $radius-medium;
+
+  background: rgba(255,255,255,.5);
+
+  border: 2rpx dashed $border-normal;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: $text-secondary;
+}

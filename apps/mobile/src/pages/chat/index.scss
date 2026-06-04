@@ -1,0 +1,24 @@
+@use '@/styles/theme.scss' as *;
+
+.chat-page {
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  background: $bg-page;
+
+  overflow: hidden;
+}
+
+.message-wrapper {
+  flex: 1;
+
+  overflow: hidden;
+}
+
+.message-list {
+  height: 100%;
+  padding: 0 32rpx;
+  box-sizing: border-box;
+}

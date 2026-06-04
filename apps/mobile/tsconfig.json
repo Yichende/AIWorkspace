@@ -26,6 +26,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["./src", "./types", "./config"],
+  "include": ["./src", "src/types", "./config"],
   "compileOnSave": false
 }

@@ -84,7 +84,7 @@ export default function LoginPage() {
         <LogoAnimation />
 
         <View className={`app-title ${showLogin ? 'title-show' : ''}`}>
-          AI 数据分析工作台
+          <Text className='main-title'>一叶</Text>
         </View>
       </View>
 

@@ -1,0 +1,134 @@
+@use '@/styles/theme.scss' as *;
+
+/* =========================
+ * 外层容器
+ * =========================
+ */
+
+.chat-input-container {
+  padding:
+    16rpx
+    32rpx
+    calc(env(safe-area-inset-bottom) + 16rpx);
+
+  background: $bg-page;
+}
+
+/* =========================
+ * 输入栏
+ * =========================
+ */
+
+.chat-input {
+  display: flex;
+  align-items: center;
+
+  gap: 16rpx;
+
+  padding: 14rpx 18rpx;
+
+  border-radius: 999rpx;
+
+  background: $bg-glass;
+
+  border: 2rpx solid $border-light;
+
+  backdrop-filter: blur(20rpx);
+
+  box-shadow: $shadow-card;
+}
+
+/* =========================
+ * 上传按钮
+ * =========================
+ */
+
+.upload-btn {
+  width: 72rpx;
+  height: 72rpx;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: rgba(17,124,13,.08);
+
+  color: $color-secondary;
+
+  font-size: 40rpx;
+  font-weight: 500;
+
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(.95);
+  }
+}
+
+/* =========================
+ * 输入框
+ * =========================
+ */
+
+.input {
+  flex: 1;
+
+  height: 72rpx;
+
+  font-size: 28rpx;
+
+  color: $text-primary;
+}
+
+/* Taro Input placeholder */
+
+.input::placeholder {
+  color: $text-placeholder;
+}
+
+/* =========================
+ * 发送按钮
+ * =========================
+ */
+
+.send-btn {
+  width: 72rpx;
+  height: 72rpx;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: $color-secondary;
+
+  color: $text-white;
+
+  font-size: 28rpx;
+
+  box-shadow: $shadow-button;
+
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(.95);
+  }
+}
+
+/* =========================
+ * 禁用状态（未来可用）
+ * =========================
+ */
+
+.send-btn.disabled {
+  background: rgba(17,124,13,.25);
+
+  box-shadow: none;
+}

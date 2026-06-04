@@ -2,10 +2,17 @@ import { View, Text, Image } from '@tarojs/components'
 import { IconColors } from '@/styles/theme'
 import { Icon } from '@my/ui'
 
+import Taro from '@tarojs/taro';
 import './index.scss'
 
 export default function HomePage() {
   const currentModel = 'DeepSeek-V3'
+
+  const gotoChat = () => {
+    Taro.navigateTo({
+      url: '/pages/chat/index',
+    });
+  };
 
   return (
     <View className='home-page'>
@@ -14,13 +21,13 @@ export default function HomePage() {
 
       {/* 标题行 */}
       <View className='title-row'>
-        <Text className='main-title'>AI 数据分析工作台</Text>
+        <Text className='main-title'>一叶</Text>
       </View>
 
       {/* 模型切换行：右侧边缘对齐下方表格卡片 */}
       <View className='model-row'>
         <View className='model-tag'>
-          <Icon name='moxingku' size={16} color={IconColors.secondary} />
+          <Icon name='moxingku' size={24} color={IconColors.secondary} />
           <Text className='model-text'>{currentModel}</Text>
           <Text className='model-arrow'>▼</Text>
         </View>
@@ -38,7 +45,7 @@ export default function HomePage() {
       {/* 功能区 - 左右两张卡片 */}
       <View className='feature-section'>
         {/* 智能对话卡片 */}
-        <View className='feature-card'>
+        <View className='feature-card' onClick={gotoChat}>
           <View className='card-row'>
             <Icon className='card-icon' name='xiaoxi' size={52} color={IconColors.secondary} />
             <View className='card-text'>
