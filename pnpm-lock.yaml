@@ -47,8 +47,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@nutui/nutui-react-taro':
-        specifier: 3.1.0-beta.1
-        version: 3.1.0-beta.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 3.0.20
+        version: 3.0.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-query':
         specifier: ^5.100.14
         version: 5.100.14(react@18.3.1)
@@ -62,7 +62,7 @@ importers:
         specifier: 4.2.0
         version: 4.2.0(@tarojs/helper@4.2.0(@swc/helpers@0.5.23))(@tarojs/runtime@4.2.0)(@tarojs/shared@4.2.0)(@vitejs/plugin-react@4.7.0(vite@4.5.14(@types/node@24.12.4)(sass@1.100.0)(terser@5.48.0)))(react@18.3.1)(vite@4.5.14(@types/node@24.12.4)(sass@1.100.0)(terser@5.48.0))(webpack@5.106.0(@swc/core@1.3.96(@swc/helpers@0.5.23))(postcss@8.5.15))
       '@tarojs/plugin-html':
-        specifier: ^4.2.0
+        specifier: 4.2.0
         version: 4.2.0(@tarojs/helper@4.2.0(@swc/helpers@0.5.23))(@tarojs/runtime@4.2.0)(@tarojs/shared@4.2.0)
       '@tarojs/plugin-platform-alipay':
         specifier: 4.2.0
@@ -3401,10 +3401,10 @@ packages:
         integrity: sha512-6xV+uW8VK1hT8QfjqfNlURTiQijb/dEEl/AeOudMwOB55Fr2+TdxoOAks5d8vnYBTYDZyOUlcsGNgoAkXKz8Qg==,
       }
 
-  '@nutui/nutui-react-taro@3.1.0-beta.1':
+  '@nutui/nutui-react-taro@3.0.20':
     resolution:
       {
-        integrity: sha512-vaH7ZbtsCLTekYUYonJ4e61bG4SLS4Ija21IfnFn9F6DS9jM4UUYulN26EYdaVJcn2jlaUBjLKwyl5r+MgpalA==,
+        integrity: sha512-dDV+ObKrJc+fUvKZGvd8We50j4TZnDbp9/0Uo5H25HxIN3GnAUXYioNlUU58xGqKDoW6k4TFMuZ5UG2MoWFBXg==,
       }
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
@@ -10840,6 +10840,29 @@ packages:
       ws:
         optional: true
 
+  langsmith@0.7.5:
+    resolution:
+      {
+        integrity: sha512-OeD6+yKtWwy6sAboq25kD5DICzYv7j2KgtV2n4LsJ8nU2LpEdt1UwbjA6BON/zTggmS/YjV2TtLTHd7VEJhtEA==,
+      }
+    peerDependencies:
+      '@opentelemetry/api': '*'
+      '@opentelemetry/exporter-trace-otlp-proto': '*'
+      '@opentelemetry/sdk-trace-base': '*'
+      openai: '*'
+      ws: '>=7'
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      '@opentelemetry/exporter-trace-otlp-proto':
+        optional: true
+      '@opentelemetry/sdk-trace-base':
+        optional: true
+      openai:
+        optional: true
+      ws:
+        optional: true
+
   latest-version@3.1.0:
     resolution:
       {
@@ -10875,10 +10898,10 @@ packages:
       }
     engines: { node: '>= 0.8.0' }
 
-  libphonenumber-js@1.13.3:
+  libphonenumber-js@1.13.6:
     resolution:
       {
-        integrity: sha512-xMkdAMqcyG7iN2WZZmGIfWbYxW4orRkny+0/AXIbwL0xll2zkDX0Vzo/BXFa6+7mh2UvJl9MbcTtHk0YXkFtBA==,
+        integrity: sha512-NdB6O6QvlGMCoG003m0YIKG2+Xw7DjmCZhmc1RH+K6HncADUbRf8TZeLegxBBN1VFyPHcNpPTKpIhYLXzJVy1Q==,
       }
 
   lilconfig@3.1.3:
@@ -13165,10 +13188,10 @@ packages:
         integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==,
       }
 
-  react-is@19.2.6:
+  react-is@19.2.7:
     resolution:
       {
-        integrity: sha512-XjBR15BhXuylgWGuslhDKqlSayuqvqBX91BP8pauG8kd1zY8kotkNWbXksTCNRarse4kuGbe2kIY05ARtwNIvw==,
+        integrity: sha512-kZFnouyVv7eP/Phmrlo9FK+zcAdriZJvzxXHF1Sl1P377WSGe2G/JxVolhTrB/jeV47lKImhNUsijjHAAbcl/A==,
       }
 
   react-markdown@10.1.0:
@@ -17783,7 +17806,7 @@ snapshots:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
       js-tiktoken: 1.0.21
-      langsmith: 0.7.2(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))
+      langsmith: 0.7.5(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3))
       mustache: 4.2.0
       p-queue: 6.6.2
       zod: 4.4.3
@@ -17991,7 +18014,7 @@ snapshots:
 
   '@nutui/lottie-miniprogram@1.0.2': {}
 
-  '@nutui/nutui-react-taro@3.1.0-beta.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@nutui/nutui-react-taro@3.0.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@babel/runtime': 7.29.7
       '@nutui/icons-react-taro': 3.0.2-cpp.3.beta.9
@@ -20394,7 +20417,7 @@ snapshots:
   class-validator@0.15.1:
     dependencies:
       '@types/validator': 13.15.10
-      libphonenumber-js: 1.13.3
+      libphonenumber-js: 1.13.6
       validator: 13.15.35
     optional: true
 
@@ -23232,6 +23255,13 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       openai: 6.39.0(zod@4.4.3)
 
+  langsmith@0.7.5(@opentelemetry/api@1.9.1)(openai@6.39.0(zod@4.4.3)):
+    dependencies:
+      p-queue: 6.6.2
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
+      openai: 6.39.0(zod@4.4.3)
+
   latest-version@3.1.0:
     dependencies:
       package-json: 4.0.1
@@ -23249,7 +23279,7 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
 
-  libphonenumber-js@1.13.3:
+  libphonenumber-js@1.13.6:
     optional: true
 
   lilconfig@3.1.3: {}
@@ -24587,7 +24617,7 @@ snapshots:
       '@jest/schemas': 30.4.1
       ansi-styles: 5.2.0
       react-is-18: react-is@18.3.1
-      react-is-19: react-is@19.2.6
+      react-is-19: react-is@19.2.7
 
   prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3):
     dependencies:
@@ -24748,7 +24778,7 @@ snapshots:
 
   react-is@18.3.1: {}
 
-  react-is@19.2.6: {}
+  react-is@19.2.7: {}
 
   react-markdown@10.1.0(@types/react@18.3.29)(react@18.3.1):
     dependencies:

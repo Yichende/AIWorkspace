@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import Taro from '@tarojs/taro'
 import { View, Input, Button, Text } from '@tarojs/components'
-import { loginApi } from '@/services/user'
+// import { loginApi } from '@/services/user'
 import { setToken } from '@/utils/auth'
 import { useUserStore } from '@/stores/user.store'
+import Taro from '@tarojs/taro'
 import LogoAnimation from '../../components/LogoAnimation'
 import './index.scss'
 

@@ -2,7 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import { IconColors } from '@/styles/theme'
 import { Icon } from '@my/ui'
 
-import Taro from '@tarojs/taro';
+import Taro from '@tarojs/taro'
 import './index.scss'
 
 export default function HomePage() {
@@ -11,8 +11,14 @@ export default function HomePage() {
   const gotoChat = () => {
     Taro.navigateTo({
       url: '/pages/chat/index',
-    });
-  };
+    })
+  }
+
+  const go2Test = () => {
+    Taro.navigateTo({
+      url: '/pages/myTest/index',
+    })
+  }
 
   return (
     <View className='home-page'>
@@ -47,7 +53,12 @@ export default function HomePage() {
         {/* 智能对话卡片 */}
         <View className='feature-card' onClick={gotoChat}>
           <View className='card-row'>
-            <Icon className='card-icon' name='xiaoxi' size={52} color={IconColors.secondary} />
+            <Icon
+              className='card-icon'
+              name='xiaoxi'
+              size={52}
+              color={IconColors.secondary}
+            />
             <View className='card-text'>
               <Text className='card-title'>智能对话</Text>
               <Text className='card-subtitle'>多模型自由问答</Text>
@@ -58,7 +69,12 @@ export default function HomePage() {
         {/* 表格分析卡片 */}
         <View className='feature-card'>
           <View className='card-row'>
-            <Icon className='card-icon' name='shujufenxi' size={52} color={IconColors.secondary} />
+            <Icon
+              className='card-icon'
+              name='shujufenxi'
+              size={52}
+              color={IconColors.secondary}
+            />
             <View className='card-text'>
               <Text className='card-title'>表格分析</Text>
               <Text className='card-subtitle'>导入表格，自动生成图表</Text>
@@ -78,6 +94,7 @@ export default function HomePage() {
         </View>
         <Icon name='qianjin' size={28} color={IconColors.secondary} />
       </View>
+      <button onClick={go2Test}>Test Page</button>
     </View>
   )
 }

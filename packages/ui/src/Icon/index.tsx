@@ -34,10 +34,9 @@ const Icon: React.FC<IconProps> = ({
       width: `${size}rpx`,
       height: `${size}rpx`,
       lineHeight: `${size}rpx`,
-      display: 'inline-flex',
+      display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      ...style,
       color: color,
       ...style,
     }),
@@ -66,7 +65,17 @@ const Icon: React.FC<IconProps> = ({
 
   // H5 / 小程序使用字体图标
   return (
-    <Text className={`iconfont icon-${name} ${className}`} style={baseStyle} />
+    <text className={`ali-iconfont ali-icon-${name} ${className}`} style={baseStyle} />
+//     <Text
+//   style={{
+//     fontFamily: 'ali-iconfont',
+//     fontSize: '100rpx',
+//     color: 'red',
+//   }}
+// >
+//   {'\ue600'}
+// </Text>
+
   )
 }
 

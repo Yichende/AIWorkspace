@@ -2,7 +2,7 @@ import { PropsWithChildren, useEffect } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import { useUserStore } from '@/stores/user.store'
 import { getToken } from '@/utils/auth'
-
+import '@nutui/nutui-react-taro/dist/style.css'
 import './app.scss'
 
 function App({ children }: PropsWithChildren<any>) {
@@ -19,6 +19,7 @@ function App({ children }: PropsWithChildren<any>) {
 
     initAuth()
   }, [])
+  
   useLaunch(() => {
     console.log('App launched.')
   })

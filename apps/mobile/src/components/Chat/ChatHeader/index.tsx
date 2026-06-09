@@ -60,8 +60,6 @@ export default function ChatHeader({ model, onModelChange }: Props) {
           }))}
           onSelect={(item: any) => handleSelect(item)}
           onClick={() => setVisible(!visible)}
-          onOpen={() => setVisible(true)}
-          onClose={() => setVisible(false)}
         >
           <View className='model-tag'>
             <Icon name='moxingku' size={20} />

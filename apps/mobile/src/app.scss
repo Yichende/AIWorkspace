@@ -1,0 +1,14 @@
+@use '@/styles/theme';
+
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+page {
+  background: #f7f8fa;
+  min-height: 100%;
+  box-sizing: border-box;
+}

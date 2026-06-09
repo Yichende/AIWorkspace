@@ -1,23 +1,28 @@
-// babel-preset-taro 更多选项和默认值：
-// https://docs.taro.zone/docs/next/babel-config
 module.exports = {
   presets: [
-    ['taro', {
-      framework: 'react',
-      ts: true,
-      compiler: 'vite',
-    }]
+    [
+      'taro',
+      {
+        framework: 'react',
+        ts: true,
+        compiler: 'vite',
+      },
+    ],
   ],
   plugins: [
     [
-      "import",
+      'import',
       {
-        "libraryName": "@nutui/nutui-react-taro",
-        "libraryDirectory": "dist/esm",
-        "style": 'css',
-        "camel2DashComponentName": false
+        libraryName: '@nutui/nutui-react-taro',
+        style: true,
+        camel2DashComponentName: false,
+        customName: (name) => {
+          return `@nutui/nutui-react-taro/dist/es/packages/${name.toLowerCase()}`
+        },
+        customStyleName: (name) =>
+          `@nutui/nutui-react-taro/dist/es/packages/${name.toLowerCase()}/style`,
       },
-      'nutui-react-taro'
-    ]
-  ]
+      'nutui-react-taro',
+    ],
+  ],
 }
