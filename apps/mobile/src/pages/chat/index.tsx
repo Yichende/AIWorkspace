@@ -2,9 +2,11 @@ import { View, ScrollView } from '@tarojs/components'
 import { useState } from 'react'
 import { ChatMessage as IMessage } from '@/types/chat'
 
+import Taro from '@tarojs/taro'
 import ChatHeader from '@/components/Chat/ChatHeader'
 import ChatInput from '@/components/Chat/ChatInput'
 import ChatMessage from '@/components/Chat/ChatMessage'
+
 
 import './index.scss'
 
@@ -25,9 +27,15 @@ export default function ChatPage() {
     },
   ])
 
+  const onBack = () =>{
+    Taro.navigateBack({
+      delta: 1
+    })
+  }
+
   return (
     <View className='chat-page'>
-      <ChatHeader model={currentModel} onModelChange={setCurrentModel} />
+      <ChatHeader model={currentModel} onModelChange={setCurrentModel} onBack={onBack} />
       <View className='message-wrapper'>
         <ScrollView scrollY className='message-list'>
           {messages.map((msg) => (

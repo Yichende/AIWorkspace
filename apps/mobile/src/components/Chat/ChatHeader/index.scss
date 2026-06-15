@@ -26,12 +26,18 @@
   margin-bottom: 20rpx;
 }
 
-/* 左上角入口 */
-.entry-btn {
+/* 左上角菜单栏 */
+.entry-group {
   position: absolute;
-
   left: 0;
 
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.entry-btn {
+  position: relative;
   width: 72rpx;
   height: 72rpx;
 
@@ -39,19 +45,37 @@
   align-items: center;
   justify-content: center;
 
-  border-radius: 50%;
+  background: transparent;
 
-  background: $bg-card;
-
-  border: 2rpx solid $border-light;
-
-  box-shadow: $shadow-card;
+  border: none;
 
   transition: $transition-fast;
 
   &:active {
-    transform: scale(.95);
+    transform: scale(0.92);
+    opacity: 0.7;
   }
+}
+
+.entry-btn::after {
+  content: '';
+
+  position: absolute;
+
+  width: 56rpx;
+  height: 56rpx;
+
+  border-radius: 50%;
+
+  background: rgba(17, 124, 13, 0.06);
+
+  opacity: 0;
+
+  transition: 0.2s;
+}
+
+.entry-btn:active::after {
+  opacity: 1;
 }
 
 .main-title {
@@ -90,7 +114,7 @@
   transition: $transition-fast;
 
   &:active {
-    transform: scale(.97);
+    transform: scale(0.97);
     border-color: $color-accent;
   }
 }
@@ -107,7 +131,7 @@
 
   color: $text-secondary;
 
-  transition: transform .25s ease;
+  transition: transform 0.25s ease;
 }
 
 .model-arrow.open {
@@ -116,25 +140,53 @@
 
 // 覆盖 nut-ui 样式
 .nut-popover {
-  border-radius: $radius-medium !important;
+  border-radius: 24rpx !important;
 
-  overflow: hidden;
+  background: transparent !important;
+
+  box-shadow: none !important;
 }
 
 .nut-popover-content {
-  background: rgba(255,255,255,.95) !important;
+  min-width: 260rpx;
+
+  padding: 8rpx !important;
+
+  border-radius: 24rpx !important;
+
+  background: rgba(255, 255, 255, 0.96) !important;
+
+  border: 2rpx solid $border-light;
+
+  box-shadow:
+    0 12rpx 36rpx rgba(0, 0, 0, 0.08),
+    0 4rpx 12rpx rgba(0, 0, 0, 0.04);
 
   backdrop-filter: blur(20rpx);
 }
 
 .nut-popover-item {
+  height: 72rpx !important;
+
+  padding: 0 20rpx !important;
+
+  display: flex;
+  align-items: center;
+
+  border-radius: 16rpx;
+
   color: $text-primary !important;
 
   font-size: 26rpx !important;
+  font-weight: 500;
 
   transition: $transition-fast;
 
   &:active {
-    background: rgba(17,124,13,.06) !important;
+    background: rgba(17, 124, 13, 0.08) !important;
   }
+}
+
+.nut-popover-item:hover {
+  background: rgba(17, 124, 13, 0.05) !important;
 }

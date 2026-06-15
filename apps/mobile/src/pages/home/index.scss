@@ -25,34 +25,6 @@
   color: $text-primary;
 }
 
-// 模型切换行：整体靠右，且宽度与下方功能区相同（左右32rpx已在外层padding）
-.model-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 40rpx;
-}
-
-.model-tag {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  padding: 12rpx 20rpx;
-  border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.72);
-  border: 2rpx solid $border-light;
-  box-shadow: $shadow-card;
-}
-
-.model-text {
-  font-size: 24rpx;
-  color: $text-primary;
-  font-weight: 500;
-}
-
-.model-arrow {
-  font-size: 20rpx;
-  color: $text-secondary;
-}
 
 // 装饰图区域（整行）
 .decorate-area {

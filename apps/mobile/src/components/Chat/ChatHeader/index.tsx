@@ -1,5 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import { Icon } from '@my/ui'
+import { IconColors } from '@/styles/theme'
 import { useState } from 'react'
 import { Popover } from '@nutui/nutui-react-taro'
 
@@ -8,6 +9,12 @@ import './index.scss'
 interface Props {
   model: string
   onModelChange: (model: string) => void
+
+  onBack?: () => void
+  onMenu?: () => void
+
+  showBack?: boolean
+  showMenu?: boolean
 }
 
 const MODEL_OPTIONS = [
@@ -29,7 +36,14 @@ const MODEL_OPTIONS = [
   },
 ]
 
-export default function ChatHeader({ model, onModelChange }: Props) {
+export default function ChatHeader({
+  model,
+  onModelChange,
+  onBack,
+  onMenu,
+  showBack = true,
+  showMenu = true,
+}: Props) {
   const [visible, setVisible] = useState(false)
 
   const handleSelect = (item: { key: string; name: string }) => {
@@ -43,8 +57,18 @@ export default function ChatHeader({ model, onModelChange }: Props) {
       <View className='status-bar-placeholder' />
 
       <View className='title-wrapper'>
-        <View className='entry-btn'>
-          <Icon name='caidan' size={24} />
+        <View className='entry-group'>
+          {showBack && (
+            <View className='entry-btn' onClick={onBack}>
+              <Icon name='fanhui' size={46} color={IconColors.accent} />
+            </View>
+          )}
+
+          {showMenu && (
+            <View className='entry-btn' onClick={onMenu}>
+              <Icon name='AI--' size={46} color={IconColors.secondary} />
+            </View>
+          )}
         </View>
 
         <Text className='main-title'>一叶</Text>
@@ -59,10 +83,15 @@ export default function ChatHeader({ model, onModelChange }: Props) {
             key: item.key,
           }))}
           onSelect={(item: any) => handleSelect(item)}
-          onClick={() => setVisible(!visible)}
+          onClose={() => setVisible(false)}
         >
-          <View className='model-tag'>
-            <Icon name='moxingku' size={20} />
+          <View
+            className='model-tag'
+            onClick={() => {
+              setVisible(true)
+            }}
+          >
+            <Icon name='moxingku' size={20} color={IconColors.secondary} />
 
             <Text className='model-text'>{model}</Text>
 

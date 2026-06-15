@@ -6,7 +6,6 @@ import Taro from '@tarojs/taro'
 import './index.scss'
 
 export default function HomePage() {
-  const currentModel = 'DeepSeek-V3'
 
   const gotoChat = () => {
     Taro.navigateTo({
@@ -28,15 +27,6 @@ export default function HomePage() {
       {/* 标题行 */}
       <View className='title-row'>
         <Text className='main-title'>一叶</Text>
-      </View>
-
-      {/* 模型切换行：右侧边缘对齐下方表格卡片 */}
-      <View className='model-row'>
-        <View className='model-tag'>
-          <Icon name='moxingku' size={24} color={IconColors.secondary} />
-          <Text className='model-text'>{currentModel}</Text>
-          <Text className='model-arrow'>▼</Text>
-        </View>
       </View>
 
       {/* 装饰图区域 */}
