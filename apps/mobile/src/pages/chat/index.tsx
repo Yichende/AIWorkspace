@@ -6,12 +6,14 @@ import Taro from '@tarojs/taro'
 import ChatHeader from '@/components/Chat/ChatHeader'
 import ChatInput from '@/components/Chat/ChatInput'
 import ChatMessage from '@/components/Chat/ChatMessage'
+import ChatMenu from '@/components/Chat/ChatMenu'
 
 
 import './index.scss'
 
 export default function ChatPage() {
   const [input, setInput] = useState('')
+  const [menuVisible, setMenuVisible] = useState(false)
   const [currentModel, setCurrentModel] = useState('DeepSeek-R1')
   const [messages] = useState<IMessage[]>([
     {
@@ -33,18 +35,46 @@ export default function ChatPage() {
     })
   }
 
+  const onMenu = () => {
+    setMenuVisible(true)
+  }
+
+  const handleNewChat = () => {
+    // TODO: 创建新对话逻辑
+  }
+
+  const handleHistorySelect = (id: string) => {
+    // TODO: 加载历史对话
+    console.log('Select history:', id)
+  }
+
   return (
-    <View className='chat-page'>
-      <ChatHeader model={currentModel} onModelChange={setCurrentModel} onBack={onBack} />
-      <View className='message-wrapper'>
-        <ScrollView scrollY className='message-list'>
-          {messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg} />
-          ))}
-        </ScrollView>
+    <>
+      <View className='chat-page'>
+        <ChatHeader
+          onBack={onBack}
+          onMenu={onMenu}
+        />
+
+        <View className='message-wrapper'>
+          <ScrollView scrollY className='message-list'>
+            {messages.map((msg) => (
+              <ChatMessage key={msg.id} message={msg} />
+            ))}
+          </ScrollView>
+        </View>
+
+        <ChatInput value={input} onChange={setInput} onSend={() => {}} />
       </View>
 
-      <ChatInput value={input} onChange={setInput} onSend={() => {}} />
-    </View>
+      <ChatMenu
+        visible={menuVisible}
+        currentModel={currentModel}
+        onClose={() => setMenuVisible(false)}
+        onModelChange={setCurrentModel}
+        onNewChat={handleNewChat}
+        onHistorySelect={handleHistorySelect}
+      />
+    </>
   )
 }

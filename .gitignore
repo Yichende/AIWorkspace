@@ -91,6 +91,7 @@ storage/
 # =========================
 models/
 ollama-models/
+CLAUDE.md
 
 # =========================
 # Docker

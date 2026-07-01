@@ -1,0 +1,522 @@
+@use '@/styles/theme.scss' as *;
+
+/* ==========================================
+   NutUI Overlay / Popup 关键样式补全
+   （NutUI 全局 CSS 未加载，需手动提供）
+   ========================================== */
+
+// 遮罩层 — 全屏 fixed + 灰黑色背景
+.nut-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 2000 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  pointer-events: auto !important;
+}
+
+// Popup 容器 — fixed 定位基类
+.nut-popup {
+  position: fixed !important;
+  z-index: 2100 !important;
+  background-color: #fff !important;
+  overflow: hidden !important;
+}
+
+// 左侧弹出 — 覆盖默认 width:100px
+.nut-popup-left {
+  top: 0 !important;
+  left: 0 !important;
+  width: auto !important;  // 由内容撑开（.chat-menu 600rpx）
+  height: 100% !important;
+}
+
+// 右侧弹出（预留）
+.nut-popup-right {
+  top: 0 !important;
+  right: 0 !important;
+  height: 100% !important;
+}
+
+// 底部弹出（预留）
+.nut-popup-bottom {
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+}
+
+// 顶部弹出（预留）
+.nut-popup-top {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+}
+
+// 居中弹出（预留）
+.nut-popup-center {
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* ==========================================
+   左侧滑入动画 (H5 / 支持 animation 的环境)
+   ========================================== */
+
+@keyframes popup-slide-left-enter {
+  from { transform: translate3d(-100%, 0, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes popup-slide-left-exit {
+  to { transform: translate3d(-100%, 0, 0); }
+}
+
+.nut-popup-slide-left-enter-active,
+.nut-popup-slide-left-appear-active {
+  animation: popup-slide-left-enter 0.3s ease both !important;
+}
+
+.nut-popup-slide-left-exit-active {
+  animation: popup-slide-left-exit 0.3s ease both !important;
+}
+
+/* ==========================================
+   遮罩淡入动画
+   ========================================== */
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes overlay-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.nut-overlay-slide-enter-active,
+.nut-overlay-slide-appear-active {
+  animation: overlay-fade-in 0.3s ease both !important;
+}
+
+.nut-overlay-slide-exit-active {
+  animation: overlay-fade-out 0.3s ease both !important;
+}
+
+/* ===========================
+   Menu Container
+   =========================== */
+
+.chat-menu {
+  display: flex;
+  flex-direction: column;
+
+  width: 600rpx;
+  height: 100vh;
+
+  background: $bg-page;
+
+  overflow: hidden;
+}
+
+/* ===========================
+   Feature Section (fixed top)
+   =========================== */
+
+.menu-feature {
+  flex-shrink: 0;
+
+  padding: 0 32rpx 24rpx;
+
+  // 顶部安全区
+  padding-top: calc(90rpx + env(safe-area-inset-top));
+}
+
+/* Header: app name + search */
+.menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 28rpx;
+}
+
+.menu-app-name {
+  font-size: 48rpx;
+  font-weight: 700;
+
+  color: $text-primary;
+
+  letter-spacing: 4rpx;
+}
+
+.menu-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 72rpx;
+  height: 72rpx;
+
+  border-radius: 50%;
+
+  background: $bg-card;
+
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+}
+
+/* New Chat Button */
+.menu-new-chat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+
+  height: 80rpx;
+
+  margin-bottom: 24rpx;
+
+  border-radius: $radius-medium;
+
+  background: $bg-card;
+
+  border: 2rpx solid $border-light;
+
+  box-shadow: $shadow-card;
+
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(0.98);
+    border-color: $color-secondary;
+  }
+}
+
+.new-chat-text {
+  font-size: 30rpx;
+  font-weight: 600;
+
+  color: $text-primary;
+}
+
+/* ===========================
+   Model Switch (collapsible)
+   =========================== */
+
+.menu-model-section {
+  margin-bottom: 8rpx;
+}
+
+/* 折叠卡片 — 点击展开 / 收起 */
+.model-toggle-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 80rpx;
+
+  padding: 0 20rpx;
+
+  border-radius: $radius-medium;
+
+  background: $bg-card;
+
+  border: 2rpx solid $border-light;
+
+  box-shadow: $shadow-card;
+
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(0.98);
+    border-color: $color-secondary;
+  }
+}
+
+.model-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.model-toggle-label {
+  font-size: 28rpx;
+  font-weight: 500;
+
+  color: $text-primary;
+}
+
+.model-toggle-right {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.model-current-name {
+  font-size: 24rpx;
+  font-weight: 500;
+
+  color: $text-secondary;
+
+  max-width: 180rpx;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-toggle-arrow {
+  font-size: 18rpx;
+
+  color: $text-secondary;
+
+  transition: transform 0.25s ease;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+/* 模型选项列表 */
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+
+  margin-top: 12rpx;
+
+  padding: 8rpx;
+
+  border-radius: $radius-medium;
+
+  background: $bg-card;
+
+  border: 2rpx solid $border-light;
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 72rpx;
+
+  padding: 0 16rpx;
+
+  border-radius: $radius-small;
+
+  background: transparent;
+
+  transition: $transition-fast;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.06);
+  }
+
+  &.active {
+    background: rgba(17, 124, 13, 0.08);
+  }
+}
+
+.model-item-name {
+  font-size: 28rpx;
+  font-weight: 500;
+
+  color: $text-primary;
+
+  .active & {
+    color: $color-secondary;
+    font-weight: 600;
+  }
+}
+
+/* ===========================
+   History Section (scrollable)
+   =========================== */
+
+.menu-history {
+  flex: 1;
+
+  overflow-y: auto;
+
+  padding: 0 32rpx;
+
+  // 分隔线
+  border-top: 2rpx solid $border-light;
+}
+
+/* ===========================
+   Chat History List
+   =========================== */
+
+.chat-history-list {
+  padding-top: 24rpx;
+  padding-bottom: 24rpx;
+}
+
+.history-group {
+  margin-bottom: 24rpx;
+}
+
+.group-label {
+  display: block;
+
+  font-size: 24rpx;
+  font-weight: 500;
+
+  color: $text-placeholder;
+
+  margin-bottom: 12rpx;
+  padding-left: 8rpx;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+
+  height: 76rpx;
+
+  padding: 0 16rpx;
+
+  border-radius: $radius-small;
+
+  transition: $transition-fast;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.06);
+  }
+}
+
+.history-item-content {
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2rpx;
+
+  overflow: hidden;
+}
+
+.history-item-title {
+  font-size: 28rpx;
+
+  color: $text-primary;
+
+  // 单行省略号
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item-model {
+  font-size: 22rpx;
+
+  color: $text-placeholder;
+}
+
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+
+  padding: 80rpx 0;
+}
+
+.empty-text {
+  font-size: 26rpx;
+
+  color: $text-placeholder;
+}
+
+/* ===========================
+   User Section (fixed bottom)
+   =========================== */
+
+.menu-user {
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+
+  height: 100rpx;
+
+  padding: 0 32rpx;
+
+  // 底部的安全区
+  padding-bottom: env(safe-area-inset-bottom);
+
+  border-top: 2rpx solid $border-light;
+
+  background: $bg-page;
+
+  transition: $transition-fast;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.04);
+  }
+}
+
+.user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 72rpx;
+  height: 72rpx;
+
+  border-radius: 50%;
+
+  background: rgba(17, 124, 13, 0.08);
+
+  overflow: hidden;
+}
+
+.user-avatar-image {
+  width: 100%;
+  height: 100%;
+
+  border-radius: 50%;
+}
+
+.user-name {
+  flex: 1;
+
+  font-size: 28rpx;
+  font-weight: 500;
+
+  color: $text-primary;
+
+  // 单行省略号
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 64rpx;
+  height: 64rpx;
+
+  border-radius: 50%;
+
+  transition: $transition-fast;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.08);
+  }
+}
