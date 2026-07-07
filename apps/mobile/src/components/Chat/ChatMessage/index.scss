@@ -114,6 +114,107 @@
 }
 
 /* =========================
+ * 状态指示器
+ * =========================
+ */
+
+.status-bar {
+  margin-top: 12rpx;
+}
+
+/* --- 打字动画 (sending) --- */
+
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: $text-secondary;
+  animation: dotBounce 1.4s ease-in-out infinite both;
+}
+
+.dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes dotBounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* --- 流式光标 (streaming) --- */
+
+.streaming-cursor {
+  display: inline;
+  color: $color-secondary;
+  font-weight: 700;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* --- 错误状态 (error) --- */
+
+.bubble-error {
+  border-color: rgba(230, 80, 80, 0.3);
+  background: rgba(230, 80, 80, 0.04);
+}
+
+.error-info {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.error-info.interrupted {
+  margin-top: 8rpx;
+}
+
+.error-text {
+  font-size: 24rpx;
+  color: #e65050;
+}
+
+.retry-btn {
+  padding: 6rpx 20rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid #e65050;
+  background: transparent;
+  color: #e65050;
+  font-size: 22rpx;
+  cursor: pointer;
+}
+
+/* =========================
  * Markdown文本
  * =========================
  */

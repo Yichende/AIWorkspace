@@ -4,7 +4,7 @@ import { Popup } from '@nutui/nutui-react-taro'
 import { Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
 import { useUserStore } from '@/stores/user.store'
-import { mockChatHistory } from '@/stores/mock/chat.store'
+import type { ChatHistoryGroup } from '@/stores/chat.store'
 
 import Taro from '@tarojs/taro'
 import ChatHistoryList from './ChatHistoryList'
@@ -14,10 +14,14 @@ import './index.scss'
 interface Props {
   visible: boolean
   currentModel: string
+  historyGroups: ChatHistoryGroup[]
+  hasMoreSessions: boolean
+  sessionsLoading: boolean
   onClose: () => void
   onModelChange: (model: string) => void
   onNewChat?: () => void
   onHistorySelect?: (id: string) => void
+  onLoadMoreSessions?: () => void
 }
 
 const MODEL_OPTIONS = [
@@ -30,10 +34,14 @@ const MODEL_OPTIONS = [
 export default function ChatMenu({
   visible,
   currentModel,
+  historyGroups,
+  hasMoreSessions,
+  sessionsLoading,
   onClose,
   onModelChange,
   onNewChat,
   onHistorySelect,
+  onLoadMoreSessions,
 }: Props) {
   const userInfo = useUserStore((state) => state.userInfo)
   const [modelExpanded, setModelExpanded] = useState(false)
@@ -134,7 +142,13 @@ export default function ChatMenu({
 
         {/* ========== 对话历史 ========== */}
         <View className='menu-history'>
-          <ChatHistoryList groups={mockChatHistory} onSelect={handleHistorySelect} />
+          <ChatHistoryList
+            groups={historyGroups}
+            hasMore={hasMoreSessions}
+            loading={sessionsLoading}
+            onSelect={handleHistorySelect}
+            onLoadMore={onLoadMoreSessions}
+          />
         </View>
 
         {/* ========== 用户模块 ========== */}

@@ -38,9 +38,12 @@ export type MessageBlock =
   | ChartBlock
   | CustomBlock;
 
+export type MessageStatus = 'sending' | 'streaming' | 'success' | 'error';
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   blocks: MessageBlock[];
+  status: MessageStatus;
   createdAt: number;
 }

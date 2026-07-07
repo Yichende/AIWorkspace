@@ -1,15 +1,24 @@
 import { View, Text } from '@tarojs/components'
 import { Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
-import type { ChatHistoryGroup } from '@/stores/mock/chat.store'
+import type { ChatHistoryGroup } from '@/stores/chat.store'
 
 interface Props {
   groups: ChatHistoryGroup[]
+  hasMore: boolean
+  loading: boolean
   onSelect: (id: string) => void
+  onLoadMore?: () => void
 }
 
-export default function ChatHistoryList({ groups, onSelect }: Props) {
-  if (!groups.length) {
+export default function ChatHistoryList({
+  groups,
+  hasMore,
+  loading,
+  onSelect,
+  onLoadMore,
+}: Props) {
+  if (!groups.length && !loading) {
     return (
       <View className='history-empty'>
         <Icon name='duihuaxiaoxi' size={64} color={IconColors.secondary} />
@@ -38,6 +47,26 @@ export default function ChatHistoryList({ groups, onSelect }: Props) {
           ))}
         </View>
       ))}
+
+      {/* Load more sessions */}
+      {hasMore && (
+        <View
+          className='history-load-more'
+          onClick={loading ? undefined : onLoadMore}
+        >
+          {loading ? (
+            <View className='load-more-loading'>
+              <View className='loading-dots'>
+                <View className='dot' />
+                <View className='dot' />
+                <View className='dot' />
+              </View>
+            </View>
+          ) : (
+            <Text className='load-more-text'>加载更多</Text>
+          )}
+        </View>
+      )}
     </View>
   )
 }
