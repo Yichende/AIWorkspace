@@ -52,6 +52,15 @@ importers:
       '@nutui/nutui-react-taro':
         specifier: 3.0.20
         version: 3.0.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@repo/constants':
+        specifier: workspace:*
+        version: link:../../packages/constants
+      '@repo/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@repo/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@tanstack/react-query':
         specifier: ^5.100.14
         version: 5.100.14(react@18.3.1)
@@ -236,6 +245,15 @@ importers:
       '@prisma/client':
         specifier: ^7.8.0
         version: 7.8.0(prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
+      '@repo/constants':
+        specifier: workspace:*
+        version: link:../../packages/constants
+      '@repo/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@repo/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -390,6 +408,12 @@ importers:
       echarts:
         specifier: ^6.1.0
         version: 6.1.0
+
+  packages/constants:
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/types:
     devDependencies:

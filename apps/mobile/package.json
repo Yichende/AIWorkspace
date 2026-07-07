@@ -39,6 +39,9 @@
   "dependencies": {
     "@babel/runtime": "^7.24.4",
     "@my/ui": "workspace:*",
+    "@repo/constants": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@repo/utils": "workspace:*",
     "@nutui/nutui-react-taro": "3.0.20",
     "@tanstack/react-query": "^5.100.14",
     "@tarojs/components": "4.2.0",

@@ -1,34 +1,12 @@
 import { create } from 'zustand'
-import type { ChatMessage } from '@/types/chat'
-import type { SessionIndexItem } from '@/services/chat.api'
+import type { ChatMessage, SessionIndexItem } from '@repo/types'
 
-// ── ChatSession (kept for backward compat with migration) ────
+// Re-export types for backward compatibility
+export type { ChatSession } from '@repo/types'
+export type { TimeGroup, ChatHistoryGroup, ChatHistoryItem } from '@repo/types'
 
-export interface ChatSession {
-  id: string
-  title: string
-  model: string
-  messages: ChatMessage[]
-  createdAt: number
-  updatedAt: number
-}
-
-// ── History grouping (for sidebar) ───────────────────────────
-
-export type TimeGroup = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
-
-export interface ChatHistoryGroup {
-  label: string
-  group: TimeGroup
-  items: ChatHistoryItem[]
-}
-
-export interface ChatHistoryItem {
-  id: string
-  title: string
-  createdAt: number
-  model: string
-}
+// Re-export utilities (moved to @repo/utils, kept here for backward compat)
+export { generateId, buildHistoryGroups } from '@repo/utils'
 
 // ── State + Actions ──────────────────────────────────────────
 
@@ -105,61 +83,6 @@ interface ChatStoreActions {
 }
 
 export type ChatStore = ChatStoreState & ChatStoreActions
-
-// ── Helpers ──────────────────────────────────────────────────
-
-const DAY = 86400000
-
-function groupSession(ts: number): TimeGroup {
-  const now = Date.now()
-  const dayStart = now - (now % DAY)
-  if (ts >= dayStart) return 'today'
-  if (ts >= dayStart - DAY) return 'yesterday'
-  if (ts >= dayStart - 7 * DAY) return 'thisWeek'
-  return 'earlier'
-}
-
-const GROUP_LABEL: Record<TimeGroup, string> = {
-  today: '今天',
-  yesterday: '昨天',
-  thisWeek: '最近一周',
-  earlier: '更早',
-}
-
-/**
- * Build history groups from session index items (no messages needed).
- */
-export function buildHistoryGroups(
-  items: SessionIndexItem[],
-): ChatHistoryGroup[] {
-  const map = new Map<TimeGroup, ChatHistoryItem[]>()
-
-  const sorted = [...items].sort((a, b) => b.updatedAt - a.updatedAt)
-
-  for (const s of sorted) {
-    const g = groupSession(s.updatedAt)
-    if (!map.has(g)) map.set(g, [])
-    map.get(g)!.push({
-      id: s.id,
-      title: s.title,
-      createdAt: s.createdAt,
-      model: s.model,
-    })
-  }
-
-  const order: TimeGroup[] = ['today', 'yesterday', 'thisWeek', 'earlier']
-  return order
-    .filter((g) => map.has(g))
-    .map((g) => ({ label: GROUP_LABEL[g], group: g, items: map.get(g)! }))
-}
-
-// ── ID generator ─────────────────────────────────────────────
-
-let counter = 0
-export function generateId(): string {
-  counter++
-  return `${Date.now()}-${counter}-${Math.random().toString(36).slice(2, 8)}`
-}
 
 // ── Store ────────────────────────────────────────────────────
 

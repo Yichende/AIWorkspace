@@ -6,29 +6,13 @@ import {
   Length,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ID_MIN_LENGTH, ID_MAX_LENGTH } from '@repo/constants';
+import type { CreateSessionParams } from '@repo/types';
+import { CreateMessageDto } from './create-message.dto';
 
-class CreateMessageDto {
+export class CreateSessionDto implements CreateSessionParams {
   @IsString()
-  @Length(10, 36)
-  id: string;
-
-  @IsString()
-  role: 'user' | 'assistant';
-
-  @IsArray()
-  blocks: any[];
-
-  @IsString()
-  @IsOptional()
-  status?: string;
-
-  @IsOptional()
-  createdAt?: number;
-}
-
-export class CreateSessionDto {
-  @IsString()
-  @Length(10, 36)
+  @Length(ID_MIN_LENGTH, ID_MAX_LENGTH)
   id: string;
 
   @IsString()

@@ -1,8 +1,10 @@
 import { IsString, IsArray, IsOptional, Length } from 'class-validator';
+import { ID_MIN_LENGTH, ID_MAX_LENGTH } from '@repo/constants';
+import type { CreateMessageParams, MessageStatus } from '@repo/types';
 
-export class CreateMessageDto {
+export class CreateMessageDto implements CreateMessageParams {
   @IsString()
-  @Length(10, 36)
+  @Length(ID_MIN_LENGTH, ID_MAX_LENGTH)
   id: string;
 
   @IsString()
@@ -13,7 +15,7 @@ export class CreateMessageDto {
 
   @IsString()
   @IsOptional()
-  status?: string;
+  status?: MessageStatus;
 
   @IsOptional()
   createdAt?: number;

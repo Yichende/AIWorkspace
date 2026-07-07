@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@/types/chat'
+import type { ChatMessage } from '@repo/types'
 import { generateId } from '@/stores/chat.store'
 
 // ── Reply templates ──────────────────────────────────────────

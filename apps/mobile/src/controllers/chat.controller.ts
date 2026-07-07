@@ -3,8 +3,9 @@ import { chatStorage } from '@/stores/storage/chat'
 import { chatApi } from '@/services/chat.api'
 import { simulateAIReplyStream } from '@/services/chat.service'
 import { migrateLegacyData } from '@/utils/migration'
-import type { ChatMessage } from '@/types/chat'
-import type { SessionIndexItem } from '@/services/chat.api'
+import { truncateTitle } from '@repo/utils'
+import { DEFAULT_MODEL, DEFAULT_SESSION_TITLE, DEFAULT_PAGE_SIZE } from '@repo/constants'
+import type { ChatMessage, SessionIndexItem } from '@repo/types'
 
 // ── Throttle ─────────────────────────────────────────────────
 
@@ -12,10 +13,6 @@ import type { SessionIndexItem } from '@/services/chat.api'
 const STREAM_THROTTLE_MS = 100
 
 // ── Helpers ──────────────────────────────────────────────────
-
-function truncateTitle(content: string, maxLen = 20): string {
-  return content.length > maxLen ? content.slice(0, maxLen) + '…' : content
-}
 
 function createGreetingMessage(now: number): ChatMessage {
   const id = generateId()
@@ -58,7 +55,7 @@ function persistCurrentSession(): void {
 async function syncSessionsFromAPI(): Promise<void> {
   const store = useChatStore.getState()
   try {
-    const { items, total } = await chatApi.listSessions(1, 20)
+    const { items, total } = await chatApi.listSessions(1, DEFAULT_PAGE_SIZE)
     store.setSessionsIndex(items, 1, items.length < total)
     chatStorage.setSessionsIndex(items)
   } catch {
@@ -68,7 +65,7 @@ async function syncSessionsFromAPI(): Promise<void> {
 
 async function syncMessagesFromAPI(sessionId: string): Promise<void> {
   try {
-    const { messages, hasMore } = await chatApi.listMessages(sessionId, undefined, 20)
+    const { messages, hasMore } = await chatApi.listMessages(sessionId, undefined, DEFAULT_PAGE_SIZE)
     useChatStore.getState().setMessages(messages, hasMore)
     chatStorage.setSessionMessages(sessionId, messages)
   } catch {
@@ -110,7 +107,7 @@ export function useChatController() {
     }
 
     // No local cache — create fresh session
-    const sessionId = newChat('DeepSeek-R1')
+    const sessionId = newChat(DEFAULT_MODEL)
     // Background sync
     syncSessionsFromAPI()
     return sessionId
@@ -125,7 +122,7 @@ export function useChatController() {
 
     const indexItem: SessionIndexItem = {
       id: sessionId,
-      title: '新对话',
+      title: DEFAULT_SESSION_TITLE,
       model,
       messageCount: 1,
       createdAt: now,
@@ -140,7 +137,7 @@ export function useChatController() {
     chatApi
       .createSession({
         id: sessionId,
-        title: '新对话',
+        title: DEFAULT_SESSION_TITLE,
         model,
         messages: [greeting],
       })
@@ -160,7 +157,7 @@ export function useChatController() {
 
     // Auto-create session if none exists
     if (!sessionId) {
-      sessionId = newChat('DeepSeek-R1')
+      sessionId = newChat(DEFAULT_MODEL)
     }
 
     const now = Date.now()
@@ -178,7 +175,7 @@ export function useChatController() {
 
     // 2. Auto-title from first user message
     const meta = useChatStore.getState().currentSessionMeta
-    if (meta && meta.title === '新对话') {
+    if (meta && meta.title === DEFAULT_SESSION_TITLE) {
       const newTitle = truncateTitle(trimmed)
       store.updateSessionInIndex(sessionId!, { title: newTitle })
       // Also update local meta
@@ -411,9 +408,9 @@ export function useChatController() {
     try {
       const { items, total } = await chatApi.listSessions(
         state.sessionsPage + 1,
-        20,
+        DEFAULT_PAGE_SIZE,
       )
-      store.appendSessionsIndex(items, state.sessionsPage + 1, items.length > 0 && (state.sessionsPage + 1) * 20 < total)
+      store.appendSessionsIndex(items, state.sessionsPage + 1, items.length > 0 && (state.sessionsPage + 1) * DEFAULT_PAGE_SIZE < total)
       // Update local cache
       chatStorage.setSessionsIndex([
         ...state.sessionsIndex,
@@ -455,7 +452,7 @@ export function useChatController() {
     currentSessionId: store.currentSessionId,
     currentSession,
     currentMessages: store.currentMessages,
-    currentModel: store.currentSessionMeta?.model ?? 'DeepSeek-R1',
+    currentModel: store.currentSessionMeta?.model ?? DEFAULT_MODEL,
     historyGroups,
     messagesLoading: store.messagesLoading,
     sessionsLoading: store.sessionsLoading,

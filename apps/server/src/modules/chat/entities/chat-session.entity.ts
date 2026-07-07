@@ -7,6 +7,7 @@ import {
   BelongsTo,
   HasMany,
 } from 'sequelize-typescript';
+import { DEFAULT_SESSION_TITLE, DEFAULT_MODEL } from '@repo/constants';
 import { User } from '../../user/entities/user.entity';
 import { ChatMessage } from './chat-message.entity';
 
@@ -37,13 +38,13 @@ export class ChatSession extends Model {
 
   @Column({
     type: DataType.STRING(100),
-    defaultValue: '新对话',
+    defaultValue: DEFAULT_SESSION_TITLE,
   })
   declare title: string;
 
   @Column({
     type: DataType.STRING(50),
-    defaultValue: 'DeepSeek-R1',
+    defaultValue: DEFAULT_MODEL,
   })
   declare model: string;
 

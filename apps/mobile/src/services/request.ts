@@ -6,7 +6,7 @@ const BASE_URL = 'http://localhost:3000'
 
 interface RequestOptions {
   url: string
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   data?: any
   header?: Record<string, string>
 }

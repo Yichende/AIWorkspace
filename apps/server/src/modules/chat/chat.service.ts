@@ -6,6 +6,11 @@ import {
 import { InjectModel } from '@nestjs/sequelize';
 import { Sequelize } from 'sequelize-typescript';
 import { Op } from 'sequelize';
+import {
+  DEFAULT_SESSION_TITLE,
+  DEFAULT_PAGE,
+  DEFAULT_PAGE_SIZE,
+} from '@repo/constants';
 import { ChatSession } from './entities/chat-session.entity';
 import { ChatMessage } from './entities/chat-message.entity';
 import { CreateSessionDto } from './dto/create-session.dto';
@@ -24,7 +29,11 @@ export class ChatService {
 
   // ── Sessions ──────────────────────────────────────────────
 
-  async listSessions(userId: number, page = 1, limit = 20) {
+  async listSessions(
+    userId: number,
+    page = DEFAULT_PAGE,
+    limit = DEFAULT_PAGE_SIZE,
+  ) {
     const offset = (page - 1) * limit;
     const { rows, count } = await this.sessionModel.findAndCountAll({
       where: { userId },
@@ -63,7 +72,7 @@ export class ChatService {
         {
           id: dto.id,
           userId,
-          title: dto.title ?? '新对话',
+          title: dto.title ?? DEFAULT_SESSION_TITLE,
           model: dto.model,
           messageCount: dto.messages?.length ?? 0,
         },
@@ -113,7 +122,7 @@ export class ChatService {
     userId: number,
     sessionId: string,
     before?: number,
-    limit = 20,
+    limit = DEFAULT_PAGE_SIZE,
   ) {
     // Verify ownership
     const session = await this.sessionModel.findByPk(sessionId);

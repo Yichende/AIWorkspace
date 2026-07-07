@@ -4,21 +4,7 @@
  * 按时间分组：今天 / 昨天 / 最近一周 / 更早
  */
 
-export interface ChatHistoryItem {
-  id: string
-  title: string
-  /** 时间戳 (ms) */
-  createdAt: number
-  model: string
-}
-
-export type TimeGroup = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
-
-export interface ChatHistoryGroup {
-  label: string
-  group: TimeGroup
-  items: ChatHistoryItem[]
-}
+import type { ChatHistoryGroup } from '@repo/types'
 
 const now = Date.now()
 const DAY = 86400000

@@ -11,9 +11,15 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
+      "@repo/constants": ["packages/constants/src"],
+      "@repo/constants/*": ["packages/constants/src/*"],
+      "@repo/types": ["packages/types/src"],
       "@repo/types/*": ["packages/types/src/*"],
+      "@repo/utils": ["packages/utils/src"],
       "@repo/utils/*": ["packages/utils/src/*"],
+      "@repo/ai": ["packages/ai/src"],
       "@repo/ai/*": ["packages/ai/src/*"],
+      "@repo/charts": ["packages/charts/src"],
       "@repo/charts/*": ["packages/charts/src/*"]
     }
   }

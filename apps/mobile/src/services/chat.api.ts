@@ -1,34 +1,16 @@
-import type { ChatMessage } from '@/types/chat'
+import type { CreateSessionParams, CreateMessageParams, UpdateMessageParams , PaginatedSessions, MessageListResponse } from '@repo/types'
+import { DEFAULT_PAGE_SIZE } from '@repo/constants'
 import request from './request'
 
-// ── Response types ──────────────────────────────────────────
-
-export interface SessionIndexItem {
-  id: string
-  title: string
-  model: string
-  messageCount: number
-  createdAt: number
-  updatedAt: number
-}
-
-export interface PaginatedSessions {
-  items: SessionIndexItem[]
-  total: number
-  page: number
-  limit: number
-}
-
-export interface MessageListResponse {
-  messages: ChatMessage[]
-  hasMore: boolean
-}
+// Re-export for backward compatibility
+export type { SessionIndexItem } from '@repo/types'
+export type { PaginatedSessions, MessageListResponse } from '@repo/types'
 
 // ── API ────────────────────────────────────────────────────
 
 export const chatApi = {
   /** 分页获取会话列表（仅元数据，无消息体） */
-  listSessions(page = 1, limit = 20): Promise<PaginatedSessions> {
+  listSessions(page = 1, limit = DEFAULT_PAGE_SIZE): Promise<PaginatedSessions> {
     return request({
       url: '/chat/sessions',
       method: 'GET',
@@ -37,12 +19,7 @@ export const chatApi = {
   },
 
   /** 创建会话 + 可选初始消息 */
-  createSession(session: {
-    id: string
-    title?: string
-    model: string
-    messages?: ChatMessage[]
-  }) {
+  createSession(session: CreateSessionParams) {
     return request({
       url: '/chat/sessions',
       method: 'POST',
@@ -62,7 +39,7 @@ export const chatApi = {
   listMessages(
     sessionId: string,
     before?: number,
-    limit = 20,
+    limit = DEFAULT_PAGE_SIZE,
   ): Promise<MessageListResponse> {
     return request({
       url: `/chat/sessions/${sessionId}/messages`,
@@ -72,10 +49,7 @@ export const chatApi = {
   },
 
   /** 保存单条消息（upsert，幂等） */
-  saveMessage(
-    sessionId: string,
-    message: { id: string; role: string; blocks: any[]; status?: string; createdAt?: number },
-  ) {
+  saveMessage(sessionId: string, message: CreateMessageParams) {
     return request({
       url: `/chat/sessions/${sessionId}/messages`,
       method: 'POST',
@@ -84,10 +58,7 @@ export const chatApi = {
   },
 
   /** 更新单条消息（流式结束后回写） */
-  updateMessage(
-    messageId: string,
-    patch: { blocks?: ChatMessage['blocks']; status?: string },
-  ) {
+  updateMessage(messageId: string, patch: UpdateMessageParams) {
     return request({
       url: `/chat/messages/${messageId}`,
       method: 'PATCH',

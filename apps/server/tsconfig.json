@@ -22,6 +22,14 @@
 
     "forceConsistentCasingInFileNames": true,
 
+    "baseUrl": ".",
+    "paths": {
+      "@repo/constants": ["../../packages/constants/src"],
+      "@repo/constants/*": ["../../packages/constants/src/*"],
+      "@repo/types": ["../../packages/types/src"],
+      "@repo/types/*": ["../../packages/types/src/*"]
+    },
+
     "types": ["node", "jest"]
   }
 }

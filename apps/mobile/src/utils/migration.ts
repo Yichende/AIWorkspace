@@ -1,7 +1,6 @@
 import Taro from '@tarojs/taro'
 import { chatStorage } from '@/stores/storage/chat'
-import type { SessionIndexItem } from '@/services/chat.api'
-import type { ChatSession } from '@/stores/chat.store'
+import type { SessionIndexItem, ChatSession } from '@repo/types'
 
 const LEGACY_SESSIONS_KEY = 'chat_sessions'
 const LEGACY_CURRENT_KEY = 'chat_current_session'
