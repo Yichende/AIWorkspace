@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Input, Button, Text } from '@tarojs/components'
-// import { loginApi } from '@/services/user'
+import { loginApi } from '@/services/user'
 import { setToken } from '@/utils/auth'
 import { useUserStore } from '@/stores/user.store'
 import Taro from '@tarojs/taro'
@@ -21,28 +21,33 @@ export default function LoginPage() {
   // 密码登录
   const handlePwLogin = async () => {
     try {
-      // const res = await loginApi({
-      //   username,
-      //   password,
-      // })
-      const mockToken = 'mock-token'
+      console.log('[Login] 发送登录请求:', { email, password })
+      const res = await loginApi({
+        email,
+        password,
+      })
+      console.log('[Login] 登录成功:', res)
 
       // 持久化token
-      // await setToken(res.access_token)
-      await setToken(mockToken)
+      await setToken(res.access_token)
 
       // 同步Zustand
-      // storeSetToken(res.access_token)
-      storeSetToken(mockToken)
+      storeSetToken(res.access_token)
 
       // 跳转首页
       Taro.reLaunch({
         url: '/pages/home/index',
       })
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[Login] 登录失败:', error)
+      // 显示具体错误信息
+      const errMsg = typeof error === 'string'
+        ? error
+        : error?.message || error?.errMsg || JSON.stringify(error)
       Taro.showToast({
-        title: '登录失败',
+        title: errMsg.length > 30 ? errMsg.slice(0, 30) + '...' : errMsg,
         icon: 'none',
+        duration: 3000,
       })
     }
   }

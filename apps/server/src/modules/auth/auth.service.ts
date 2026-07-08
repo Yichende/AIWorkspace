@@ -59,13 +59,13 @@ export class AuthService {
       throw new BadRequestException('密码错误');
     }
 
-    const token = this.jwtService.sign({
+    const access_token = this.jwtService.sign({
       id: user.id,
     });
 
     return {
       user,
-      token,
+      access_token,
     };
   }
 }

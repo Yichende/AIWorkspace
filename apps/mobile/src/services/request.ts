@@ -38,8 +38,8 @@ const request = async <T>(options: RequestOptions) => {
       return Promise.reject('登录失效')
     }
 
-    // 请求失败
-    if (res.statusCode !== 200) {
+    // 请求失败（2xx 都视为成功）
+    if (res.statusCode < 200 || res.statusCode >= 300) {
       return Promise.reject(res.data);
     }
 
