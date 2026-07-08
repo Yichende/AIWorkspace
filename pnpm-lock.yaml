@@ -375,6 +375,9 @@ importers:
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@swc/core@1.3.96(@swc/helpers@0.5.23))(@types/node@24.12.4)(typescript@5.9.3)
+      tsc-alias:
+        specifier: ^1.9.0
+        version: 1.9.0
       tsconfig-paths:
         specifier: ^4.2.0
         version: 4.2.0
@@ -7127,6 +7130,13 @@ packages:
       }
     engines: { node: '>= 6' }
 
+  commander@9.5.0:
+    resolution:
+      {
+        integrity: sha512-KRs7WVDKg86PWiuAqhDrAQnTXZKraVcCc6vFdL14qrZ/DcWwuRo7VoiYXalXO7S5GKpqYiVEwCbgFDfxNHKJBQ==,
+      }
+    engines: { node: ^12.20.0 || >=14 }
+
   comment-json@5.0.0:
     resolution:
       {
@@ -9067,6 +9077,12 @@ packages:
         integrity: sha512-w9UMqWwJxHNOvoNzSJ2oPF5wvYcvP7jUvYzhp67yEhTi17ZDBBC1z9pTdGuzjD+EFIqLSYRweZjqfiPzQ06Ebg==,
       }
     engines: { node: '>= 0.4' }
+
+  get-tsconfig@4.14.0:
+    resolution:
+      {
+        integrity: sha512-yTb+8DXzDREzgvYmh6s9vHsSVCHeC0G3PI5bEXNBHtmshPnO+S5O7qgLEOn0I5QvMy6kpZN8K1NKGyilLb93wA==,
+      }
 
   giget@3.2.0:
     resolution:
@@ -11915,6 +11931,13 @@ packages:
       }
     engines: { node: ^18.17.0 || >=20.5.0 }
 
+  mylas@2.1.14:
+    resolution:
+      {
+        integrity: sha512-BzQguy9W9NJgoVn2mRWzbFrFWWztGCcng2QI9+41frfk+Athwgx3qhqhvStz7ExeUUu7Kzw427sNzHpEZNINog==,
+      }
+    engines: { node: '>=16.0.0' }
+
   mysql2@3.15.3:
     resolution:
       {
@@ -12750,6 +12773,13 @@ packages:
         integrity: sha512-fnWVljUchTro6RiCFvCXBbNhJc2NijN7oIQxbwsyL0buWJPG85v81ehlHI9fXrJsMNgTofEoWIQeClKpgxFLrg==,
       }
 
+  plimit-lit@1.6.1:
+    resolution:
+      {
+        integrity: sha512-B7+VDyb8Tl6oMJT9oSO2CW8XC/T4UcJGrwOVoNGwOQsQYhlpfajmrMj5xeejqaASq3V/EqThyOeATEOMuSEXiA==,
+      }
+    engines: { node: '>=12' }
+
   pluralize@8.0.0:
     resolution:
       {
@@ -13141,6 +13171,13 @@ packages:
       }
     engines: { node: '>=18' }
 
+  queue-lit@1.5.2:
+    resolution:
+      {
+        integrity: sha512-tLc36IOPeMAubu8BkW8YDBV+WyIgKlYU7zUNs0J5Vk9skSZ4JfGlPOqplP0aHdfv7HL0B2Pg6nwiq60Qc6M2Hw==,
+      }
+    engines: { node: '>=12' }
+
   queue-microtask@1.2.3:
     resolution:
       {
@@ -13522,6 +13559,12 @@ packages:
     resolution:
       {
         integrity: sha512-C7rARubxI8bXFNB/hqcp/4iUeIXJhJZvFPFPiSPRnhU5UPxzMFIl+2E6yY6c4k9giDJAhtV+enfA+G89N6Csng==,
+      }
+
+  resolve-pkg-maps@1.0.0:
+    resolution:
+      {
+        integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==,
       }
 
   resolve@1.22.12:
@@ -14935,6 +14978,14 @@ packages:
         optional: true
       '@swc/wasm':
         optional: true
+
+  tsc-alias@1.9.0:
+    resolution:
+      {
+        integrity: sha512-IZrCInovKxVCwXyKhcdr/HaxSYugKT0w4zyktOE/4115Nzo6gbp/NhkaEeyOG0/H7QoTeXtv+3UHffBYta9oWw==,
+      }
+    engines: { node: '>=16.20.2' }
+    hasBin: true
 
   tsconfig-paths-webpack-plugin@4.2.0:
     resolution:
@@ -20603,6 +20654,8 @@ snapshots:
 
   commander@4.1.1: {}
 
+  commander@9.5.0: {}
+
   comment-json@5.0.0:
     dependencies:
       array-timsort: 1.0.3
@@ -21993,6 +22046,10 @@ snapshots:
       call-bound: 1.0.4
       es-errors: 1.3.0
       get-intrinsic: 1.3.0
+
+  get-tsconfig@4.14.0:
+    dependencies:
+      resolve-pkg-maps: 1.0.0
 
   giget@3.2.0: {}
 
@@ -24012,6 +24069,8 @@ snapshots:
 
   mute-stream@2.0.0: {}
 
+  mylas@2.1.14: {}
+
   mysql2@3.15.3:
     dependencies:
       aws-ssl-profiles: 1.1.2
@@ -24529,6 +24588,10 @@ snapshots:
 
   platform@1.3.6: {}
 
+  plimit-lit@1.6.1:
+    dependencies:
+      queue-lit: 1.5.2
+
   pluralize@8.0.0: {}
 
   possible-typed-array-names@1.1.0: {}
@@ -24752,6 +24815,8 @@ snapshots:
       decode-uri-component: 0.4.1
       filter-obj: 5.1.0
       split-on-first: 3.0.0
+
+  queue-lit@1.5.2: {}
 
   queue-microtask@1.2.3: {}
 
@@ -25017,6 +25082,8 @@ snapshots:
   resolve-from@5.0.0: {}
 
   resolve-pathname@3.0.0: {}
+
+  resolve-pkg-maps@1.0.0: {}
 
   resolve@1.22.12:
     dependencies:
@@ -25958,6 +26025,16 @@ snapshots:
       yn: 3.1.1
     optionalDependencies:
       '@swc/core': 1.3.96(@swc/helpers@0.5.23)
+
+  tsc-alias@1.9.0:
+    dependencies:
+      chokidar: 3.6.0
+      commander: 9.5.0
+      get-tsconfig: 4.14.0
+      globby: 11.1.0
+      mylas: 2.1.14
+      normalize-path: 3.0.0
+      plimit-lit: 1.6.1
 
   tsconfig-paths-webpack-plugin@4.2.0:
     dependencies:
