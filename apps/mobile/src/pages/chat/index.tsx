@@ -15,7 +15,8 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [menuVisible, setMenuVisible] = useState(false)
   const [sending, setSending] = useState(false)
-  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Dynamic scrollTop tick — incrementing it forces ScrollView to re-apply scrollTop
+  const [scrollTopTick, setScrollTopTick] = useState(1)
 
   const {
     init,
@@ -23,10 +24,12 @@ export default function ChatPage() {
     sendMessage,
     retryMessage,
     switchChat,
-    // deleteChat,
+    deleteChat,
+    renameChat,
     loadMoreMessages,
     loadMoreSessions,
     currentMessages,
+    currentSessionId,
     currentModel,
     historyGroups,
     messagesLoading,
@@ -37,6 +40,7 @@ export default function ChatPage() {
   // Init: load persisted state on mount
   useEffect(() => {
     init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── Handlers ──
@@ -83,23 +87,65 @@ export default function ChatPage() {
     [retryMessage],
   )
 
-  // ── Auto-scroll when messages change ──
+  const handleDelete = useCallback(
+    (sessionId: string) => {
+      // If deleting current session, switch to a new chat
+      if (sessionId === currentSessionId) {
+        newChat(currentModel)
+      }
+      deleteChat(sessionId)
+    },
+    [deleteChat, currentSessionId, currentModel, newChat],
+  )
 
-  const scrollToBottom = useCallback(() => {
-    // Use a short delay so the new message renders before we measure
-    if (scrollTimer.current) clearTimeout(scrollTimer.current)
-    scrollTimer.current = setTimeout(() => {
-      // Taro page-level scroll — scroll to a hidden anchor at the bottom
-      Taro.pageScrollTo({ scrollTop: 99999, duration: 200 })
-    }, 80)
-  }, [])
+  const handleRename = useCallback(
+    (sessionId: string, newTitle: string) => {
+      renameChat(sessionId, newTitle)
+    },
+    [renameChat],
+  )
 
+  // ── Auto-scroll when messages/content change ──
+
+  // Compute a content fingerprint: sum of all text block lengths
+  // This triggers scroll on every content change during streaming
+  const contentFingerprint = currentMessages.reduce(
+    (sum, m) =>
+      sum +
+      m.blocks.reduce(
+        (s, b) =>
+          s + (b.type === 'text' ? ((b as any).content?.length ?? 0) : 0),
+        0,
+      ),
+    0,
+  )
+
+  const isStreaming = currentMessages.some(
+    (m) => m.status === 'streaming' || m.status === 'sending',
+  )
+
+  // Dynamic scrollTop: increment tick on content growth during streaming
+  const prevFingerprintRef = useRef(contentFingerprint)
+  const lastScrollTickRef = useRef(Date.now())
   useEffect(() => {
-    scrollToBottom()
-    return () => {
-      if (scrollTimer.current) clearTimeout(scrollTimer.current)
+    if (isStreaming && contentFingerprint > prevFingerprintRef.current) {
+      prevFingerprintRef.current = contentFingerprint
+      // Throttle scroll updates to ~120ms for smooth visual
+      const now = Date.now()
+      if (now - lastScrollTickRef.current > 120) {
+        lastScrollTickRef.current = now
+        setScrollTopTick((t) => t + 1)
+      }
     }
-  }, [currentMessages.length, scrollToBottom])
+    if (!isStreaming) {
+      prevFingerprintRef.current = contentFingerprint
+    }
+  }, [contentFingerprint, isStreaming])
+
+  // Scroll on message count change (new message added)
+  useEffect(() => {
+    setScrollTopTick((t) => t + 1)
+  }, [currentMessages.length])
 
   // ── Scroll to top → load more messages ──
 
@@ -116,8 +162,10 @@ export default function ChatPage() {
           <ScrollView
             scrollY
             className='message-list'
-            scrollTop={99999}
+            scrollTop={scrollTopTick * 99999}
             scrollWithAnimation
+            showScrollbar={false}
+            enhanced
             onScrollToUpper={handleScrollToUpper}
             upperThreshold={100}
           >
@@ -132,11 +180,15 @@ export default function ChatPage() {
               </View>
             )}
 
-            {currentMessages.map(msg => (
+            {currentMessages.map((msg) => (
               <ChatMessage
                 key={msg.id}
                 message={msg}
-                onRetry={msg.status === 'error' || msg.status === 'sending' ? handleRetry : undefined}
+                onRetry={
+                  msg.status === 'error' || msg.status === 'sending'
+                    ? handleRetry
+                    : undefined
+                }
               />
             ))}
             {/* Invisible anchor for scroll-to-bottom */}
@@ -144,16 +196,13 @@ export default function ChatPage() {
           </ScrollView>
         </View>
 
-        <ChatInput
-          value={input}
-          onChange={setInput}
-          onSend={handleSend}
-        />
+        <ChatInput value={input} onChange={setInput} onSend={handleSend} />
       </View>
 
       <ChatMenu
         visible={menuVisible}
         currentModel={currentModel}
+        currentSessionId={currentSessionId}
         historyGroups={historyGroups}
         hasMoreSessions={hasMoreSessions}
         sessionsLoading={sessionsLoading}
@@ -161,6 +210,8 @@ export default function ChatPage() {
         onModelChange={handleModelChange}
         onNewChat={handleNewChat}
         onHistorySelect={handleHistorySelect}
+        onDeleteChat={handleDelete}
+        onRenameChat={handleRename}
         onLoadMoreSessions={loadMoreSessions}
       />
     </>

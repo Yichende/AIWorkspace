@@ -5,7 +5,7 @@
 
   width: 100%;
 
-  margin-bottom: 28rpx;
+  margin-bottom: 24rpx;
 
   box-sizing: border-box;
 }
@@ -29,45 +29,14 @@
 }
 
 /* =========================
- * AI头像
- * =========================
- */
-
-.avatar {
-  flex-shrink: 0;
-
-  width: 64rpx;
-  height: 64rpx;
-
-  margin-right: 16rpx;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 50%;
-
-  background: rgba(17, 124, 13, .12);
-
-  border: 2rpx solid $border-light;
-
-  color: $color-secondary;
-
-  font-size: 28rpx;
-  font-weight: 700;
-
-  box-shadow: $shadow-card;
-}
-
-/* =========================
  * 消息气泡
  * =========================
  */
 
 .bubble {
-  max-width: 82%;
+  max-width: 92%;
 
-  padding: 24rpx;
+  padding: 20rpx 24rpx;
 
   border-radius: $radius-large;
 
@@ -84,11 +53,13 @@
  */
 
 .message.assistant .bubble {
-  background: $bg-card;
+  max-width: 100%;
 
-  border: 2rpx solid $border-light;
+  padding: 20rpx 24rpx;
 
-  box-shadow: $shadow-card;
+  background: #F2F2F2;
+
+  border: none;
 }
 
 /* =========================
@@ -110,7 +81,7 @@
  */
 
 .bubble > * + * {
-  margin-top: 20rpx;
+  margin-top: 16rpx;
 }
 
 /* =========================
@@ -163,6 +134,36 @@
   }
 }
 
+/* --- 思考中图标 (breathing indicator) --- */
+
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8rpx 0;
+  animation: breathing 3s ease-in-out infinite;
+}
+
+@keyframes breathing {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 0.6;
+  }
+  25% {
+    transform: rotate(5deg) scale(1.08);
+    opacity: 1;
+  }
+  50% {
+    transform: rotate(0deg) scale(1);
+    opacity: 0.6;
+  }
+  75% {
+    transform: rotate(-5deg) scale(0.92);
+    opacity: 0.85;
+  }
+}
+
 /* --- 流式光标 (streaming) --- */
 
 .streaming-cursor {
@@ -185,7 +186,7 @@
 /* --- 错误状态 (error) --- */
 
 .bubble-error {
-  border-color: rgba(230, 80, 80, 0.3);
+  border: 2rpx solid rgba(230, 80, 80, 0.3);
   background: rgba(230, 80, 80, 0.04);
 }
 

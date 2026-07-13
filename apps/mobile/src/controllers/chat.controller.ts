@@ -1,11 +1,19 @@
-import { useChatStore, generateId, buildHistoryGroups } from '@/stores/chat.store'
+import {
+  useChatStore,
+  generateId,
+  buildHistoryGroups,
+} from '@/stores/chat.store'
 import { chatStorage } from '@/stores/storage/chat'
 import { chatApi } from '@/services/chat.api'
-import { simulateAIReplyStream } from '@/services/chat.service'
 import { migrateLegacyData } from '@/utils/migration'
 import { truncateTitle } from '@repo/utils'
-import { DEFAULT_MODEL, DEFAULT_SESSION_TITLE, DEFAULT_PAGE_SIZE } from '@repo/constants'
-import type { ChatMessage, SessionIndexItem } from '@repo/types'
+import {
+  DEFAULT_MODEL,
+  DEFAULT_SESSION_TITLE,
+  DEFAULT_PAGE_SIZE,
+  GREETING_TEXT,
+} from '@repo/constants'
+import type { ChatMessage, SessionIndexItem, MessageBlock } from '@repo/types'
 
 // ── Throttle ─────────────────────────────────────────────────
 
@@ -19,7 +27,7 @@ function createGreetingMessage(now: number): ChatMessage {
   return {
     id,
     role: 'assistant',
-    blocks: [{ type: 'text', content: '你好，我是一叶 AI。' }],
+    blocks: [{ type: 'text', content: GREETING_TEXT }],
     status: 'success',
     createdAt: now,
   }
@@ -28,8 +36,12 @@ function createGreetingMessage(now: number): ChatMessage {
 // ── Persist helpers ─────────────────────────────────────────
 
 function persistCurrentSession(): void {
-  const { currentSessionId, currentMessages, currentSessionMeta, sessionsIndex } =
-    useChatStore.getState()
+  const {
+    currentSessionId,
+    currentMessages,
+    currentSessionMeta,
+    sessionsIndex,
+  } = useChatStore.getState()
 
   if (currentSessionId && currentSessionMeta) {
     // Save current messages
@@ -65,7 +77,11 @@ async function syncSessionsFromAPI(): Promise<void> {
 
 async function syncMessagesFromAPI(sessionId: string): Promise<void> {
   try {
-    const { messages, hasMore } = await chatApi.listMessages(sessionId, undefined, DEFAULT_PAGE_SIZE)
+    const { messages, hasMore } = await chatApi.listMessages(
+      sessionId,
+      undefined,
+      DEFAULT_PAGE_SIZE,
+    )
     useChatStore.getState().setMessages(messages, hasMore)
     chatStorage.setSessionMessages(sessionId, messages)
   } catch {
@@ -179,16 +195,18 @@ export function useChatController() {
       const newTitle = truncateTitle(trimmed)
       store.updateSessionInIndex(sessionId!, { title: newTitle })
       // Also update local meta
-      useChatStore.setState({ currentSessionMeta: { ...meta, title: newTitle } })
+      useChatStore.setState({
+        currentSessionMeta: { ...meta, title: newTitle },
+      })
     }
 
     // 3. Persist user message immediately
     persistCurrentSession()
 
     // 4. Async: sync user message to backend
-    chatApi.saveMessage(sessionId!, userMsg).catch((err) =>
-      console.warn('[chat] Failed to sync user message:', err),
-    )
+    chatApi
+      .saveMessage(sessionId!, userMsg)
+      .catch((err) => console.warn('[chat] Failed to sync user message:', err))
 
     // 5. Create placeholder assistant message
     const assistantMsgId = generateId()
@@ -205,47 +223,144 @@ export function useChatController() {
     // 6. Persist placeholder (for "响应中断" recovery on reload)
     persistCurrentSession()
 
-    // 7. Stream AI reply with 100ms throttle
-    let accumulated = ''
+    // 7. Build message history for AI context
+    const currentState = useChatStore.getState()
+    const historyMessages: Array<{ role: string; content: string }> = []
+
+    // Include successful messages as context (up to last 20)
+    const contextMsgs = currentState.currentMessages
+      .filter((m) => m.status === 'success')
+      .filter((m) => {
+        // 过滤系统生成的问候语，不发送给 AI
+        const text = m.blocks.find((b) => b.type === 'text')?.content ?? ''
+        return text !== GREETING_TEXT
+      })
+      .slice(-20)
+    for (const m of contextMsgs) {
+      const text = m.blocks.find((b) => b.type === 'text')?.content ?? ''
+      if (text) {
+        historyMessages.push({ role: m.role, content: text })
+      }
+    }
+
+    // 8. Stream AI reply with thinking/content separation
+    let thinkAccumulated = ''
+    let contentAccumulated = ''
     let lastFlush = 0
 
+    const flushBlocks = () => {
+      const blocks: MessageBlock[] = []
+      if (thinkAccumulated) {
+        blocks.push({ type: 'text', content: thinkAccumulated, thinking: true })
+      }
+      if (contentAccumulated) {
+        blocks.push({ type: 'text', content: contentAccumulated })
+      }
+      if (blocks.length === 0) {
+        blocks.push({ type: 'text', content: '' })
+      }
+      const cur = useChatStore.getState().currentSessionId
+      if (cur === sessionId) {
+        store.updateMessage(assistantMsgId, {
+          blocks,
+          status: 'streaming',
+        })
+      }
+    }
+
     try {
-      await simulateAIReplyStream(
-        trimmed,
-        // onDelta — throttle to ≤10 renders/sec
-        (delta: string) => {
-          accumulated += delta
-          const tick = Date.now()
-          if (tick - lastFlush >= STREAM_THROTTLE_MS) {
-            // Safety: only update if still on the same session
-            const cur = useChatStore.getState().currentSessionId
-            if (cur === sessionId) {
-              store.updateMessage(assistantMsgId, {
-                blocks: [{ type: 'text', content: accumulated }],
-                status: 'streaming',
+      await chatApi.streamCompletion(
+        meta?.model ?? DEFAULT_MODEL,
+        historyMessages,
+        {
+          onThinking: (text: string) => {
+            // Dedup guard: if Ollama sends full accumulated text (not delta),
+            // text will start with what we already have. Extract only the new part.
+            if (text.startsWith(thinkAccumulated)) {
+              const delta = text.slice(thinkAccumulated.length)
+              if (!delta) return
+              thinkAccumulated = text
+              const tick = Date.now()
+              if (tick - lastFlush >= STREAM_THROTTLE_MS) {
+                flushBlocks()
+                lastFlush = tick
+              }
+              return
+            }
+            thinkAccumulated += text
+            const tick = Date.now()
+            if (tick - lastFlush >= STREAM_THROTTLE_MS) {
+              flushBlocks()
+              lastFlush = tick
+            }
+          },
+          onContent: (text: string) => {
+            // Same dedup guard for content deltas
+            if (text.startsWith(contentAccumulated)) {
+              const delta = text.slice(contentAccumulated.length)
+              if (!delta) return
+              contentAccumulated = text
+              const tick = Date.now()
+              if (tick - lastFlush >= STREAM_THROTTLE_MS) {
+                flushBlocks()
+                lastFlush = tick
+              }
+              return
+            }
+            contentAccumulated += text
+            const tick = Date.now()
+            if (tick - lastFlush >= STREAM_THROTTLE_MS) {
+              flushBlocks()
+              lastFlush = tick
+            }
+          },
+          onDone: (fullText: string) => {
+            // Final flush
+            const blocks: MessageBlock[] = []
+            if (thinkAccumulated) {
+              blocks.push({
+                type: 'text',
+                content: thinkAccumulated,
+                thinking: true,
               })
             }
-            lastFlush = tick
-          }
-        },
-        // onDone — final flush + persist + API sync
-        (finalMessage: ChatMessage) => {
-          store.updateMessage(assistantMsgId, {
-            blocks: finalMessage.blocks,
-            status: 'success',
-          })
-          persistCurrentSession()
+            if (contentAccumulated) {
+              blocks.push({ type: 'text', content: contentAccumulated })
+            }
+            if (blocks.length === 0) {
+              blocks.push({
+                type: 'text',
+                content: fullText || '（无回复内容）',
+              })
+            }
+            store.updateMessage(assistantMsgId, {
+              blocks,
+              status: 'success',
+            })
+            persistCurrentSession()
 
-          // Async: save final assistant message to backend
-          chatApi.saveMessage(sessionId!, {
-            ...finalMessage, id: assistantMsgId, createdAt: now + 1,
-          }).catch((err) =>
-            console.warn('[chat] Failed to sync assistant message:', err),
-          )
+            // Async: save final assistant message to backend
+            const finalMsg = {
+              id: assistantMsgId,
+              role: 'assistant' as const,
+              blocks,
+              status: 'success' as const,
+              createdAt: now + 1,
+            }
+            chatApi
+              .saveMessage(sessionId!, finalMsg)
+              .catch((err) =>
+                console.warn('[chat] Failed to sync assistant message:', err),
+              )
+          },
+          onError: (err: string) => {
+            store.updateMessage(assistantMsgId, { status: 'error' })
+            persistCurrentSession()
+          },
         },
       )
 
-      // 8. Final flush: ensure latest content and status
+      // 9. Final flush: ensure latest content and status
       const finalState = useChatStore.getState()
       const assistantMsg = finalState.currentMessages.find(
         (m) => m.id === assistantMsgId,
@@ -255,7 +370,7 @@ export function useChatController() {
         persistCurrentSession()
       }
     } catch {
-      // 9. Error: mark as error, persist
+      // 10. Error: mark as error, persist
       store.updateMessage(assistantMsgId, { status: 'error' })
       persistCurrentSession()
     }
@@ -279,7 +394,8 @@ export function useChatController() {
     const userMsg = messages[msgIdx - 1]
     if (userMsg.role !== 'user') return
 
-    const userContent = userMsg.blocks.find((b) => b.type === 'text')?.content ?? ''
+    const userContent =
+      userMsg.blocks.find((b) => b.type === 'text')?.content ?? ''
     if (!userContent) return
 
     // Reset assistant to sending
@@ -288,43 +404,138 @@ export function useChatController() {
       status: 'sending',
     })
 
-    let accumulated = ''
+    let thinkAccumulated = ''
+    let contentAccumulated = ''
     let lastFlush = 0
 
+    const flushBlocks = () => {
+      const blocks: MessageBlock[] = []
+      if (thinkAccumulated) {
+        blocks.push({ type: 'text', content: thinkAccumulated, thinking: true })
+      }
+      if (contentAccumulated) {
+        blocks.push({ type: 'text', content: contentAccumulated })
+      }
+      if (blocks.length === 0) {
+        blocks.push({ type: 'text', content: '' })
+      }
+      const cur = useChatStore.getState().currentSessionId
+      if (cur === sessionId) {
+        store.updateMessage(assistantMsgId, {
+          blocks,
+          status: 'streaming',
+        })
+      }
+    }
+
     try {
-      await simulateAIReplyStream(
-        userContent,
-        (delta: string) => {
-          accumulated += delta
-          const tick = Date.now()
-          if (tick - lastFlush >= STREAM_THROTTLE_MS) {
-            const cur = useChatStore.getState().currentSessionId
-            if (cur === sessionId) {
-              store.updateMessage(assistantMsgId, {
-                blocks: [{ type: 'text', content: accumulated }],
-                status: 'streaming',
+      // Build context from messages before the retry
+      const currentState = useChatStore.getState()
+      const historyMessages: Array<{ role: string; content: string }> = []
+      const contextMsgs = currentState.currentMessages
+        .filter((m) => m.status === 'success' && m.id !== assistantMsgId)
+        .filter((m) => {
+          const text = m.blocks.find((b) => b.type === 'text')?.content ?? ''
+          return text !== GREETING_TEXT
+        })
+        .slice(-20)
+      for (const m of contextMsgs) {
+        const text = m.blocks.find((b) => b.type === 'text')?.content ?? ''
+        if (text) {
+          historyMessages.push({ role: m.role, content: text })
+        }
+      }
+
+      await chatApi.streamCompletion(
+        state.currentSessionMeta?.model ?? DEFAULT_MODEL,
+        historyMessages,
+        {
+          onThinking: (text: string) => {
+            if (text.startsWith(thinkAccumulated)) {
+              const delta = text.slice(thinkAccumulated.length)
+              if (!delta) return
+              thinkAccumulated = text
+              const tick = Date.now()
+              if (tick - lastFlush >= STREAM_THROTTLE_MS) {
+                flushBlocks()
+                lastFlush = tick
+              }
+              return
+            }
+            thinkAccumulated += text
+            const tick = Date.now()
+            if (tick - lastFlush >= STREAM_THROTTLE_MS) {
+              flushBlocks()
+              lastFlush = tick
+            }
+          },
+          onContent: (text: string) => {
+            if (text.startsWith(contentAccumulated)) {
+              const delta = text.slice(contentAccumulated.length)
+              if (!delta) return
+              contentAccumulated = text
+              const tick = Date.now()
+              if (tick - lastFlush >= STREAM_THROTTLE_MS) {
+                flushBlocks()
+                lastFlush = tick
+              }
+              return
+            }
+            contentAccumulated += text
+            const tick = Date.now()
+            if (tick - lastFlush >= STREAM_THROTTLE_MS) {
+              flushBlocks()
+              lastFlush = tick
+            }
+          },
+          onDone: (fullText: string) => {
+            const blocks: MessageBlock[] = []
+            if (thinkAccumulated) {
+              blocks.push({
+                type: 'text',
+                content: thinkAccumulated,
+                thinking: true,
               })
             }
-            lastFlush = tick
-          }
-        },
-        (finalMessage: ChatMessage) => {
-          store.updateMessage(assistantMsgId, {
-            blocks: finalMessage.blocks,
-            status: 'success',
-          })
-          persistCurrentSession()
+            if (contentAccumulated) {
+              blocks.push({ type: 'text', content: contentAccumulated })
+            }
+            if (blocks.length === 0) {
+              blocks.push({
+                type: 'text',
+                content: fullText || '（无回复内容）',
+              })
+            }
+            store.updateMessage(assistantMsgId, {
+              blocks,
+              status: 'success',
+            })
+            persistCurrentSession()
 
-          chatApi.saveMessage(sessionId, {
-            ...finalMessage, id: assistantMsgId, createdAt: Date.now(),
-          }).catch((err) =>
-            console.warn('[chat] Failed to sync retry message:', err),
-          )
+            const finalMsg = {
+              id: assistantMsgId,
+              role: 'assistant' as const,
+              blocks,
+              status: 'success' as const,
+              createdAt: Date.now(),
+            }
+            chatApi
+              .saveMessage(sessionId, finalMsg)
+              .catch((err) =>
+                console.warn('[chat] Failed to sync retry message:', err),
+              )
+          },
+          onError: () => {
+            store.updateMessage(assistantMsgId, { status: 'error' })
+            persistCurrentSession()
+          },
         },
       )
 
       const finalState = useChatStore.getState()
-      const msg = finalState.currentMessages.find((m) => m.id === assistantMsgId)
+      const msg = finalState.currentMessages.find(
+        (m) => m.id === assistantMsgId,
+      )
       if (msg && msg.status !== 'success') {
         store.updateMessage(assistantMsgId, { status: 'success' })
         persistCurrentSession()
@@ -363,21 +574,65 @@ export function useChatController() {
   // ── deleteChat ────────────────────────────────────────────
 
   const deleteChat = (sessionId: string): void => {
+    // 1. Remove from store (immediate UI)
     store.removeSessionFromIndex(sessionId)
-    chatStorage.removeSessionMessages(sessionId)
-    persistCurrentSession() // update index in storage
 
-    // Async API delete
-    chatApi.deleteSession(sessionId).catch((err) =>
-      console.warn('[chat] Failed to sync delete:', err),
+    // 2. Remove messages from local storage
+    chatStorage.removeSessionMessages(sessionId)
+
+    // 3. Save updated index to storage directly (don't rely on persistCurrentSession,
+    //    which may have side effects with current session state)
+    const updatedIndex = useChatStore.getState().sessionsIndex
+    chatStorage.setSessionsIndex(updatedIndex)
+
+    // 4. If the deleted session was current, clear current session storage ref
+    if (chatStorage.getCurrentSessionId() === sessionId) {
+      chatStorage.setCurrentSessionId(null)
+    }
+
+    // 5. Async API delete
+    chatApi
+      .deleteSession(sessionId)
+      .catch((err) => console.warn('[chat] Failed to sync delete:', err))
+  }
+
+  // ── renameChat ─────────────────────────────────────────────
+
+  const renameChat = (sessionId: string, newTitle: string): void => {
+    // 1. Update store index (immediate UI feedback)
+    store.updateSessionInIndex(sessionId, { title: newTitle })
+
+    // 2. Update current session meta if renaming the active session
+    const state = useChatStore.getState()
+    if (state.currentSessionId === sessionId && state.currentSessionMeta) {
+      useChatStore.setState({
+        currentSessionMeta: { ...state.currentSessionMeta, title: newTitle },
+      })
+    }
+
+    // 3. Update local storage index
+    const currentIndex = chatStorage.getSessionsIndex()
+    const updatedIndex = currentIndex.map((s) =>
+      s.id === sessionId ? { ...s, title: newTitle } : s,
     )
+    chatStorage.setSessionsIndex(updatedIndex)
+
+    // 4. Async API sync
+    chatApi
+      .updateSession(sessionId, { title: newTitle })
+      .catch((err) => console.warn('[chat] Failed to sync rename:', err))
   }
 
   // ── loadMoreMessages ──────────────────────────────────────
 
   const loadMoreMessages = async (): Promise<void> => {
     const state = useChatStore.getState()
-    if (state.messagesLoading || !state.hasMoreMessages || !state.currentSessionId) return
+    if (
+      state.messagesLoading ||
+      !state.hasMoreMessages ||
+      !state.currentSessionId
+    )
+      return
 
     store.setMessagesLoading(true)
     const oldest = state.currentMessages[0]
@@ -410,12 +665,14 @@ export function useChatController() {
         state.sessionsPage + 1,
         DEFAULT_PAGE_SIZE,
       )
-      store.appendSessionsIndex(items, state.sessionsPage + 1, items.length > 0 && (state.sessionsPage + 1) * DEFAULT_PAGE_SIZE < total)
+      store.appendSessionsIndex(
+        items,
+        state.sessionsPage + 1,
+        items.length > 0 &&
+          (state.sessionsPage + 1) * DEFAULT_PAGE_SIZE < total,
+      )
       // Update local cache
-      chatStorage.setSessionsIndex([
-        ...state.sessionsIndex,
-        ...items,
-      ])
+      chatStorage.setSessionsIndex([...state.sessionsIndex, ...items])
     } catch (err) {
       console.warn('[chat] Failed to load more sessions:', err)
     } finally {
@@ -444,6 +701,7 @@ export function useChatController() {
     retryMessage,
     switchChat,
     deleteChat,
+    renameChat,
     loadMoreMessages,
     loadMoreSessions,
 

@@ -5,6 +5,8 @@ export type BlockType = 'text' | 'code' | 'table' | 'chart' | 'custom'
 export interface TextBlock {
   type: 'text'
   content: string
+  /** True when this block contains AI reasoning/thinking content (e.g. DeepSeek-R1) */
+  thinking?: boolean
 }
 
 export interface CodeBlock {

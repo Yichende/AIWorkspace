@@ -31,6 +31,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (Array.isArray(message)) {
         message = message.join('; ');
       }
+    } else if (
+      exception instanceof Error &&
+      (exception as any).type === 'entity.too.large'
+    ) {
+      // Express body-parser PayloadTooLargeError — return proper 413
+      status = (exception as any).status || HttpStatus.PAYLOAD_TOO_LARGE;
+      message = '请求体过大，请减少上传数据量';
     } else if (exception instanceof Error) {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = exception.message || 'Internal server error';

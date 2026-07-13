@@ -1,0 +1,135 @@
+@use '@/styles/theme.scss' as *;
+
+// ── Thinking Block — flat design, no bubble ──────────────
+//
+// Design: left border line + font size/color differentiate
+// thinking from main content. Background inherits from
+// parent assistant bubble (unified light gray).
+
+.thinking-block {
+  // No background, no border-radius — inherits parent bubble
+  // Only a left accent border line distinguishes this area
+  border-left: 4rpx solid rgba(139, 119, 90, 0.2);
+
+  &.thinking-streaming {
+    border-left-color: $color-secondary;
+  }
+}
+
+/* ── Header ──────────────────────────────────────────── */
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 0 12rpx 20rpx;
+}
+
+.thinking-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+/* Small dot indicator */
+.thinking-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: $text-placeholder;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+
+  &.pulsing {
+    background: $color-secondary;
+    animation: thinkPulse 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes thinkPulse {
+  0%, 100% { transform: scale(0.8); opacity: 0.5; }
+  50%      { transform: scale(1.6); opacity: 1; }
+}
+
+.thinking-label {
+  font-size: 24rpx;
+  color: $text-placeholder;
+  font-weight: 400;
+}
+
+.thinking-arrow {
+  font-size: 18rpx;
+  color: $text-placeholder;
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+  padding: 4rpx 8rpx;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+/* ── Content wrapper ────────────────────────────────── */
+
+.thinking-content-wrap {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+
+  // Expanded: show content with height limit (~40vh)
+  max-height: 40vh;
+
+  &.collapsed {
+    max-height: 0;
+  }
+}
+
+/* ── Scroll area ────────────────────────────────────── */
+
+.thinking-content-scroll {
+  max-height: 40vh;
+  box-sizing: border-box;
+}
+
+/* ── Thinking text ── */
+
+.thinking-text {
+  display: block;
+  padding: 0 0 8rpx 20rpx;
+  font-size: 24rpx;
+  color: $text-placeholder;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Scroll-to-bottom arrow ─────────────────────────── */
+
+.thinking-scroll-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8rpx 0 12rpx 20rpx; // align with left-border indent
+  gap: 2rpx;
+  cursor: pointer;
+
+  &:active {
+    opacity: 0.6;
+  }
+}
+
+.thinking-scroll-arrow-icon {
+  font-size: 22rpx;
+  color: $text-placeholder;
+  animation: arrowBounce 1.4s ease-in-out infinite;
+}
+
+.thinking-scroll-arrow-label {
+  font-size: 20rpx;
+  color: $text-placeholder;
+}
+
+@keyframes arrowBounce {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50%      { transform: translateY(6rpx); opacity: 1; }
+}

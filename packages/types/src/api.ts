@@ -45,3 +45,7 @@ export interface QueryMessagesParams {
   before?: number
   limit?: number
 }
+
+export interface UpdateSessionParams {
+  title?: string
+}

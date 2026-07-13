@@ -384,7 +384,7 @@
 
   height: 76rpx;
 
-  padding: 0 16rpx;
+  padding: 0 8rpx 0 16rpx;
 
   border-radius: $radius-small;
 
@@ -393,6 +393,39 @@
   &:active {
     background: rgba(17, 124, 13, 0.06);
   }
+}
+
+/* Current session highlight */
+.history-item-active {
+  background: rgba(17, 124, 13, 0.08);
+}
+
+/* More options button */
+.history-item-more {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  margin-left: 8rpx;
+  transition: $transition-fast;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.12);
+  }
+}
+
+/* Inline rename input */
+.history-item-edit-input {
+  font-size: 28rpx;
+  color: $text-primary;
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 8rpx;
+  border-bottom: 2rpx solid $color-secondary;
+  background: transparent;
 }
 
 .history-item-content {
@@ -421,6 +454,145 @@
   font-size: 22rpx;
 
   color: $text-placeholder;
+}
+
+/* More button wrapper (positioned relative for popover) */
+.history-item-more-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Popover menu */
+.history-popover {
+  position: absolute;
+  right: 0;
+  top: 64rpx;
+  z-index: 2200;
+
+  min-width: 240rpx;
+
+  padding: 12rpx 0;
+
+  background: #fff;
+  border-radius: $radius-medium;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+
+  height: 80rpx;
+
+  padding: 0 24rpx;
+
+  transition: $transition-fast;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.05);
+  }
+}
+
+.popover-item-text {
+  font-size: 28rpx;
+  color: $text-primary;
+}
+
+.popover-item-text-danger {
+  color: #E65050;
+}
+
+.popover-divider {
+  height: 2rpx;
+  margin: 4rpx 16rpx;
+  background: $border-light;
+}
+
+/* Confirm delete dialog overlay */
+.popover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2300;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.confirm-dialog {
+  width: 560rpx;
+
+  padding: 48rpx 40rpx 32rpx;
+
+  background: #fff;
+  border-radius: $radius-large;
+
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.15);
+}
+
+.confirm-title {
+  display: block;
+
+  font-size: 34rpx;
+  font-weight: 600;
+  color: $text-primary;
+
+  text-align: center;
+
+  margin-bottom: 16rpx;
+}
+
+.confirm-content {
+  display: block;
+
+  font-size: 28rpx;
+  color: $text-secondary;
+
+  text-align: center;
+
+  margin-bottom: 40rpx;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.confirm-btn {
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 80rpx;
+
+  border-radius: $radius-small;
+
+  font-size: 30rpx;
+  font-weight: 500;
+
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.confirm-btn.cancel {
+  background: rgba(0, 0, 0, 0.05);
+  color: $text-secondary;
+}
+
+.confirm-btn.danger {
+  background: #E65050;
+  color: #fff;
 }
 
 .history-empty {

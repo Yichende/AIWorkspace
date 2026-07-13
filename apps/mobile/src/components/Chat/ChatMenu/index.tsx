@@ -4,6 +4,7 @@ import { Popup } from '@nutui/nutui-react-taro'
 import { Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
 import { useUserStore } from '@/stores/user.store'
+import { AI_MODELS } from '@repo/types'
 import type { ChatHistoryGroup } from '@/stores/chat.store'
 
 import Taro from '@tarojs/taro'
@@ -14,6 +15,7 @@ import './index.scss'
 interface Props {
   visible: boolean
   currentModel: string
+  currentSessionId: string | null
   historyGroups: ChatHistoryGroup[]
   hasMoreSessions: boolean
   sessionsLoading: boolean
@@ -21,19 +23,15 @@ interface Props {
   onModelChange: (model: string) => void
   onNewChat?: () => void
   onHistorySelect?: (id: string) => void
+  onDeleteChat?: (id: string) => void
+  onRenameChat?: (id: string, newTitle: string) => void
   onLoadMoreSessions?: () => void
 }
-
-const MODEL_OPTIONS = [
-  { key: 'deepseek-r1', name: 'DeepSeek-R1' },
-  { key: 'deepseek-v3', name: 'DeepSeek-V3' },
-  { key: 'gpt-4o', name: 'GPT-4o' },
-  { key: 'claude-4', name: 'Claude 4' },
-]
 
 export default function ChatMenu({
   visible,
   currentModel,
+  currentSessionId,
   historyGroups,
   hasMoreSessions,
   sessionsLoading,
@@ -41,6 +39,8 @@ export default function ChatMenu({
   onModelChange,
   onNewChat,
   onHistorySelect,
+  onDeleteChat,
+  onRenameChat,
   onLoadMoreSessions,
 }: Props) {
   const userInfo = useUserStore((state) => state.userInfo)
@@ -122,15 +122,15 @@ export default function ChatMenu({
 
             {modelExpanded && (
               <View className='model-list'>
-                {MODEL_OPTIONS.map((option) => (
+                {AI_MODELS.map((option) => (
                   <View
-                    key={option.key}
-                    className={`model-item ${currentModel === option.name ? 'active' : ''}`}
-                    onClick={() => handleModelChange(option.name)}
+                    key={option.id}
+                    className={`model-item ${currentModel === option.id ? 'active' : ''}`}
+                    onClick={() => handleModelChange(option.id)}
                   >
-                    <Text className='model-item-name'>{option.name}</Text>
+                    <Text className='model-item-name'>{option.id}</Text>
 
-                    {currentModel === option.name && (
+                    {currentModel === option.id && (
                       <Icon name='chenggong' size={32} color={IconColors.secondary} />
                     )}
                   </View>
@@ -146,7 +146,10 @@ export default function ChatMenu({
             groups={historyGroups}
             hasMore={hasMoreSessions}
             loading={sessionsLoading}
+            currentSessionId={currentSessionId}
             onSelect={handleHistorySelect}
+            onRename={onRenameChat}
+            onDelete={onDeleteChat}
             onLoadMore={onLoadMoreSessions}
           />
         </View>

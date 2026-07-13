@@ -116,6 +116,26 @@ export class ChatService {
     return { success: true };
   }
 
+  async updateSession(
+    userId: number,
+    sessionId: string,
+    dto: { title?: string },
+  ) {
+    const session = await this.sessionModel.findByPk(sessionId);
+    if (!session) {
+      throw new NotFoundException('会话不存在');
+    }
+    if (session.userId !== userId) {
+      throw new ForbiddenException('无权操作此会话');
+    }
+
+    const updateData: any = {};
+    if (dto.title !== undefined) updateData.title = dto.title;
+
+    await session.update(updateData);
+    return session;
+  }
+
   // ── Messages ──────────────────────────────────────────────
 
   async listMessages(

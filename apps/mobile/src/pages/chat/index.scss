@@ -15,10 +15,21 @@
   flex: 1;
 
   overflow: hidden;
+
+  // padding moved here from scroll-view (not supported in webview)
+  padding: 0 32rpx;
+  box-sizing: border-box;
 }
 
 .message-list {
   height: 100%;
-  padding: 0 32rpx;
-  box-sizing: border-box;
+
+  // 隐藏滚动条（H5/webview 兜底，小程序端由 showScrollbar={false} 控制）
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  scrollbar-width: none; // Firefox
+  -ms-overflow-style: none; // IE
 }
