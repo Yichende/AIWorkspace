@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { SequelizeModule } from '@nestjs/sequelize';
 
 import { User } from '../user/entities/user.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -14,7 +15,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   imports: [
     ConfigModule,
     PassportModule,
-    SequelizeModule.forFeature([User]),
+    SequelizeModule.forFeature([User, RefreshToken]),
 
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -24,7 +25,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         secret: configService.get<string>('JWT_SECRET'),
 
         signOptions: {
-          expiresIn: '7d',
+          expiresIn: (configService.get<string>('JWT_ACCESS_EXPIRES_IN') ??
+            '15m') as any,
         },
       }),
     }),

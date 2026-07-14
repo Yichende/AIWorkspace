@@ -1,4 +1,5 @@
-import { Table, Column, Model, DataType } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
+import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 
 @Table({
   tableName: 'users',
@@ -32,4 +33,7 @@ export class User extends Model {
     allowNull: false,
   })
   declare password: string;
+
+  @HasMany(() => RefreshToken)
+  declare refresh_tokens: RefreshToken[];
 }

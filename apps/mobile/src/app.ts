@@ -1,23 +1,28 @@
 import { PropsWithChildren, useEffect } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import { useUserStore } from '@/stores/user.store'
-import { getToken } from '@/utils/auth'
+import { getToken, getRefreshToken } from '@/utils/auth'
 import './app.scss'
 
 function App({ children }: PropsWithChildren<any>) {
   const setToken = useUserStore((state) => state.setToken)
+  const setRefreshToken = useUserStore((state) => state.setRefreshToken)
 
   useEffect(() => {
     const initAuth = async () => {
       const token = await getToken()
+      const refreshToken = await getRefreshToken()
 
       if (token) {
         setToken(token)
       }
+      if (refreshToken) {
+        setRefreshToken(refreshToken)
+      }
     }
 
     initAuth()
-  }, [setToken])
+  }, [setToken, setRefreshToken])
   
   useLaunch(() => {
     console.log('App launched.')

@@ -1,7 +1,9 @@
 import Taro from '@tarojs/taro'
 import type { CreateSessionParams, CreateMessageParams, UpdateMessageParams, UpdateSessionParams, PaginatedSessions, MessageListResponse } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
-import { getToken } from '@/utils/auth'
+import { getToken, getRefreshToken, setToken, setRefreshToken } from '@/utils/auth'
+import { isTokenExpiringSoon } from '@/utils/token-check'
+import { useUserStore } from '@/stores/user.store'
 import request from './request'
 
 // Re-export for backward compatibility
@@ -104,7 +106,39 @@ export const chatApi = {
     callbacks: StreamCallbacks,
   ): Promise<Taro.RequestTask<any>> {
     const reqUrl = `${BASE_URL}/chat/completions`
-    const token = await getToken()
+    let token = await getToken()
+
+    // ── Pre-check: refresh token if expiring soon (avoids mid-stream 401) ──
+    if (token && isTokenExpiringSoon(token, 30000)) {
+      try {
+        const refreshToken = await getRefreshToken()
+        if (refreshToken) {
+          const refreshRes = await Taro.request<{
+            access_token: string
+            refresh_token: string
+          }>({
+            url: `${BASE_URL}/auth/refresh`,
+            method: 'POST',
+            data: { refresh_token: refreshToken },
+            header: { 'Content-Type': 'application/json' },
+          })
+
+          if (
+            refreshRes.statusCode >= 200 &&
+            refreshRes.statusCode < 300
+          ) {
+            const { access_token, refresh_token } = refreshRes.data
+            await setToken(access_token)
+            await setRefreshToken(refresh_token)
+            useUserStore.getState().setToken(access_token)
+            useUserStore.getState().setRefreshToken(refresh_token)
+            token = access_token
+          }
+        }
+      } catch {
+        // Refresh failed — proceed with existing token (will 401 if expired)
+      }
+    }
 
     let buffer = ''
 

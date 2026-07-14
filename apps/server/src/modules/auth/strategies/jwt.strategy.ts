@@ -6,6 +6,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { InjectModel } from '@nestjs/sequelize';
 
+import { ConfigService } from '@nestjs/config';
+
 import { User } from '../../user/entities/user.entity';
 
 @Injectable()
@@ -13,13 +15,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     @InjectModel(User)
     private userModel: typeof User,
+
+    private configService: ConfigService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
 
       ignoreExpiration: false,
 
-      secretOrKey: process.env.JWT_SECRET!,
+      secretOrKey: configService.get<string>('JWT_SECRET')!,
     });
   }
 

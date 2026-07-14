@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View, Input, Button, Text } from '@tarojs/components'
-import { loginApi } from '@/services/user'
-import { setToken } from '@/utils/auth'
+import { loginApi, registerApi } from '@/services/user'
+import { setToken, setRefreshToken, getToken } from '@/utils/auth'
 import { useUserStore } from '@/stores/user.store'
 import Taro from '@tarojs/taro'
 import LogoAnimation from '../../components/LogoAnimation'
@@ -11,12 +11,35 @@ type LoginMode = 'wechat' | 'password' | 'register'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
   const storeSetToken = useUserStore((state) => state.setToken)
+  const storeSetRefreshToken = useUserStore((state) => state.setRefreshToken)
   const [showLogin, setShowLogin] = useState(false)
   const [loginMode, setLoginMode] = useState<LoginMode>('wechat')
+
+  // 已有 token → 自动跳转首页
+  const token = useUserStore((state) => state.token)
+
+  useEffect(() => {
+    const checkAndRedirect = async () => {
+      const storedToken = token || (await getToken())
+      if (storedToken) {
+        Taro.reLaunch({ url: '/pages/home/index' })
+      }
+    }
+    checkAndRedirect()
+  }, [])
+
+  // 保存 token 到本地和 store
+  const saveTokens = async (accessToken: string, refreshToken: string) => {
+    await setToken(accessToken)
+    await setRefreshToken(refreshToken)
+    storeSetToken(accessToken)
+    storeSetRefreshToken(refreshToken)
+  }
 
   // 密码登录
   const handlePwLogin = async () => {
@@ -28,11 +51,7 @@ export default function LoginPage() {
       })
       console.log('[Login] 登录成功:', res)
 
-      // 持久化token
-      await setToken(res.access_token)
-
-      // 同步Zustand
-      storeSetToken(res.access_token)
+      await saveTokens(res.access_token, res.refresh_token)
 
       // 跳转首页
       Taro.reLaunch({
@@ -40,7 +59,6 @@ export default function LoginPage() {
       })
     } catch (error: any) {
       console.error('[Login] 登录失败:', error)
-      // 显示具体错误信息
       const errMsg = typeof error === 'string'
         ? error
         : error?.message || error?.errMsg || JSON.stringify(error)
@@ -61,13 +79,43 @@ export default function LoginPage() {
   }
 
   // 注册
-  const handleRegister = () => {
-    Taro.showToast({
-      title: '注册成功',
-      icon: 'success',
-    })
+  const handleRegister = async () => {
+    if (password !== confirmPassword) {
+      Taro.showToast({
+        title: '两次密码不一致',
+        icon: 'none',
+      })
+      return
+    }
 
-    setLoginMode('password')
+    try {
+      const res = await registerApi({
+        username,
+        email,
+        password,
+      })
+
+      await saveTokens(res.access_token, res.refresh_token)
+
+      Taro.showToast({
+        title: '注册成功',
+        icon: 'success',
+      })
+
+      // 跳转首页
+      Taro.reLaunch({
+        url: '/pages/home/index',
+      })
+    } catch (error: any) {
+      const errMsg = typeof error === 'string'
+        ? error
+        : error?.message || error?.errMsg || JSON.stringify(error)
+      Taro.showToast({
+        title: errMsg.length > 30 ? errMsg.slice(0, 30) + '...' : errMsg,
+        icon: 'none',
+        duration: 3000,
+      })
+    }
   }
 
   useEffect(() => {
@@ -85,7 +133,6 @@ export default function LoginPage() {
 
       {/* Logo 区域 */}
       <View className={`logo-section ${showLogin ? 'logo-active' : ''}`}>
-        {/* <View className="logo">AI</View> */}
         <LogoAnimation />
 
         <View className={`app-title ${showLogin ? 'title-show' : ''}`}>
@@ -168,14 +215,18 @@ export default function LoginPage() {
 
           <Input
             className='input'
-            placeholder='请输入邮箱'
+            placeholder='请输入用户名'
             placeholderClass='placeholder'
+            value={username}
+            onInput={(e) => setUsername(e.detail.value)}
           />
 
           <Input
             className='input'
-            placeholder='请输入验证码'
+            placeholder='请输入邮箱'
             placeholderClass='placeholder'
+            value={email}
+            onInput={(e) => setEmail(e.detail.value)}
           />
 
           <Input
