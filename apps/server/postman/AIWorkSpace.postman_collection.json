@@ -1,0 +1,1419 @@
+{
+  "info": {
+    "_postman_id": "6d4b076b-1b4a-47d6-afc3-bc87315a0898",
+    "name": "AIWorkSpace",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "17664406"
+  },
+  "item": [
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"username\": \"test\",\r\n  \"email\": \"test@qq.com\",\r\n  \"password\": \"123456\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/auth/register",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"test@qq.com\",\r\n  \"password\": \"123456\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "双Token认证完整测试：注册/登录/刷新/会话管理/JWT守卫。\n\nToken机制：\n- Access Token: 15分钟有效期，JWT_SECRET 签名\n- Refresh Token: 7天有效期，JWT_REFRESH_SECRET 签名，bcrypt 哈希存储\n- Refresh Token Rotation: 每次刷新后旧 token 作废，颁发新 token 对\n- Replay Attack 防护: 重复使用已刷新的 token 会销毁该设备会话\n\n设备标识：通过自定义 Header 传递 x-device-type / x-device-name / x-device-id",
+      "item": [
+        {
+          "name": "Register",
+          "description": "用户注册接口。支持可选的设备信息 Header，不传则自动生成 UUID。",
+          "item": [
+            {
+              "name": "正常注册（带设备信息）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 201', () => pm.response.to.have.status(201));",
+                      "pm.test('返回 user 对象', () => {",
+                      "  const json = pm.response.json();",
+                      "  pm.expect(json.user).to.have.property('id');",
+                      "  pm.expect(json.user).to.have.property('email');",
+                      "  pm.expect(json.user).to.have.property('username');",
+                      "});",
+                      "pm.test('返回 access_token', () => {",
+                      "  pm.expect(pm.response.json().access_token).to.be.a('string').and.not.empty;",
+                      "});",
+                      "pm.test('返回 refresh_token', () => {",
+                      "  pm.expect(pm.response.json().refresh_token).to.be.a('string').and.not.empty;",
+                      "});",
+                      "pm.collectionVariables.set('access_token', pm.response.json().access_token);",
+                      "pm.collectionVariables.set('refresh_token', pm.response.json().refresh_token);",
+                      "var ts = Date.now();",
+                      "pm.collectionVariables.set('test_email', 'test_' + ts + '@example.com');",
+                      "console.log('注册成功，tokens 已保存');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                },
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "var ts = Date.now();",
+                      "pm.variables.set('dynamicEmail', 'test_' + ts + '@example.com');",
+                      "pm.variables.set('dynamicUsername', 'tester_' + ts);"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-device-type", "value": "mobile" },
+                  { "key": "x-device-name", "value": "iPhone 15 Pro" },
+                  { "key": "x-device-id", "value": "device-iphone-15-pro-001" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"{{dynamicUsername}}\",\n  \"email\": \"{{dynamicEmail}}\",\n  \"password\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/register",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "正常注册（无设备信息）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 201', () => pm.response.to.have.status(201));",
+                      "pm.test('返回 access_token 和 refresh_token', () => {",
+                      "  var json = pm.response.json();",
+                      "  pm.expect(json.access_token).to.be.a('string');",
+                      "  pm.expect(json.refresh_token).to.be.a('string');",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"nodevice\",\n  \"email\": \"nodevice@example.com\",\n  \"password\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/register",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "重复邮箱注册",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 400', () => pm.response.to.have.status(400));",
+                      "pm.test('返回错误信息：邮箱已存在', () => {",
+                      "  var json = pm.response.json();",
+                      "  pm.expect(json.message).to.include('邮箱已存在');",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"duplicate\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/register",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "缺少必填字段（无 email）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 400（ValidationPipe 拦截）', () => pm.response.to.have.status(400));"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"noemail\",\n  \"password\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/register",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "密码过短（< 6位）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 400', () => pm.response.to.have.status(400));"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"shortpass\",\n  \"email\": \"short@example.com\",\n  \"password\": \"123\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/register",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "register"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "description": "登录接口。支持多设备登录，同一设备重复登录会更新已有 session（upsert），不同设备创建独立 session。",
+          "item": [
+            {
+              "name": "正常登录（带设备信息）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 201', () => pm.response.to.have.status(201));",
+                      "pm.test('返回 user 对象', () => {",
+                      "  var json = pm.response.json();",
+                      "  pm.expect(json.user).to.have.property('id');",
+                      "  pm.expect(json.user).to.have.property('email');",
+                      "  pm.expect(json.user).to.have.property('username');",
+                      "});",
+                      "pm.test('返回 access_token（JWT，含 type:access）', () => {",
+                      "  var token = pm.response.json().access_token;",
+                      "  pm.expect(token).to.be.a('string').and.not.empty;",
+                      "  pm.collectionVariables.set('access_token', token);",
+                      "});",
+                      "pm.test('返回 refresh_token（JWT，含 type:refresh + device_id）', () => {",
+                      "  var token = pm.response.json().refresh_token;",
+                      "  pm.expect(token).to.be.a('string').and.not.empty;",
+                      "  pm.collectionVariables.set('refresh_token', token);",
+                      "});",
+                      "console.log('登录成功，tokens 已更新');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-device-type", "value": "desktop" },
+                  { "key": "x-device-name", "value": "MacBook Pro" },
+                  { "key": "x-device-id", "value": "device-macbook-pro-001" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/login",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "login"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "同设备重复登录（验证 upsert）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 201', () => pm.response.to.have.status(201));",
+                      "pm.test('每次登录返回新的 token 对（upsert 更新）', () => {",
+                      "  var newAccess = pm.response.json().access_token;",
+                      "  var oldAccess = pm.collectionVariables.get('access_token');",
+                      "  pm.expect(newAccess).to.not.eql(oldAccess);",
+                      "  pm.collectionVariables.set('access_token', newAccess);",
+                      "  pm.collectionVariables.set('refresh_token', pm.response.json().refresh_token);",
+                      "});",
+                      "console.log('同设备重复登录：token 已更新（upsert 行为正确）');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-device-type", "value": "desktop" },
+                  { "key": "x-device-id", "value": "device-macbook-pro-001" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/login",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "login"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "新设备登录同一账号（创建新 session）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 201', () => pm.response.to.have.status(201));",
+                      "pm.test('新设备登录成功，返回独立 token', () => {",
+                      "  var json = pm.response.json();",
+                      "  pm.expect(json.access_token).to.be.a('string');",
+                      "  pm.collectionVariables.set('device2_access_token', json.access_token);",
+                      "  pm.collectionVariables.set('device2_refresh_token', json.refresh_token);",
+                      "});",
+                      "console.log('新设备登录成功，已保存 device2 tokens');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-device-type", "value": "tablet" },
+                  { "key": "x-device-name", "value": "iPad Pro" },
+                  { "key": "x-device-id", "value": "device-ipad-pro-001" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/login",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "login"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "密码错误",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 400', () => pm.response.to.have.status(400));",
+                      "pm.test('返回错误：密码错误', () => {",
+                      "  pm.expect(pm.response.json().message).to.include('密码错误');",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"wrongpassword\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/login",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "login"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "用户不存在",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 400', () => pm.response.to.have.status(400));",
+                      "pm.test('返回错误：用户不存在', () => {",
+                      "  pm.expect(pm.response.json().message).to.include('用户不存在');",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"nouser@example.com\",\n  \"password\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/login",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "login"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "缺少必填字段（无 password）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 400（ValidationPipe 拦截）', () => pm.response.to.have.status(400));"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"nopass@example.com\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/login",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "login"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "description": "Refresh Token 轮转机制。每次刷新后旧 token 立即失效，新 token 对发放。重复使用旧 token 会触发 replay attack 检测并销毁会话。\n\n⚠️ 测试顺序：先执行「正常刷新」，再执行「Replay Attack 检测」。",
+          "item": [
+            {
+              "name": "正常刷新（Token 轮转）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 201', () => pm.response.to.have.status(201));",
+                      "pm.test('返回新的 access_token', () => {",
+                      "  var newAccess = pm.response.json().access_token;",
+                      "  pm.expect(newAccess).to.be.a('string').and.not.empty;",
+                      "  pm.expect(newAccess).to.not.eql(pm.collectionVariables.get('access_token'));",
+                      "  pm.collectionVariables.set('access_token', newAccess);",
+                      "});",
+                      "pm.test('返回新的 refresh_token（轮转后旧 token 立即失效）', () => {",
+                      "  var newRefresh = pm.response.json().refresh_token;",
+                      "  pm.expect(newRefresh).to.be.a('string').and.not.empty;",
+                      "  pm.expect(newRefresh).to.not.eql(pm.collectionVariables.get('refresh_token'));",
+                      "  pm.collectionVariables.set('old_refresh_token', pm.collectionVariables.get('refresh_token'));",
+                      "  pm.collectionVariables.set('refresh_token', newRefresh);",
+                      "});",
+                      "console.log('Token 轮转成功，旧 refresh_token 已保存为 old_refresh_token');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/refresh",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "refresh"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Replay Attack 检测（复用旧 token）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 401', () => pm.response.to.have.status(401));",
+                      "pm.test('返回错误：已被使用（Replay Attack 拦截）', () => {",
+                      "  pm.expect(pm.response.json().message).to.include('已被使用');",
+                      "});",
+                      "console.log('Replay Attack 正确拦截：旧 token 被拒绝，会话已销毁');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{old_refresh_token}}\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/refresh",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "refresh"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "无效的 refresh token（随机字符串）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 401', () => pm.response.to.have.status(401));",
+                      "pm.test('返回错误：无效或已过期', () => {",
+                      "  pm.expect(pm.response.json().message).to.include('无效或已过期');",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"some.invalid.token.string\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/refresh",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "refresh"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "access_token 冒充 refresh_token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 401', () => pm.response.to.have.status(401));",
+                      "pm.test('返回错误：无效的令牌类型', () => {",
+                      "  pm.expect(pm.response.json().message).to.include('无效的令牌类型');",
+                      "});",
+                      "console.log('类型校验通过：access token 不能当 refresh token 使用');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{access_token}}\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/refresh",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "refresh"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "空 refresh_token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 400（ValidationPipe 拦截）', () => pm.response.to.have.status(400));"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/auth/refresh",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "refresh"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Sessions",
+          "description": "会话管理：查看所有设备会话、撤销指定会话、批量撤销。",
+          "item": [
+            {
+              "name": "获取所有会话列表",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 200', () => pm.response.to.have.status(200));",
+                      "pm.test('返回数组', () => {",
+                      "  pm.expect(pm.response.json()).to.be.an('array');",
+                      "});",
+                      "pm.test('每个 session 包含必要字段', () => {",
+                      "  var sessions = pm.response.json();",
+                      "  if (sessions.length > 0) {",
+                      "    var s = sessions[0];",
+                      "    pm.expect(s).to.have.property('id');",
+                      "    pm.expect(s).to.have.property('device_type');",
+                      "    pm.expect(s).to.have.property('device_name');",
+                      "    pm.expect(s).to.have.property('device_id');",
+                      "    pm.expect(s).to.have.property('last_used_at');",
+                      "    pm.expect(s).to.have.property('is_current');",
+                      "    pm.collectionVariables.set('session_id_1', s.id);",
+                      "    console.log('找到 ' + sessions.length + ' 个会话');",
+                      "  }",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{access_token}}" }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/auth/sessions",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "sessions"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "获取会话列表（指定 device_id）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 200', () => pm.response.to.have.status(200));",
+                      "pm.test('指定 device_id 时 is_current 为 true', () => {",
+                      "  var sessions = pm.response.json();",
+                      "  sessions.forEach(function(s) {",
+                      "    if (s.is_current) {",
+                      "      console.log('当前设备会话: ' + s.device_name);",
+                      "    }",
+                      "  });",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{access_token}}" }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/auth/sessions?device_id=device-macbook-pro-001",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "sessions"],
+                  "query": [
+                    { "key": "device_id", "value": "device-macbook-pro-001" }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "撤销指定会话（按 session id）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 200', () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                      "});",
+                      "console.log('指定会话已撤销');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{device2_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/auth/sessions/{{session_id_1}}",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "sessions", "{{session_id_1}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "撤销所有会话（except=current）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 200', () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                      "});",
+                      "console.log('已撤销所有其他设备会话（保留当前设备）');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{access_token}}" }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/auth/sessions?except=current",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "sessions"],
+                  "query": [{ "key": "except", "value": "current" }]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "撤销所有会话（全部清除）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 200', () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                      "});",
+                      "console.log('所有会话已清除，用户需重新登录');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{access_token}}" }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/auth/sessions",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["auth", "sessions"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "JWT Guard",
+          "description": "验证 JwtAuthGuard 对受保护接口的拦截：有效 token 放行、无 token / 假 token / 已撤销 token 均返回 401。",
+          "item": [
+            {
+              "name": "有效 token 访问 /user/profile",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 200', () => pm.response.to.have.status(200));",
+                      "pm.test('返回用户信息', () => {",
+                      "  var json = pm.response.json();",
+                      "  pm.expect(json).to.have.property('id');",
+                      "  pm.expect(json).to.have.property('email');",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{access_token}}" }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/user/profile",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["user", "profile"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "无 token 访问 /user/profile",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 401', () => pm.response.to.have.status(401));"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:3000/user/profile",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["user", "profile"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "伪造 token 访问 /user/profile",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 401', () => pm.response.to.have.status(401));"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer fake.jwt.token.here"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/user/profile",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["user", "profile"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "已撤销 session 的 token 访问",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('状态码 401', () => pm.response.to.have.status(401));",
+                      "console.log('会话撤销后旧 token 被正确拒绝');"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{device2_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/user/profile",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": ["user", "profile"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "E2E 完整流程",
+          "description": "一键串联：注册→登录→访问→刷新→ReplayAttack→会话列表。通过 pm.sendRequest 自动串联所有步骤。",
+          "item": [
+            {
+              "name": "完整双Token生命周期（自动串联）",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var baseUrl = 'http://localhost:3000';",
+                      "var ts = Date.now();",
+                      "var email = 'e2e_' + ts + '@example.com';",
+                      "var password = '123456';",
+                      "",
+                      "// Step 1: 注册",
+                      "pm.sendRequest({",
+                      "  url: baseUrl + '/auth/register',",
+                      "  method: 'POST',",
+                      "  header: { 'Content-Type': 'application/json', 'x-device-type': 'e2e-test', 'x-device-id': 'e2e-device-' + ts },",
+                      "  body: { mode: 'raw', raw: JSON.stringify({ username: 'e2e_' + ts, email: email, password: password }) }",
+                      "}, function(err, res) {",
+                      "  pm.test('Step1-注册: 201', function() { pm.expect(res.code).to.eql(201); });",
+                      "  var tokens = res.json();",
+                      "",
+                      "  // Step 2: 登录",
+                      "  pm.sendRequest({",
+                      "    url: baseUrl + '/auth/login',",
+                      "    method: 'POST',",
+                      "    header: { 'Content-Type': 'application/json', 'x-device-type': 'e2e-test', 'x-device-id': 'e2e-device-' + ts },",
+                      "    body: { mode: 'raw', raw: JSON.stringify({ email: email, password: password }) }",
+                      "  }, function(err, res) {",
+                      "    pm.test('Step2-登录: 201', function() { pm.expect(res.code).to.eql(201); });",
+                      "    var loginData = res.json();",
+                      "    var access_token = loginData.access_token;",
+                      "    var refresh_token = loginData.refresh_token;",
+                      "",
+                      "    // Step 3: 访问受保护接口",
+                      "    pm.sendRequest({",
+                      "      url: baseUrl + '/user/profile',",
+                      "      method: 'GET',",
+                      "      header: { 'Authorization': 'Bearer ' + access_token }",
+                      "    }, function(err, res) {",
+                      "      pm.test('Step3-访问受保护接口: 200', function() { pm.expect(res.code).to.eql(200); });",
+                      "",
+                      "      // Step 4: 刷新 token",
+                      "      pm.sendRequest({",
+                      "        url: baseUrl + '/auth/refresh',",
+                      "        method: 'POST',",
+                      "        header: { 'Content-Type': 'application/json' },",
+                      "        body: { mode: 'raw', raw: JSON.stringify({ refresh_token: refresh_token }) }",
+                      "      }, function(err, res) {",
+                      "        pm.test('Step4-刷新Token: 201', function() { pm.expect(res.code).to.eql(201); });",
+                      "        var newTokens = res.json();",
+                      "        pm.test('Step4-新旧Token不同', function() {",
+                      "          pm.expect(newTokens.access_token).to.not.eql(access_token);",
+                      "          pm.expect(newTokens.refresh_token).to.not.eql(refresh_token);",
+                      "        });",
+                      "",
+                      "        // Step 5: Replay Attack（旧 refresh token 应被拒绝）",
+                      "        pm.sendRequest({",
+                      "          url: baseUrl + '/auth/refresh',",
+                      "          method: 'POST',",
+                      "          header: { 'Content-Type': 'application/json' },",
+                      "          body: { mode: 'raw', raw: JSON.stringify({ refresh_token: refresh_token }) }",
+                      "        }, function(err, res) {",
+                      "          pm.test('Step5-ReplayAttack拦截: 401', function() { pm.expect(res.code).to.eql(401); });",
+                      "",
+                      "          // Step 6: 查看会话列表",
+                      "          pm.sendRequest({",
+                      "            url: baseUrl + '/auth/sessions',",
+                      "            method: 'GET',",
+                      "            header: { 'Authorization': 'Bearer ' + newTokens.access_token }",
+                      "          }, function(err, res) {",
+                      "            pm.test('Step6-会话列表: 200', function() { pm.expect(res.code).to.eql(200); });",
+                      "            var sessions = res.json();",
+                      "            pm.test('Step6-至少有1个会话', function() { pm.expect(sessions.length).to.be.at.least(1); });",
+                      "            console.log('E2E 完整流程通过：注册→登录→访问→刷新→ReplayAttack→会话列表');",
+                      "          });",
+                      "        });",
+                      "      });",
+                      "    });",
+                      "  });",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "http://localhost:3000/",
+                  "protocol": "http",
+                  "host": ["localhost"],
+                  "port": "3000",
+                  "path": [""]
+                },
+                "description": "触发器请求。实际测试在 Tests 脚本中通过 pm.sendRequest 串联执行完整流程。"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "建议测试顺序",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "1. POST /auth/login → 拿到 token\n    \n2. POST /chat/sessions → 创建一个测试会话\n    \n3. GET /chat/sessions → 验证会话列表\n    \n4. POST /chat/sessions/{id}/messages → 发一条消息\n    \n5. GET /chat/sessions/{id}/messages → 获取消息列表\n    \n6. PATCH /chat/messages/{messageId} → 更新消息内容\n    \n7. DELETE /chat/sessions/{id} → 删除会话"
+          },
+          "response": []
+        },
+        {
+          "name": "获取会话列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/chat/sessions",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["chat", "sessions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "创建会话",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"id\": \"session-abc-123\",\r\n    \"title\": \"新对话\",\r\n    \"model\": \"DeepSeek-R1\",\r\n    \"messages\": [\r\n      {\r\n        \"id\": \"message-001\",\r\n        \"role\": \"user\",\r\n        \"blocks\": [{ \"type\": \"text\", \"content\": \"你好\" }],\r\n        \"status\": \"success\",\r\n        \"createdAt\": 1700000000000\r\n      }\r\n    ]\r\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/chat/sessions",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["chat", "sessions"]
+            },
+            "description": "┌──────────────────────┬────────┬──────┬───────────────────┐  \n│ 字段 │ 类型 │ 必填 │ 说明 │  \n├──────────────────────┼────────┼──────┼───────────────────┤  \n│ id │ string │ ✅ │ 长度 10-36 │  \n├──────────────────────┼────────┼──────┼───────────────────┤  \n│ title │ string │ ❌ │ 会话标题 │  \n├──────────────────────┼────────┼──────┼───────────────────┤  \n│ model │ string │ ✅ │ 模型名称 │  \n├──────────────────────┼────────┼──────┼───────────────────┤  \n│ messages\\[\\].id │ string │ ✅ │ 长度 10-36 │  \n├──────────────────────┼────────┼──────┼───────────────────┤  \n│ messages\\[\\].role │ enum │ ✅ │ user 或 assistant │  \n├──────────────────────┼────────┼──────┼───────────────────┤  \n│ messages\\[\\].blocks │ any\\[\\] │ ✅ │ 消息块数组 │  \n├──────────────────────┼────────┼──────┼───────────────────┤  \n│ messages\\[\\].status │ string │ ❌ │ 默认 success │  \n├──────────────────────┼────────┼──────┼───────────────────┤  \n│ messages\\[\\].createdAt │ number │ ❌ │ 毫秒时间戳 │"
+          },
+          "response": []
+        },
+        {
+          "name": "删除会话",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/chat/sessions/{{sessionId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["chat", "sessions", "{{sessionId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "获取会话消息列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/chat/sessions/{{sessionId}}/messages",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["chat", "sessions", "{{sessionId}}", "messages"]
+            },
+            "description": "┌────────────┬──────────────────────────────────────────────────────────┐  \n│ 项目 │ 内容 │  \n├────────────┼──────────────────────────────────────────────────────────┤  \n│ Method │ GET │  \n├────────────┼──────────────────────────────────────────────────────────┤  \n│ URL │ [http://localhost:3000/chat/sessions/{sessionId}/messages](http://localhost:3000/chat/sessions/{sessionId}/messages) │  \n├────────────┼──────────────────────────────────────────────────────────┤  \n│ Query 参数 │ before (int, 游标时间戳ms), limit (int, 默认20, 1\\~50) │  \n└────────────┴──────────────────────────────────────────────────────────┘"
+          },
+          "response": []
+        },
+        {
+          "name": "创建/更新消息",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"id\": \"message-002\",\r\n    \"role\": \"assistant\",\r\n    \"blocks\": [{ \"type\": \"text\", \"content\": \"你好！有什么可以帮助你的？\" }],\r\n    \"status\": \"success\",\r\n    \"createdAt\": 1700000000000\r\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/chat/sessions/{{sessionId}}/messages",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["chat", "sessions", "{{sessionId}}", "messages"]
+            },
+            "description": "┌───────────┬────────┬──────┬───────────────────┐  \n│ 字段 │ 类型 │ 必填 │ 说明 │  \n├───────────┼────────┼──────┼───────────────────┤  \n│ id │ string │ ✅ │ 长度 10-36 │  \n├───────────┼────────┼──────┼───────────────────┤  \n│ role │ enum │ ✅ │ user 或 assistant │  \n├───────────┼────────┼──────┼───────────────────┤  \n│ blocks │ any\\[\\] │ ✅ │ 消息块数组 │  \n├───────────┼────────┼──────┼───────────────────┤  \n│ status │ string │ ❌ │ 默认 success │  \n├───────────┼────────┼──────┼───────────────────┤  \n│ createdAt │ number │ ❌ │ 毫秒时间戳 │  \n└───────────┴────────┴──────┴───────────────────┘"
+          },
+          "response": []
+        },
+        {
+          "name": "更新消息",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"blocks\": [{ \"type\": \"text\", \"content\": \"更新后的内容\" }],\r\n    \"status\": \"success\"\r\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/chat/messages/{{messageId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["chat", "messages", "{{messageId}}"]
+            },
+            "description": "┌────────┬────────┬──────┬───────────────────────────────────────┐  \n│ 字段 │ 类型 │ 必填 │ 说明 │  \n├────────┼────────┼──────┼───────────────────────────────────────┤  \n│ blocks │ any\\[\\] │ ❌ │ 要更新的消息块 │  \n├────────┼────────┼──────┼───────────────────────────────────────┤  \n│ status │ string │ ❌ │ sending / streaming / success / error │  \n└────────┴────────┴──────┴───────────────────────────────────────┘"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Test",
+      "item": [
+        {
+          "name": "测试连通",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": [""]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "auth_secret_0lq1",
+      "secret": true
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "test_email",
+      "value": "test@qq.com"
+    },
+    {
+      "key": "old_refresh_token",
+      "value": ""
+    },
+    {
+      "key": "device2_access_token",
+      "value": ""
+    },
+    {
+      "key": "device2_refresh_token",
+      "value": ""
+    },
+    {
+      "key": "session_id_1",
+      "value": ""
+    }
+  ]
+}
