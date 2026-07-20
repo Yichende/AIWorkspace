@@ -1,3 +1,5 @@
 export { generateId } from './id'
+export { renderMarkdown, parseMarkdownTokens } from './markdown'
+export type { Token } from './markdown'
 export { truncateTitle } from './text'
 export { buildHistoryGroups } from './time'

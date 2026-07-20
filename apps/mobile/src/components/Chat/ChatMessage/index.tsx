@@ -4,6 +4,7 @@ import { Icon } from '@my/ui';
 import { ChatMessage as Message } from '@/types/chat';
 
 import TextBlock from '../Blocks/TextBlock';
+import MarkdownBlock from '../Blocks/MarkdownBlock';
 import CodeBlock from '../Blocks/CodeBlock';
 import TableBlock from '../Blocks/TableBlock';
 import ChartBlock from '../Blocks/ChartBlock';
@@ -56,6 +57,16 @@ export default function ChatMessage({
                     />
                   );
                 }
+                // Assistant messages use MarkdownBlock for formatted rendering
+                if (isAssistant) {
+                  return (
+                    <MarkdownBlock
+                      key={index}
+                      content={block.content}
+                    />
+                  );
+                }
+                // User messages stay as plain text
                 return (
                   <TextBlock
                     key={index}

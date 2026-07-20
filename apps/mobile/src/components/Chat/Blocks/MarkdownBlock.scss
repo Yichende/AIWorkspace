@@ -1,0 +1,201 @@
+// ── Markdown Block ────────────────────────────────────────────
+// Taro-native markdown renderer styles.
+// All sizes use rpx — matches the project convention (designWidth: 375).
+
+.markdown-block {
+  word-break: break-word;
+  line-height: 1.75;
+  font-size: 28rpx;
+  color: #1a1a1a;
+
+  // ── Headings ────────────────────────────────────────────────
+  .md-heading {
+    font-weight: 700;
+    margin: 32rpx 0 16rpx 0;
+    line-height: 1.4;
+  }
+  .md-h1 { font-size: 44rpx; }
+  .md-h2 { font-size: 40rpx; }
+  .md-h3 { font-size: 36rpx; }
+  .md-h4 { font-size: 32rpx; }
+  .md-h5 { font-size: 30rpx; }
+  .md-h6 { font-size: 28rpx; color: #666; }
+
+  // ── Paragraph ───────────────────────────────────────────────
+  .md-paragraph {
+    margin: 12rpx 0;
+  }
+
+  // ── Inline formatting ───────────────────────────────────────
+  .md-strong { font-weight: 700; }
+  .md-em { font-style: italic; }
+  .md-s { text-decoration: line-through; color: #999; }
+
+  .md-code-inline {
+    background: #f0f0f0;
+    border-radius: 6rpx;
+    padding: 4rpx 12rpx;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 24rpx;
+    color: #e74c3c;
+    word-break: break-all;
+  }
+
+  .md-link {
+    color: #1890ff;
+    border-bottom: 2rpx solid #1890ff;
+  }
+  .md-link-url {
+    color: #999;
+    font-size: 22rpx;
+    margin-left: 6rpx;
+  }
+
+  // ── Image ───────────────────────────────────────────────────
+  .md-image {
+    max-width: 100%;
+    margin: 24rpx 0;
+    border-radius: 8rpx;
+  }
+
+  // ── Code block ──────────────────────────────────────────────
+  .md-code-block {
+    background: #282c34;
+    border-radius: 12rpx;
+    margin: 24rpx 0;
+    padding: 24rpx 28rpx;
+    overflow-x: auto;
+
+    .md-code-lang {
+      display: block;
+      color: #999;
+      font-size: 20rpx;
+      margin-bottom: 10rpx;
+      text-transform: uppercase;
+    }
+
+    .md-code-content {
+      display: block;
+      color: #abb2bf;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 24rpx;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  }
+
+  // ── Blockquote ──────────────────────────────────────────────
+  .md-blockquote {
+    border-left: 6rpx solid #ddd;
+    margin: 24rpx 0;
+    padding: 16rpx 28rpx;
+    color: #666;
+    background: #fafafa;
+    border-radius: 0 8rpx 8rpx 0;
+  }
+
+  // ── Lists ───────────────────────────────────────────────────
+  .md-list {
+    margin: 16rpx 0;
+    padding-left: 0;
+  }
+
+  .md-list-item {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    margin: 8rpx 0;
+  }
+
+  .md-list-marker {
+    min-width: 56rpx;
+    color: #333;
+    font-weight: 600;
+    font-size: 28rpx;
+    line-height: 1.75;
+  }
+
+  .md-list-body {
+    flex: 1;
+  }
+
+  // ── Horizontal rule ─────────────────────────────────────────
+  .md-hr {
+    height: 2rpx;
+    background: #eee;
+    margin: 32rpx 0;
+  }
+
+  // ── Table (horizontal-scroll via ScrollView) ────────────────
+  .md-table {
+    margin: 24rpx 0;
+    border: 2rpx solid #e8e8e8;
+    border-radius: 8rpx;
+    overflow: hidden;
+  }
+
+  .md-table-scroll {
+    width: 100%;
+  }
+
+  .md-table-inner {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  .md-tr {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    box-sizing: border-box;
+    border-bottom: 2rpx solid #e8e8e8;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  // ── Row striping ──
+  .md-tr-header {
+    // header row already differentiated by .md-th background
+  }
+
+  .md-tr-even {
+    background: #fff;
+  }
+
+  .md-tr-odd {
+    background: #f7f8fa;
+  }
+
+  // ── Cells ──
+  .md-th, .md-td {
+    box-sizing: border-box;
+    // width / flex / min-width / max-width set via inline style quad-lock
+    padding: 16rpx 20rpx;
+    font-size: 24rpx;
+    line-height: 1.6;
+    border-right: 2rpx solid #f0f0f0;
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
+  .md-th {
+    background: #eef1f6;
+    font-weight: 700;
+    color: #333;
+  }
+
+  .md-td {
+    background: transparent; // inherits from row striping
+  }
+
+  // ── Line break ──────────────────────────────────────────────
+  .md-br {
+    height: 20rpx;
+  }
+}
