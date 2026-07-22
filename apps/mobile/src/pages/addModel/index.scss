@@ -1,0 +1,277 @@
+@use '@/styles/theme.scss' as *;
+
+.add-model-page {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: $bg-page;
+}
+
+/* ===========================
+   Header
+   =========================== */
+
+.add-model-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 88rpx;
+  padding: 0 24rpx;
+  // 状态栏安全区 + 90rpx 基准高度，与 ChatMenu/Search 保持一致
+  padding-top: calc(90rpx + env(safe-area-inset-top));
+  background: $bg-page;
+}
+
+.header-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  &:active {
+    background: rgba(17, 124, 13, 0.06);
+  }
+}
+
+.header-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.header-placeholder {
+  width: 72rpx;
+}
+
+/* ===========================
+   Form
+   =========================== */
+
+.add-model-form {
+  flex: 1;
+  padding: 0 32rpx;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+
+  // 隐藏滚动条 — 微信小程序 + H5 通用
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  scrollbar-width: none; // Firefox
+  -ms-overflow-style: none; // IE
+}
+
+.form-section {
+  margin-bottom: 32rpx;
+  // 防止子元素溢出
+  overflow: hidden;
+}
+
+.form-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.form-label-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.form-label {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: $text-primary;
+  margin-bottom: 12rpx;
+}
+
+.form-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.form-label-hint {
+  font-size: 22rpx;
+  color: $text-placeholder;
+}
+
+/* ===========================
+   Protocol Chips
+   =========================== */
+
+.protocol-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.protocol-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  padding: 20rpx 24rpx;
+  border-radius: $radius-medium;
+  background: $bg-card;
+  border: 2rpx solid $border-light;
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &.active {
+    border-color: $color-secondary;
+    background: rgba(17, 124, 13, 0.06);
+  }
+}
+
+.protocol-chip-label {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: $text-primary;
+
+  .active & {
+    color: $color-secondary;
+  }
+}
+
+.protocol-chip-desc {
+  font-size: 22rpx;
+  color: $text-placeholder;
+}
+
+/* ===========================
+   Input Fields
+   =========================== */
+
+.form-input {
+  display: block;
+  // 参照 login 页面的写法：width: 100% + box-sizing: border-box
+  width: 100%;
+  height: 80rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: $text-primary;
+  background: $bg-card;
+  border-radius: $radius-medium;
+  border: 2rpx solid $border-light;
+  box-sizing: border-box;
+}
+
+.form-input-wrapper {
+  position: relative;
+  // 确保密码输入框 + 后缀按钮不溢出
+  box-sizing: border-box;
+}
+
+.form-input-password {
+  // 右侧留出"显示/隐藏"按钮的空间
+  padding-right: 100rpx;
+  box-sizing: border-box;
+}
+
+.form-input-suffix {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24rpx;
+}
+
+.toggle-text {
+  font-size: 26rpx;
+  color: $color-secondary;
+}
+
+.form-textarea {
+  height: auto;
+  min-height: 80rpx;
+  padding: 16rpx 24rpx;
+}
+
+.form-placeholder {
+  color: $text-placeholder;
+  font-size: 26rpx;
+}
+
+/* ===========================
+   Test Badge
+   =========================== */
+
+.test-badge {
+  font-size: 24rpx;
+  &.success { color: $color-secondary; }
+  &.fail { color: #E65050; }
+}
+
+/* ===========================
+   Bottom Actions
+   =========================== */
+
+.add-model-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 20rpx;
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background: $bg-page;
+  border-top: 2rpx solid $border-light;
+  box-sizing: border-box;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  border-radius: $radius-medium;
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &.loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}
+
+.test-btn {
+  flex: 1;
+  background: $bg-card;
+  border: 2rpx solid $border-normal;
+}
+
+.test-btn .action-btn-text {
+  color: $text-primary;
+}
+
+.save-btn {
+  flex: 2;
+  background: $color-secondary;
+  box-shadow: $shadow-button;
+}
+
+.save-btn .action-btn-text {
+  color: $text-white;
+  font-weight: 600;
+}
+
+.action-btn-text {
+  font-size: 30rpx;
+}

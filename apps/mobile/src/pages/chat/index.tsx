@@ -1,6 +1,6 @@
 import { View, ScrollView } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 
 import ChatHeader from '@/components/Chat/ChatHeader'
 import ChatInput from '@/components/Chat/ChatInput'
@@ -8,6 +8,9 @@ import ChatMessage from '@/components/Chat/ChatMessage'
 import ChatMenu from '@/components/Chat/ChatMenu'
 
 import { useChatController } from '@/controllers/chat.controller'
+import { modelApi } from '@/services/model.api'
+import { AI_MODELS } from '@repo/types'
+import type { ModelListItem } from '@repo/types'
 
 import './index.scss'
 
@@ -18,9 +21,42 @@ export default function ChatPage() {
   // Dynamic scrollTop tick — incrementing it forces ScrollView to re-apply scrollTop
   const [scrollTopTick, setScrollTopTick] = useState(1)
 
+  // Model list: start with built-in models as fallback, then fetch merged list
+  const [models, setModels] = useState<ModelListItem[]>(
+    AI_MODELS.map((m) => ({
+      id: m.id,
+      displayName: m.id,
+      protocolType: undefined,
+      provider: m.provider,
+      supportsThinking: m.supportsThinking,
+      source: 'builtin' as const,
+    })),
+  )
+
+  // Refresh model list on mount and when returning from addModel page
+  const fetchModels = useCallback(async () => {
+    try {
+      const res = await modelApi.listModels()
+      if (res.models?.length > 0) {
+        setModels(res.models)
+      }
+    } catch {
+      // Keep current models (builtin fallback) on error
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchModels()
+  }, [fetchModels])
+
+  useDidShow(() => {
+    fetchModels()
+  })
+
   const {
     init,
     newChat,
+    switchModel,
     sendMessage,
     retryMessage,
     switchChat,
@@ -62,8 +98,33 @@ export default function ChatPage() {
   }
 
   const handleModelChange = (model: string) => {
-    // Model change creates a new session with the selected model
-    newChat(model)
+    // Switch model on current session — does NOT create a new chat
+    switchModel(model)
+  }
+
+  const handleAddModel = () => {
+    setMenuVisible(false)
+    Taro.navigateTo({ url: '/pages/addModel/index' })
+  }
+
+  const handleEditModel = (modelId: string) => {
+    setMenuVisible(false)
+    const model = models.find((m) => m.id === modelId)
+    const source = model?.source ?? 'custom'
+    Taro.navigateTo({
+      url: `/pages/addModel/index?modelId=${modelId}&source=${source}`,
+    })
+  }
+
+  const handleDeleteModel = async (modelId: string) => {
+    try {
+      await modelApi.deleteModel(modelId)
+      Taro.showToast({ title: '模型已删除', icon: 'success' })
+      // Refresh model list
+      fetchModels()
+    } catch {
+      Taro.showToast({ title: '删除失败', icon: 'none' })
+    }
   }
 
   const handleSend = useCallback(async () => {
@@ -206,8 +267,12 @@ export default function ChatPage() {
         historyGroups={historyGroups}
         hasMoreSessions={hasMoreSessions}
         sessionsLoading={sessionsLoading}
+        models={models}
         onClose={() => setMenuVisible(false)}
         onModelChange={handleModelChange}
+        onAddModel={handleAddModel}
+        onEditModel={handleEditModel}
+        onDeleteModel={handleDeleteModel}
         onNewChat={handleNewChat}
         onHistorySelect={handleHistorySelect}
         onDeleteChat={handleDelete}

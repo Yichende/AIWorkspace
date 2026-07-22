@@ -5,6 +5,7 @@ export default defineAppConfig({
     'pages/chat/index',
     'pages/search/index',
     'pages/myTest/index',
+    'pages/addModel/index',
   ],
   window: {
     navigationBarTitleText:"AI WorkSpace",

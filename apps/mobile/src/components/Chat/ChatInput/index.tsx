@@ -12,7 +12,7 @@ export default function ChatInput({ value, onChange, onSend }: Props) {
   return (
     <View className='chat-input-container'>
       <View className='chat-input'>
-        <View className='upload-btn'>+</View>
+        {/* <View className='upload-btn'>+</View> */}
 
         <Input
           className='input'

@@ -162,6 +162,33 @@ export function useChatController() {
     return sessionId
   }
 
+  // ── switchModel ───────────────────────────────────────────
+
+  /** Switch model on the current session without creating a new chat */
+  const switchModel = (model: string): void => {
+    const state = useChatStore.getState()
+    if (state.currentSessionId && state.currentSessionMeta) {
+      // Update current session's model
+      useChatStore.setState({
+        currentSessionMeta: { ...state.currentSessionMeta, model },
+      })
+      store.updateSessionInIndex(state.currentSessionId, { model })
+      // Persist updated index
+      const currentIndex = chatStorage.getSessionsIndex()
+      const updatedIndex = currentIndex.map((s) =>
+        s.id === state.currentSessionId ? { ...s, model } : s,
+      )
+      chatStorage.setSessionsIndex(updatedIndex)
+      // Async sync to server
+      chatApi
+        .updateSession(state.currentSessionId, { title: state.currentSessionMeta.title })
+        .catch((err) => console.warn('[chat] Failed to sync model switch:', err))
+    } else {
+      // No current session — create one
+      newChat(model)
+    }
+  }
+
   // ── sendMessage ───────────────────────────────────────────
 
   const sendMessage = async (content: string): Promise<void> => {
@@ -697,6 +724,7 @@ export function useChatController() {
     // Actions
     init,
     newChat,
+    switchModel,
     sendMessage,
     retryMessage,
     switchChat,

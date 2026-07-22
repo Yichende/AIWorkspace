@@ -15,20 +15,21 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/entities/user.entity';
 import { ChatService } from './chat.service';
-import { AiProviderFactory } from './providers/ai-provider.factory';
+import { ModelResolver } from './model-resolver.service';
+import { ProviderFactory } from './providers/provider-factory.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { QuerySessionsDto } from './dto/query-sessions.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
-import type { StreamCallback } from '@repo/types';
 
 @Controller('chat')
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
-    private readonly aiFactory: AiProviderFactory,
+    private readonly modelResolver: ModelResolver,
+    private readonly providerFactory: ProviderFactory,
   ) {}
 
   // ── Sessions ──────────────────────────────────────────────
@@ -77,36 +78,32 @@ export class ChatController {
     res.setHeader('X-Accel-Buffering', 'no');
 
     // SSE helper: prefix every line with "data: " so newlines in the
-    // payload don't break the SSE frame. Without this, \n in thinking
-    // text would produce continuation lines that the client ignores.
+    // payload don't break the SSE frame.
     const sseWrite = (event: string, data: string) => {
       const encoded = data.replace(/\n/g, '\ndata: ');
       res.write(`event: ${event}\ndata: ${encoded}\n\n`);
     };
 
-    const provider = this.aiFactory.getProvider(body.model);
+    // Layer 1: Resolve model → protocol type + config
+    const resolved = await this.modelResolver.resolve(user.id, body.model);
 
-    const callback: StreamCallback = {
-      onThinking: (text) => {
-        sseWrite('thinking', text);
-      },
-      onContent: (text) => {
-        sseWrite('content', text);
-      },
-      onDone: (fullText) => {
-        sseWrite('done', fullText);
-        res.end();
-      },
-      onError: (err) => {
-        sseWrite('error', err);
-        res.end();
-      },
-    };
+    // Layer 2: Get the right provider for this protocol
+    const provider = this.providerFactory.getProvider(resolved.protocolType);
 
-    await provider.streamChat(
-      { model: body.model, messages: body.messages },
-      callback,
-    );
+    // Layer 3: Stream chat via AsyncGenerator<StreamChunk>
+    try {
+      for await (const chunk of provider.streamChat(
+        body.messages,
+        resolved.config,
+      )) {
+        sseWrite(chunk.type, chunk.content);
+      }
+      sseWrite('done', '');
+      res.end();
+    } catch (err: any) {
+      sseWrite('error', err.message || 'Stream error');
+      res.end();
+    }
   }
 
   // ── Messages ──────────────────────────────────────────────

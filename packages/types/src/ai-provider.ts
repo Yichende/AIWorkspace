@@ -1,26 +1,26 @@
-// ── Stream Callbacks ──────────────────────────────────────────
+// ── Unified Stream Chunk ──────────────────────────────────────
 
-export interface StreamCallback {
-  onThinking?(text: string): void
-  onContent?(text: string): void
-  onDone(fullText: string): void
-  onError?(error: string): void
+export interface StreamChunk {
+  type: 'text' | 'thinking'
+  content: string
 }
 
-// ── Chat Request ──────────────────────────────────────────────
+// ── Provider Configuration ────────────────────────────────────
 
-export interface ChatRequest {
-  model: string
-  messages: Array<{ role: string; content: string }>
+export interface ProviderConfig {
+  apiModelName: string
+  apiKey?: string
+  apiBaseUrl?: string
 }
 
 // ── AI Provider Interface ─────────────────────────────────────
 
 export interface IAIProvider {
-  /** Unique provider identifier */
-  readonly name: string
-  /** Check if this provider handles the given model */
-  supports(model: string): boolean
-  /** Stream chat completion, calling callbacks as chunks arrive */
-  streamChat(params: ChatRequest, callback: StreamCallback): Promise<void>
+  /** Unique protocol identifier */
+  readonly protocol: string
+  /** Stream chat completion as an async generator of normalized chunks */
+  streamChat(
+    messages: Array<{ role: string; content: string }>,
+    config: ProviderConfig,
+  ): AsyncGenerator<StreamChunk>
 }

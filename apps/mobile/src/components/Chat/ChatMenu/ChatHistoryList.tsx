@@ -1,14 +1,16 @@
 import { View, Text, Input } from '@tarojs/components'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
 import type { ChatHistoryGroup } from '@/stores/chat.store'
+import type { ModelListItem } from '@repo/types'
 
 interface Props {
   groups: ChatHistoryGroup[]
   hasMore: boolean
   loading: boolean
   currentSessionId: string | null
+  models?: ModelListItem[]
   onSelect: (id: string) => void
   onRename?: (id: string, newTitle: string) => void
   onDelete?: (id: string) => void
@@ -20,11 +22,21 @@ export default function ChatHistoryList({
   hasMore,
   loading,
   currentSessionId,
+  models,
   onSelect,
   onRename,
   onDelete,
   onLoadMore,
 }: Props) {
+  // modelId → displayName 查找表
+  const modelNameMap = useMemo(() => {
+    if (!models?.length) return {} as Record<string, string>
+    const map: Record<string, string> = {}
+    for (const m of models) {
+      map[m.id] = m.displayName
+    }
+    return map
+  }, [models])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [popoverId, setPopoverId] = useState<string | null>(null)
@@ -124,7 +136,9 @@ export default function ChatHistoryList({
                 ) : (
                   <>
                     <Text className='history-item-title'>{item.title}</Text>
-                    <Text className='history-item-model'>{item.model}</Text>
+                    <Text className='history-item-model'>
+                      {modelNameMap[item.model] || item.model}
+                    </Text>
                   </>
                 )}
               </View>
