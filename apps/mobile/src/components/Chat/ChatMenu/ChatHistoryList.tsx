@@ -11,10 +11,14 @@ interface Props {
   loading: boolean
   currentSessionId: string | null
   models?: ModelListItem[]
+  batchMode?: boolean
+  selectedIds: string[]
   onSelect: (id: string) => void
   onRename?: (id: string, newTitle: string) => void
   onDelete?: (id: string) => void
   onLoadMore?: () => void
+  onEnterBatchMode?: () => void
+  onToggleSelect?: (id: string) => void
 }
 
 export default function ChatHistoryList({
@@ -23,10 +27,14 @@ export default function ChatHistoryList({
   loading,
   currentSessionId,
   models,
+  batchMode = false,
+  selectedIds = [],
   onSelect,
   onRename,
   onDelete,
   onLoadMore,
+  onEnterBatchMode,
+  onToggleSelect,
 }: Props) {
   // modelId → displayName 查找表
   const modelNameMap = useMemo(() => {
@@ -41,6 +49,11 @@ export default function ChatHistoryList({
   const [editValue, setEditValue] = useState('')
   const [popoverId, setPopoverId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  /** popover 所在 group 的 key，用于提升该 group 的 z-index */
+  const activeGroupKey = popoverId
+    ? groups.find((g) => g.items.some((item) => item.id === popoverId))?.group ?? null
+    : null
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -107,7 +120,7 @@ export default function ChatHistoryList({
       )}
 
       {groups.map((group) => (
-        <View key={group.group} className='history-group'>
+        <View key={group.group} className={`history-group ${activeGroupKey === group.group ? 'history-group--active' : ''}`}>
           <Text className='group-label'>{group.label}</Text>
 
           {group.items.map((item) => (
@@ -115,12 +128,16 @@ export default function ChatHistoryList({
               key={item.id}
               className={`history-item ${item.id === currentSessionId ? 'history-item-active' : ''}`}
             >
-              {/* Main content area — selects the conversation */}
+              {/* Main content area — selects the conversation / toggles in batch mode */}
               <View
                 className='history-item-content'
                 onClick={() => {
                   if (editingId !== item.id) {
-                    onSelect(item.id)
+                    if (batchMode) {
+                      onToggleSelect?.(item.id)
+                    } else {
+                      onSelect(item.id)
+                    }
                   }
                 }}
               >
@@ -143,44 +160,72 @@ export default function ChatHistoryList({
                 )}
               </View>
 
-              {/* More options button */}
+              {/* More options / Batch checkbox */}
               {editingId !== item.id && (
                 <View className='history-item-more-wrapper'>
-                  <View
-                    className='history-item-more'
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setPopoverId(popoverId === item.id ? null : item.id)
-                    }}
-                  >
-                    <Icon name='gengduo' size={32} color={IconColors.secondary} />
-                  </View>
-
-                  {/* Popover menu */}
-                  {popoverId === item.id && (
-                    <View className='history-popover'>
-                      <View
-                        className='popover-item'
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handlePopoverAction('rename', item.id, item.title)
-                        }}
-                      >
-                        <Icon name='bianji' size={28} color={IconColors.secondary} />
-                        <Text className='popover-item-text'>更改标题</Text>
-                      </View>
-                      <View className='popover-divider' />
-                      <View
-                        className='popover-item popover-item-danger'
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handlePopoverAction('delete', item.id, item.title)
-                        }}
-                      >
-                        <Icon name='shanchu' size={28} color='#E65050' />
-                        <Text className='popover-item-text popover-item-text-danger'>删除对话</Text>
-                      </View>
+                  {batchMode ? (
+                    <View
+                      className={`history-checkbox ${selectedIds.includes(item.id) ? 'checked' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onToggleSelect?.(item.id)
+                      }}
+                    >
+                      {selectedIds.includes(item.id) && (
+                        <Text className='checkbox-mark'>✓</Text>
+                      )}
                     </View>
+                  ) : (
+                    <>
+                      <View
+                        className='history-item-more'
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setPopoverId(popoverId === item.id ? null : item.id)
+                        }}
+                      >
+                        <Icon name='gengduo' size={32} color={IconColors.secondary} />
+                      </View>
+
+                      {/* Popover menu */}
+                      {popoverId === item.id && (
+                        <View className='history-popover'>
+                          <View
+                            className='popover-item'
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPopoverId(null)
+                              onEnterBatchMode?.()
+                            }}
+                          >
+                            <Icon name='bianji' size={28} color={IconColors.secondary} />
+                            <Text className='popover-item-text'>批量管理</Text>
+                          </View>
+                          <View className='popover-divider' />
+                          <View
+                            className='popover-item'
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handlePopoverAction('rename', item.id, item.title)
+                            }}
+                          >
+                            <Icon name='bianji' size={28} color={IconColors.secondary} />
+                            <Text className='popover-item-text'>更改标题</Text>
+                          </View>
+                          <View className='popover-divider' />
+                          <View
+                            className='popover-item popover-item-danger'
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handlePopoverAction('delete', item.id, item.title)
+                            }}
+                          >
+                            <Icon name='shanchu' size={28} color='#E65050' />
+                            <Text className='popover-item-text popover-item-text-danger'>删除对话</Text>
+                          </View>
+                        </View>
+                      )}
+                    </>
                   )}
                 </View>
               )}

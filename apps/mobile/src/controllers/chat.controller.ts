@@ -623,6 +623,38 @@ export function useChatController() {
       .catch((err) => console.warn('[chat] Failed to sync delete:', err))
   }
 
+  // ── batchDeleteChats ───────────────────────────────────────
+
+  const batchDeleteChats = (ids: string[]): void => {
+    if (!ids.length) return
+
+    const idSet = new Set(ids)
+
+    // 1. Store: 一次 set 过滤所有
+    store.removeSessionsFromIndex(ids)
+
+    // 2. LocalStorage: 逐个清除消息
+    ids.forEach((id) => chatStorage.removeSessionMessages(id))
+
+    // 3. 持久化更新后的 index
+    chatStorage.setSessionsIndex(useChatStore.getState().sessionsIndex)
+
+    // 4. 如果当前会话在被删除列表中，清除 currentSession 引用
+    const currentId = chatStorage.getCurrentSessionId()
+    if (currentId && idSet.has(currentId)) {
+      chatStorage.setCurrentSessionId(null)
+    }
+
+    // 5. 异步 API 删除（静默失败）
+    Promise.all(
+      ids.map((id) =>
+        chatApi.deleteSession(id).catch((err) =>
+          console.warn('[chat] Failed to batch sync delete:', id, err),
+        ),
+      ),
+    )
+  }
+
   // ── renameChat ─────────────────────────────────────────────
 
   const renameChat = (sessionId: string, newTitle: string): void => {
@@ -729,6 +761,7 @@ export function useChatController() {
     retryMessage,
     switchChat,
     deleteChat,
+    batchDeleteChats,
     renameChat,
     loadMoreMessages,
     loadMoreSessions,

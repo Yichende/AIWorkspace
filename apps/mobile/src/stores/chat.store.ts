@@ -50,6 +50,7 @@ interface ChatStoreActions {
   ) => void
   addSessionToIndex: (item: SessionIndexItem) => void
   removeSessionFromIndex: (id: string) => void
+  removeSessionsFromIndex: (ids: string[]) => void
   updateSessionInIndex: (
     id: string,
     patch: Partial<SessionIndexItem>,
@@ -133,6 +134,14 @@ export const useChatStore = create<ChatStore>((set) => ({
     set((state) => ({
       sessionsIndex: state.sessionsIndex.filter((s) => s.id !== id),
     })),
+
+  removeSessionsFromIndex: (ids) =>
+    set((state) => {
+      const idSet = new Set(ids)
+      return {
+        sessionsIndex: state.sessionsIndex.filter((s) => !idSet.has(s.id)),
+      }
+    }),
 
   updateSessionInIndex: (id, patch) =>
     set((state) => ({

@@ -12,3 +12,11 @@ page {
   min-height: 100%;
   box-sizing: border-box;
 }
+
+/* 全局隐藏原生 scroll-view 滚动条（微信小程序 + H5 通用） */
+::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+  color: transparent;
+}

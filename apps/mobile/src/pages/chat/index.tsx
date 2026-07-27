@@ -61,6 +61,7 @@ export default function ChatPage() {
     retryMessage,
     switchChat,
     deleteChat,
+    batchDeleteChats,
     renameChat,
     loadMoreMessages,
     loadMoreSessions,
@@ -164,6 +165,17 @@ export default function ChatPage() {
       renameChat(sessionId, newTitle)
     },
     [renameChat],
+  )
+
+  const handleBatchDelete = useCallback(
+    (ids: string[]) => {
+      // 如果批量删除中包含当前会话，先切换到新对话
+      if (ids.includes(currentSessionId!)) {
+        newChat(currentModel)
+      }
+      batchDeleteChats(ids)
+    },
+    [batchDeleteChats, currentSessionId, currentModel, newChat],
   )
 
   // ── Auto-scroll when messages/content change ──
@@ -278,6 +290,7 @@ export default function ChatPage() {
         onDeleteChat={handleDelete}
         onRenameChat={handleRename}
         onLoadMoreSessions={loadMoreSessions}
+        onBatchDelete={handleBatchDelete}
       />
     </>
   )
