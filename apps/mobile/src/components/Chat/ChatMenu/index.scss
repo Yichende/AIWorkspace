@@ -213,6 +213,7 @@
 
 .menu-model-section {
   margin-bottom: 8rpx;
+  overflow: visible; // 允许模型列表展开时不被裁剪
 }
 
 /* 折叠卡片 — 点击展开 / 收起 */
@@ -291,15 +292,47 @@
   flex-direction: column;
   gap: 6rpx;
 
-  margin-top: 12rpx;
-
-  padding: 8rpx;
+  margin-top: 0;
+  padding: 0 8rpx;
 
   border-radius: $radius-medium;
 
   background: $bg-card;
 
-  border: 2rpx solid $border-light;
+  border: 2rpx solid transparent;
+
+  // 默认折叠状态
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+
+  // 平滑展开 / 收起
+  transition:
+    max-height 0.35s ease,
+    opacity 0.25s ease,
+    margin-top 0.35s ease,
+    padding-top 0.35s ease,
+    padding-bottom 0.35s ease,
+    border-color 0.25s ease;
+
+  // 隐藏滚动条（展开后可能出现滚动）
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  // ── 展开状态 ──
+  &.model-list--expanded {
+    max-height: 520rpx;        // 限制最大高度，ScrollView 提供内部滚动
+    opacity: 1;
+    overflow: hidden;          // ScrollView 自行管理滚动，此处仅作容器裁剪
+    margin-top: 12rpx;
+    padding: 8rpx;
+    border-color: $border-light;
+  }
 }
 
 .model-item {
@@ -356,8 +389,14 @@
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background: $color-secondary; // 绿色 = 可用
+  background: $color-secondary; // 绿色 = 可用 / 未测试
   margin-left: 2rpx;
+  transition: background 0.2s ease;
+
+  // 红色 = 上次连接测试不可用
+  &.model-status-dot--error {
+    background: #E65050;
+  }
 }
 
 .model-item-tag {
@@ -452,7 +491,7 @@
 .chat-history-list {
   width: 100%;
   box-sizing: border-box;
-  padding: 24rpx 32rpx;
+  padding: 16rpx 24rpx;
 }
 
 .history-group {
@@ -803,19 +842,20 @@
    =========================== */
 
 .menu-feature {
-  max-height: 500rpx; // 足够容纳所有 feature 内容
+  // 不设上限，让模型列表展开时能自然撑开并推动下方历史区域
   opacity: 1;
-  overflow: hidden;
-  transition: max-height 0.35s ease, opacity 0.3s ease, padding 0.35s ease, margin 0.35s ease;
+  overflow: visible;
+  transition: opacity 0.3s ease, padding 0.35s ease, margin 0.35s ease;
 }
 
 .chat-menu.batch-mode {
   .menu-feature {
     max-height: 0;
     opacity: 0;
-    padding-top: 0;
+    padding-top: 24rpx;
     padding-bottom: 0;
     margin-bottom: 0;
+    overflow: hidden;
   }
 
   .menu-history {

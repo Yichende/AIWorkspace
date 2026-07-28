@@ -106,6 +106,14 @@ export class UserModel extends Model {
   })
   declare isActive: boolean;
 
+  @Column({
+    type: DataType.STRING(255),
+    allowNull: true,
+    unique: 'uq_user_model_active',
+    field: 'unique_key',
+  })
+  declare uniqueKey: string | null;
+
   declare created_at: Date;
   declare updated_at: Date;
 }

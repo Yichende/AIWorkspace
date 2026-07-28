@@ -48,22 +48,19 @@ export class OllamaProvider implements IAIProvider {
           ? `无法连接到 Ollama 服务 (${baseUrl})。请确保 Ollama 已启动。`
           : `Ollama 请求失败: ${err.message}`;
       this.logger.error(`Fetch error: ${message}`);
-      yield { type: 'text', content: `[错误] ${message}` };
-      return;
+      throw new Error(message);
     }
 
     if (!response.ok || !response.body) {
-      yield {
-        type: 'text',
-        content: `[错误] Ollama 返回 ${response.status}`,
-      };
-      return;
+      const body = await response.text().catch(() => '');
+      const message = `Ollama 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
+      this.logger.error(message);
+      throw new Error(message);
     }
 
     const reader = (response.body as any).getReader();
     if (!reader) {
-      yield { type: 'text', content: '[错误] 无法读取 Ollama 响应流' };
-      return;
+      throw new Error('无法读取 Ollama 响应流');
     }
 
     const decoder = new TextDecoder();

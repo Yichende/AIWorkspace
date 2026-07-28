@@ -52,29 +52,23 @@ export class OpenAICompatibleProvider implements IAIProvider {
           ? `无法连接到 ${endpoint} (连接被拒绝)`
           : `请求失败: ${err.message}`;
       this.logger.error(`Fetch error: ${message}`);
-      yield { type: 'text', content: `[错误] ${message}` };
-      return;
+      throw new Error(message);
     }
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
+      const message = `API 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
       this.logger.error(`HTTP ${response.status}: ${body.slice(0, 200)}`);
-      yield {
-        type: 'text',
-        content: `[错误] API 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`,
-      };
-      return;
+      throw new Error(message);
     }
 
     if (!response.body) {
-      yield { type: 'text', content: '[错误] 无响应流' };
-      return;
+      throw new Error('无响应流');
     }
 
     const reader = (response.body as any).getReader();
     if (!reader) {
-      yield { type: 'text', content: '[错误] 无法读取响应流' };
-      return;
+      throw new Error('无法读取响应流');
     }
 
     const decoder = new TextDecoder();

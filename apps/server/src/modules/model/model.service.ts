@@ -82,7 +82,9 @@ export class UserModelService {
       throw new ConflictException('模型名称与内置模型冲突，请使用其他名称');
     }
 
-    // Check for duplicate displayName within user's custom models
+    const uniqueKey = `${userId}:${dto.displayName}`;
+
+    // Check for duplicate active model (belt: DB unique index is the suspenders)
     const existing = await this.userModelRepo.findOne({
       where: { userId, displayName: dto.displayName, isActive: true },
     });
@@ -90,22 +92,69 @@ export class UserModelService {
       throw new ConflictException('模型名称已存在');
     }
 
-    const modelId = `${MODEL_ID_PREFIX}${this.generateNanoid()}`;
-
-    const model = await this.userModelRepo.create({
-      modelId,
-      userId,
-      displayName: dto.displayName,
-      protocolType: dto.protocolType,
-      provider: dto.provider ?? null,
-      apiModelName: dto.apiModelName,
-      encryptedApiKey: dto.apiKey ? this.encrypt(dto.apiKey) : null,
-      apiBaseUrl: dto.apiBaseUrl ?? null,
-      supportsThinking: dto.supportsThinking ?? false,
-      notes: dto.notes ?? null,
+    // ── Upsert: reactivate soft-deleted record if one exists ──
+    const softDeleted = await this.userModelRepo.findOne({
+      where: { userId, displayName: dto.displayName, isActive: false },
     });
 
-    return this.toResponse(model);
+    if (softDeleted) {
+      try {
+        await softDeleted.update({
+          protocolType: dto.protocolType,
+          provider: dto.provider ?? null,
+          apiModelName: dto.apiModelName,
+          encryptedApiKey: dto.apiKey ? this.encrypt(dto.apiKey) : null,
+          apiBaseUrl: dto.apiBaseUrl ?? null,
+          supportsThinking: dto.supportsThinking ?? false,
+          notes: dto.notes ?? null,
+          isActive: true,
+          uniqueKey,
+        });
+
+        await softDeleted.reload();
+        return this.toResponse(softDeleted);
+      } catch (err: any) {
+        this.logger.error(
+          `Failed to reactivate model "${dto.displayName}" for user ${userId}: ${err.message}`,
+          err.stack,
+        );
+        if (err.name === 'SequelizeUniqueConstraintError') {
+          throw new ConflictException('模型名称已存在，请重试');
+        }
+        throw err;
+      }
+    }
+
+    // ── Fresh create ──
+    const modelId = `${MODEL_ID_PREFIX}${this.generateNanoid()}`;
+
+    try {
+      const model = await this.userModelRepo.create({
+        modelId,
+        userId,
+        displayName: dto.displayName,
+        protocolType: dto.protocolType,
+        provider: dto.provider ?? null,
+        apiModelName: dto.apiModelName,
+        encryptedApiKey: dto.apiKey ? this.encrypt(dto.apiKey) : null,
+        apiBaseUrl: dto.apiBaseUrl ?? null,
+        supportsThinking: dto.supportsThinking ?? false,
+        notes: dto.notes ?? null,
+        isActive: true,
+        uniqueKey,
+      });
+
+      return this.toResponse(model);
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to create model "${dto.displayName}" for user ${userId}: ${err.message}`,
+        err.stack,
+      );
+      if (err.name === 'SequelizeUniqueConstraintError') {
+        throw new ConflictException('模型 ID 或名称已存在，请重试');
+      }
+      throw err;
+    }
   }
 
   /** Get single model detail (for edit page) */
@@ -152,6 +201,8 @@ export class UserModelService {
         throw new ConflictException('模型名称已存在');
       }
       updateData.displayName = dto.displayName;
+      // 同步更新 uniqueKey 以匹配新的 displayName
+      updateData.uniqueKey = `${userId}:${dto.displayName}`;
     }
 
     if (dto.provider !== undefined) updateData.provider = dto.provider || null;
@@ -177,13 +228,20 @@ export class UserModelService {
   /** Soft delete a custom model */
   async remove(userId: number, modelId: string): Promise<void> {
     const model = await this.findById(userId, modelId);
-    await model.update({ isActive: false });
+    await model.update({
+      isActive: false,
+      uniqueKey: null, // 释放唯一键，允许新建同名模型
+      encryptedApiKey: null, // 安全：删除即清除凭据
+    });
   }
 
   // ── Model Testing ───────────────────────────────────────────
 
   /** Test a model connection by sending a minimal chat request */
-  async testModel(userId: number, dto: TestModelDto): Promise<ModelTestResult> {
+  async testModel(
+    _userId: number,
+    dto: TestModelDto,
+  ): Promise<ModelTestResult> {
     const startTime = Date.now();
 
     try {
@@ -202,8 +260,25 @@ export class UserModelService {
         return { available: false, latency, error: '模型返回空响应' };
       }
 
-      // Success — generator will be GC'd; no need to explicitly
-      // call .return() which may throw in Node.js ReadableStream
+      // Safety check: reject error-like text chunks even if the provider
+      // didn't throw (belt-and-suspenders with the provider fix)
+      if (
+        first.value?.type === 'text' &&
+        typeof first.value?.content === 'string' &&
+        first.value.content.startsWith('[错误]')
+      ) {
+        return { available: false, latency, error: first.value.content };
+      }
+
+      // Attempt to gracefully close the underlying stream to avoid
+      // resource leaks.  Swallow errors since some runtimes (Node.js
+      // ReadableStream) may reject .return().
+      try {
+        await (generator as any).return?.();
+      } catch {
+        // ignore
+      }
+
       return { available: true, latency };
     } catch (err: any) {
       const latency = Date.now() - startTime;

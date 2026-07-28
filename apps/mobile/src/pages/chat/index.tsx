@@ -9,6 +9,7 @@ import ChatMenu from '@/components/Chat/ChatMenu'
 
 import { useChatController } from '@/controllers/chat.controller'
 import { modelApi } from '@/services/model.api'
+import { useUserStore } from '@/stores/user.store'
 import { AI_MODELS } from '@repo/types'
 import type { ModelListItem } from '@repo/types'
 
@@ -20,6 +21,9 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   // Dynamic scrollTop tick — incrementing it forces ScrollView to re-apply scrollTop
   const [scrollTopTick, setScrollTopTick] = useState(1)
+
+  // 等待 auth 初始化完成再发起 API 调用，避免启动竞态导致 401
+  const authReady = useUserStore((state) => state.authReady)
 
   // Model list: start with built-in models as fallback, then fetch merged list
   const [models, setModels] = useState<ModelListItem[]>(
@@ -40,14 +44,17 @@ export default function ChatPage() {
       if (res.models?.length > 0) {
         setModels(res.models)
       }
-    } catch {
+    } catch (err) {
       // Keep current models (builtin fallback) on error
+      console.warn('[ChatPage] Failed to fetch models:', err)
     }
   }, [])
 
   useEffect(() => {
-    fetchModels()
-  }, [fetchModels])
+    if (authReady) {
+      fetchModels()
+    }
+  }, [authReady, fetchModels])
 
   useDidShow(() => {
     fetchModels()
@@ -74,11 +81,13 @@ export default function ChatPage() {
     hasMoreSessions,
   } = useChatController()
 
-  // Init: load persisted state on mount
+  // Init: load persisted state on mount — wait for auth to be ready first
   useEffect(() => {
-    init()
+    if (authReady) {
+      init()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [authReady])
 
   // ── Handlers ──
 

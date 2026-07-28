@@ -56,9 +56,19 @@ export default function ChatMenu({
   onBatchDelete,
 }: Props) {
   const userInfo = useUserStore((state) => state.userInfo)
+  const modelTestResults = useUserStore((state) => state.modelTestResults)
   const [modelExpanded, setModelExpanded] = useState(false)
   const [modelPopoverId, setModelPopoverId] = useState<string | null>(null)
   const [confirmDeleteModelId, setConfirmDeleteModelId] = useState<string | null>(null)
+
+  // 菜单关闭时重置 model list 折叠状态
+  useEffect(() => {
+    if (!visible) {
+      setModelExpanded(false)
+      setModelPopoverId(null)
+      setConfirmDeleteModelId(null)
+    }
+  }, [visible])
 
   // ── Batch management ──
   const [batchMode, setBatchMode] = useState(false)
@@ -188,84 +198,95 @@ export default function ChatMenu({
               </View>
             </View>
 
-            {modelExpanded && (
-              <View className='model-list'>
-                {models.map((option) => (
+            <ScrollView
+              className={`model-list ${modelExpanded ? 'model-list--expanded' : ''}`}
+              scrollY
+              showScrollbar={false}
+            >
+              {models.map((option) => (
+                <View
+                  key={option.id}
+                  className={`model-item ${currentModel === option.id ? 'active' : ''}`}
+                >
                   <View
-                    key={option.id}
-                    className={`model-item ${currentModel === option.id ? 'active' : ''}`}
+                    className='model-item-main'
+                    onClick={() => handleModelChange(option.id)}
                   >
+                    <Text className='model-item-name'>{option.displayName}</Text>
+
+                    {/* 连接状态指示 — 贴近模型名称右侧 */}
                     <View
-                      className='model-item-main'
-                      onClick={() => handleModelChange(option.id)}
-                    >
-                      <Text className='model-item-name'>{option.displayName}</Text>
+                      className={`model-status-dot ${
+                        (
+                          option.lastTestAvailable === false ||
+                          modelTestResults[option.id] === false
+                        )
+                          ? 'model-status-dot--error'
+                          : ''
+                      }`}
+                    />
 
-                      {/* 连接状态指示 — 贴近模型名称右侧 */}
-                      <View className='model-status-dot' />
+                    {option.source === 'custom' && (
+                      <Text className='model-item-tag'>自定义</Text>
+                    )}
+                  </View>
 
+                  {/* 操作区：编辑（所有模型）+ 删除（仅自定义） */}
+                    <View className='model-item-actions'>
+                      <View
+                        className='model-item-edit'
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEditModel?.(option.id)
+                        }}
+                      >
+                        <Icon name='shezhi' size={32} color={IconColors.secondary} />
+                      </View>
+
+                      {/* 删除 — 仅自定义模型可删除 */}
                       {option.source === 'custom' && (
-                        <Text className='model-item-tag'>自定义</Text>
+                        <View className='model-item-more-wrapper'>
+                          <View
+                            className='model-item-more'
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setModelPopoverId(
+                                modelPopoverId === option.id ? null : option.id,
+                              )
+                            }}
+                          >
+                            <Icon name='gengduo' size={32} color={IconColors.secondary} />
+                          </View>
+
+                          {modelPopoverId === option.id && (
+                            <View className='history-popover model-popover'>
+                              <View
+                                className='popover-item popover-item-danger'
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setModelPopoverId(null)
+                                  setConfirmDeleteModelId(option.id)
+                                }}
+                              >
+                                <Icon name='shanchu' size={28} color='#E65050' />
+                                <Text className='popover-item-text popover-item-text-danger'>
+                                  删除模型
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                        </View>
                       )}
                     </View>
-
-                    {/* 操作区：编辑（所有模型）+ 删除（仅自定义） */}
-                      <View className='model-item-actions'>
-                        <View
-                          className='model-item-edit'
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onEditModel?.(option.id)
-                          }}
-                        >
-                          <Icon name='shezhi' size={32} color={IconColors.secondary} />
-                        </View>
-
-                        {/* 删除 — 仅自定义模型可删除 */}
-                        {option.source === 'custom' && (
-                          <View className='model-item-more-wrapper'>
-                            <View
-                              className='model-item-more'
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setModelPopoverId(
-                                  modelPopoverId === option.id ? null : option.id,
-                                )
-                              }}
-                            >
-                              <Icon name='gengduo' size={32} color={IconColors.secondary} />
-                            </View>
-
-                            {modelPopoverId === option.id && (
-                              <View className='history-popover model-popover'>
-                                <View
-                                  className='popover-item popover-item-danger'
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setModelPopoverId(null)
-                                    setConfirmDeleteModelId(option.id)
-                                  }}
-                                >
-                                  <Icon name='shanchu' size={28} color='#E65050' />
-                                  <Text className='popover-item-text popover-item-text-danger'>
-                                    删除模型
-                                  </Text>
-                                </View>
-                              </View>
-                            )}
-                          </View>
-                        )}
-                      </View>
-                  </View>
-                ))}
-
-                {/* 添加模型入口 — 始终在列表最下方 */}
-                <View className='model-item model-item-add' onClick={onAddModel}>
-                  <Icon name='tianjia' size={32} color={IconColors.secondary} />
-                  <Text className='model-item-name model-add-text'>添加模型</Text>
                 </View>
+              ))}
+
+              {/* 添加模型入口 — 始终在列表最下方 */}
+              <View className='model-item model-item-add' onClick={onAddModel}>
+                <Icon name='tianjia' size={32} color={IconColors.secondary} />
+                <Text className='model-item-name model-add-text'>添加模型</Text>
               </View>
-            )}
+            </ScrollView>
           </View>
         </View>
 

@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
 import { modelApi } from '@/services/model.api'
+import { useUserStore } from '@/stores/user.store'
 import { getModelById } from '@repo/types'
 import type {
   ProtocolType,
@@ -203,14 +204,25 @@ export default function AddModelPage() {
         notes: notes.trim() || undefined,
       }
 
+      let savedModelId: string
+
       if (isEdit && editModelId && !isBuiltinEdit) {
         // 自定义模型 → 更新
         await modelApi.updateModel(editModelId, data)
+        savedModelId = editModelId
         Taro.showToast({ title: '模型已更新', icon: 'success' })
       } else {
         // 内置模型 或 新建 → 创建自定义模型
-        await modelApi.createModel(data)
+        const created = await modelApi.createModel(data)
+        savedModelId = created.id
         Taro.showToast({ title: '模型已添加', icon: 'success' })
+      }
+
+      // 将连接测试结果缓存到内存，用于模型列表的状态指示点
+      if (testResult && testResult.available !== undefined) {
+        useUserStore
+          .getState()
+          .setModelTestResult(savedModelId, testResult.available)
       }
 
       setTimeout(() => Taro.navigateBack({ delta: 1 }), 800)

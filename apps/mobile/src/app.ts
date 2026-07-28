@@ -7,6 +7,7 @@ import './app.scss'
 function App({ children }: PropsWithChildren<any>) {
   const setToken = useUserStore((state) => state.setToken)
   const setRefreshToken = useUserStore((state) => state.setRefreshToken)
+  const setAuthReady = useUserStore((state) => state.setAuthReady)
 
   useEffect(() => {
     const initAuth = async () => {
@@ -19,10 +20,12 @@ function App({ children }: PropsWithChildren<any>) {
       if (refreshToken) {
         setRefreshToken(refreshToken)
       }
+      // 标记 auth 初始化完成——解除 ChatPage 的 API 调用阻塞
+      setAuthReady()
     }
 
     initAuth()
-  }, [setToken, setRefreshToken])
+  }, [setToken, setRefreshToken, setAuthReady])
   
   useLaunch(() => {
     console.log('App launched.')

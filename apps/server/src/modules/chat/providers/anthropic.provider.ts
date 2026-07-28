@@ -27,8 +27,7 @@ export class AnthropicProvider implements IAIProvider {
     this.logger.log(`Streaming to ${endpoint} (model=${config.apiModelName})`);
 
     if (!config.apiKey) {
-      yield { type: 'text', content: '[错误] Anthropic API 需要 API Key' };
-      return;
+      throw new Error('Anthropic API 需要 API Key');
     }
 
     let response: Response;
@@ -48,25 +47,24 @@ export class AnthropicProvider implements IAIProvider {
         }),
       });
     } catch (err: any) {
-      yield {
-        type: 'text',
-        content: `[错误] Anthropic 请求失败: ${err.message}`,
-      };
-      return;
+      const message =
+        err?.cause?.code === 'ECONNREFUSED'
+          ? `无法连接到 Anthropic API (连接被拒绝)`
+          : `Anthropic 请求失败: ${err.message}`;
+      this.logger.error(`Fetch error: ${message}`);
+      throw new Error(message);
     }
 
     if (!response.ok || !response.body) {
-      yield {
-        type: 'text',
-        content: `[错误] Anthropic 返回 ${response.status}`,
-      };
-      return;
+      const body = await response.text().catch(() => '');
+      const message = `Anthropic 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
+      this.logger.error(message);
+      throw new Error(message);
     }
 
     const reader = (response.body as any).getReader();
     if (!reader) {
-      yield { type: 'text', content: '[错误] 无法读取响应流' };
-      return;
+      throw new Error('无法读取 Anthropic 响应流');
     }
 
     const decoder = new TextDecoder();

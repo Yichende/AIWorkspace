@@ -48,4 +48,6 @@ export interface ModelListItem {
   supportsThinking: boolean
   /** Source: builtin constant or user-created custom model */
   source: 'builtin' | 'custom'
+  /** 上次连接测试结果：null = 未测试，true = 可用，false = 不可用 */
+  lastTestAvailable?: boolean | null
 }
