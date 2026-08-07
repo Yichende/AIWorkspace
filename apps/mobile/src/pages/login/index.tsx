@@ -31,7 +31,7 @@ export default function LoginPage() {
       }
     }
     checkAndRedirect()
-  }, [])
+  }, [token])
 
   // 保存 token 到本地和 store
   const saveTokens = async (accessToken: string, refreshToken: string) => {

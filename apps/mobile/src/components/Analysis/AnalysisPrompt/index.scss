@@ -1,0 +1,105 @@
+.prompt-step {
+  padding-top: 40rpx;
+}
+
+.prompt-step__header {
+  margin-bottom: 32rpx;
+}
+
+.prompt-step__title {
+  display: block;
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #1B1B1B;
+  margin-bottom: 12rpx;
+}
+
+.prompt-step__subtitle {
+  font-size: 26rpx;
+  color: #5F5F5F;
+  line-height: 1.6;
+}
+
+.prompt-step__input-wrap {
+  position: relative;
+  margin-bottom: 32rpx;
+}
+
+.prompt-step__input {
+  width: 100%;
+  min-height: 240rpx;
+  padding: 28rpx;
+  background: rgba(255, 255, 255, 0.82);
+  border: 2rpx solid rgba(17, 124, 13, 0.16);
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #1B1B1B;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+
+.prompt-step__counter {
+  position: absolute;
+  right: 20rpx;
+  bottom: 16rpx;
+  font-size: 22rpx;
+  color: #9B9B9B;
+}
+
+.prompt-step__templates {
+  margin-bottom: 40rpx;
+}
+
+.prompt-step__templates-label {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #5F5F5F;
+  margin-bottom: 20rpx;
+}
+
+.prompt-step__templates-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.prompt-step__template {
+  padding: 16rpx 28rpx;
+  background: rgba(17, 124, 13, 0.06);
+  border: 2rpx solid rgba(17, 124, 13, 0.12);
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #117C0D;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.12);
+  }
+}
+
+.prompt-step__actions {
+  display: flex;
+  justify-content: center;
+}
+
+.prompt-step__btn {
+  width: 100%;
+  padding: 28rpx;
+  background: #117C0D;
+  border-radius: 16rpx;
+  text-align: center;
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  box-shadow: 0 12rpx 32rpx rgba(17, 124, 13, 0.16);
+
+  &:active {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
+}
+
+.prompt-step__btn--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

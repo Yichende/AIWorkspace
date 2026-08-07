@@ -8,10 +8,11 @@ export default defineAppConfig({
     'pages/addModel/index',
   ],
   window: {
-    navigationBarTitleText:"AI WorkSpace",
+    navigationBarTitleText: 'AI WorkSpace',
 
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#fff',
-    navigationBarTextStyle: 'black'
-  }
+    navigationBarTextStyle: 'black',
+  },
+  subPackages: [{ root: 'pages/analysis', pages: ['index', 'list', 'detail'] }],
 })

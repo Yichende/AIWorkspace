@@ -38,11 +38,12 @@
   "author": "",
   "dependencies": {
     "@babel/runtime": "^7.24.4",
+    "@gui-one/taro-react-echarts": "^1.1.26",
     "@my/ui": "workspace:*",
+    "@nutui/nutui-react-taro": "3.0.20",
     "@repo/constants": "workspace:*",
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
-    "@nutui/nutui-react-taro": "3.0.20",
     "@tanstack/react-query": "^5.100.14",
     "@tarojs/components": "4.2.0",
     "@tarojs/helper": "4.2.0",

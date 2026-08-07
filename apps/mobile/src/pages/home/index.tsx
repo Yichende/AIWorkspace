@@ -13,6 +13,18 @@ export default function HomePage() {
     })
   }
 
+  const gotoAnalysis = () => {
+    Taro.navigateTo({
+      url: '/pages/analysis/index',
+    })
+  }
+
+  const gotoMyAnalyses = () => {
+    Taro.navigateTo({
+      url: '/pages/analysis/list',
+    })
+  }
+
   const go2Test = () => {
     Taro.navigateTo({
       url: '/pages/myTest/index',
@@ -57,7 +69,7 @@ export default function HomePage() {
         </View>
 
         {/* 表格分析卡片 */}
-        <View className='feature-card'>
+        <View className='feature-card' onClick={gotoAnalysis}>
           <View className='card-row'>
             <Icon
               className='card-icon'
@@ -74,7 +86,7 @@ export default function HomePage() {
       </View>
 
       {/* 报告入口（同样左侧图标+右侧文字） */}
-      <View className='report-entry'>
+      <View className='report-entry' onClick={gotoMyAnalyses}>
         <View className='card-row'>
           <Icon name='baobiaochaxun' size={52} color={IconColors.secondary} />
           <View className='card-text'>

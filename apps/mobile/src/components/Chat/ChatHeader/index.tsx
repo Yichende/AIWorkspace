@@ -1,7 +1,6 @@
-import { View, Text } from '@tarojs/components'
-import { Icon } from '@my/ui'
+import { View } from '@tarojs/components'
+import { AppHeader, Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
-
 import './index.scss'
 
 interface Props {
@@ -11,6 +10,11 @@ interface Props {
   showMenu?: boolean
 }
 
+/**
+ * ChatHeader — 聊天页顶部导航栏
+ *
+ * 内部使用 AppHeader 共享组件，仅保留 chat 页特有的菜单按钮逻辑。
+ */
 export default function ChatHeader({
   onBack,
   onMenu,
@@ -18,30 +22,22 @@ export default function ChatHeader({
   showMenu = true,
 }: Props) {
   return (
-    <View className='chat-header'>
-      <View className='status-bar-placeholder' />
-
-      <View className='title-wrapper'>
-        <View className='entry-group'>
-          {showBack && (
-            <View className='entry-btn' onClick={onBack}>
-              <Icon name='fanhui' size={46} color={IconColors.accent} />
-            </View>
-          )}
-
-          {showMenu && (
-            <View className='entry-btn' onClick={() => {
-              console.log('menu clicked')
+    <AppHeader
+      title='一叶'
+      onBack={onBack}
+      showBack={showBack}
+      leftActions={
+        showMenu ? (
+          <View
+            className='chat-header__menu-btn'
+            onClick={() => {
               onMenu?.()
             }}
-            >
-              <Icon name='AI--' size={46} color={IconColors.secondary} />
-            </View>
-          )}
-        </View>
-
-        <Text className='main-title'>一叶</Text>
-      </View>
-    </View>
+          >
+            <Icon name='AI--' size={46} color={IconColors.secondary} />
+          </View>
+        ) : undefined
+      }
+    />
   )
 }

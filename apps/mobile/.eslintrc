@@ -5,5 +5,5 @@
     "react/react-in-jsx-scope": "off",
     "react-hooks/exhaustive-deps": "warn"
   },
-  "ignorePatterns": ["babel.config.js"]
+  "ignorePatterns": ["babel.config.js", "assets/echarts.custom.js"]
 }

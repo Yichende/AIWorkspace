@@ -1,55 +1,15 @@
-@use '@/styles/theme.scss' as *;
+/* ChatHeader — 菜单按钮样式（AppHeader 按钮基础的扩展） */
 
-.chat-header {
-  position: relative;
-
-  padding: 0 32rpx;
-
-  background: $bg-page;
-}
-
-/* 状态栏占位 */
-.status-bar-placeholder {
-  height: 90rpx;
-}
-
-/* 标题区域 */
-.title-wrapper {
-  position: relative;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  height: 72rpx;
-
-  margin-bottom: 20rpx;
-}
-
-/* 左上角菜单栏 */
-.entry-group {
-  position: absolute;
-  left: 0;
-
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-}
-
-.entry-btn {
+.chat-header__menu-btn {
   position: relative;
   width: 72rpx;
   height: 72rpx;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   background: transparent;
-
   border: none;
-
-  transition: $transition-fast;
+  transition: 0.2s ease;
 
   &:active {
     transform: scale(0.92);
@@ -57,33 +17,17 @@
   }
 }
 
-.entry-btn::after {
+.chat-header__menu-btn::after {
   content: '';
-
   position: absolute;
-
   width: 56rpx;
   height: 56rpx;
-
   border-radius: 50%;
-
   background: rgba(17, 124, 13, 0.06);
-
   opacity: 0;
-
   transition: 0.2s;
 }
 
-.entry-btn:active::after {
+.chat-header__menu-btn:active::after {
   opacity: 1;
 }
-
-.main-title {
-  font-size: 40rpx;
-  font-weight: 700;
-
-  color: $text-primary;
-
-  letter-spacing: 2rpx;
-}
-
