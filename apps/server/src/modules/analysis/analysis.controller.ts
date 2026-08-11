@@ -77,15 +77,15 @@ export class AnalysisController {
 
       // 保存文件记录（临时，24h 过期）
       const fileRecord = await this.analysisService.saveFileRecord(
-        '', // 暂不关联 session（create 时再关联）
+        null, // 暂不关联 session（create 时再关联）
         file.originalname,
         file.path,
         file.size,
       );
 
       return {
-        fileId: fileRecord.id,
-        fileName: file.originalname,
+        fileId: String(fileRecord.id),
+        fileName: file.originalname.slice(0, 255),
         dataset,
       };
     } catch (err: any) {
@@ -143,14 +143,7 @@ export class AnalysisController {
     // 获取 session 信息
     const session = await this.analysisService.getSession(user.id, id);
 
-    // 发送初始状态
-    sseWrite(
-      'status',
-      JSON.stringify({ message: `任务状态: ${session.status}` }),
-    );
-
     if (session.status === 'COMPLETED' || session.status === 'FAILED') {
-      // 已完成的任务直接返回结果
       if (session.status === 'COMPLETED') {
         const detail = await this.analysisService.getDetail(user.id, id);
         sseWrite('complete', JSON.stringify(detail.result ?? {}));
@@ -169,10 +162,28 @@ export class AnalysisController {
         session.prompt ?? '',
         session.model,
       )) {
-        if (event.type === 'complete') {
-          sseWrite('complete', event.content);
-        } else {
-          sseWrite(event.type, event.content);
+        switch (event.type) {
+          case 'thinking':
+            sseWrite('thinking', event.delta);
+            break;
+          case 'analysis_delta':
+            sseWrite('analysis_delta', event.delta);
+            break;
+          case 'progress':
+            sseWrite(
+              'progress',
+              JSON.stringify({
+                stage: event.stage,
+                percent: event.percent,
+              }),
+            );
+            break;
+          case 'complete':
+            sseWrite('complete', JSON.stringify(event.payload));
+            break;
+          case 'error':
+            sseWrite('error', event.message);
+            break;
         }
       }
       res.end();

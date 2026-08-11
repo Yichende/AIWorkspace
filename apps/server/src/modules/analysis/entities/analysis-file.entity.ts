@@ -25,10 +25,10 @@ export class AnalysisFile extends Model {
   @ForeignKey(() => AnalysisSession)
   @Column({
     type: DataType.STRING(36),
-    allowNull: false,
+    allowNull: true,
     field: 'analysis_id',
   })
-  declare analysisId: string;
+  declare analysisId: string | null;
 
   @BelongsTo(() => AnalysisSession)
   declare analysis: AnalysisSession;

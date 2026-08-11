@@ -16,14 +16,45 @@ export type AnalysisStep = 'upload' | 'preview' | 'prompt' | 'analyzing' | 'resu
  */
 export type AnalysisStatus = 'PENDING' | 'ANALYZING' | 'COMPLETED' | 'FAILED'
 
-// ── SSE Event Types ────────────────────────────────────────────
+// ── Progress Stage ─────────────────────────────────────────────
 
-export type AnalysisEventType = 'status' | 'text' | 'chart' | 'table' | 'complete' | 'error'
+/** 分析流水线阶段（用于进度条） */
+export type ProgressStage = 'upload' | 'parse' | 'profiling' | 'analyzing' | 'rendering'
 
-export interface AnalysisSSEEvent {
-  type: AnalysisEventType
-  content: string // status message, text delta, or JSON string for chart/table/complete
+// ── SSE Event Protocol (discriminated union) ───────────────────
+
+export interface AnalysisThinkingEvent {
+  type: 'thinking'
+  delta: string
 }
+
+export interface AnalysisDeltaEvent {
+  type: 'analysis_delta'
+  delta: string  // raw JSONL line content
+}
+
+export interface AnalysisProgressEvent {
+  type: 'progress'
+  stage: ProgressStage
+  percent: number
+}
+
+export interface AnalysisCompleteEvent {
+  type: 'complete'
+  payload: AnalysisResult
+}
+
+export interface AnalysisErrorEvent {
+  type: 'error'
+  message: string
+}
+
+export type AnalysisEvent =
+  | AnalysisThinkingEvent
+  | AnalysisDeltaEvent
+  | AnalysisProgressEvent
+  | AnalysisCompleteEvent
+  | AnalysisErrorEvent
 
 // ── Chart & Table Config ───────────────────────────────────────
 
@@ -43,7 +74,38 @@ export interface TableConfig {
   data: Record<string, any>[]
 }
 
-// ── Dataset ────────────────────────────────────────────────────
+// ── Data Profiler Output ───────────────────────────────────────
+
+/** 列元数据 */
+export interface ColumnProfile {
+  name: string
+  type: 'number' | 'date' | 'string' | 'unknown'
+  nullable: boolean
+  uniqueCount?: number
+}
+
+/** 数值列统计 */
+export interface NumericColumnStats {
+  count: number
+  min: number
+  max: number
+  mean: number
+  median: number
+  stdDev: number
+  nullCount: number
+}
+
+/** Data Profiler 产出的数据摘要（作为 LLM Prompt 输入） */
+export interface DataProfile {
+  fileName: string
+  rowCount: number
+  columnCount: number
+  columns: ColumnProfile[]
+  statistics: Record<string, NumericColumnStats>
+  sampleRows: Record<string, any>[]
+}
+
+// ── Dataset (upload response) ──────────────────────────────────
 
 export interface DatasetSummary {
   columns: string[]

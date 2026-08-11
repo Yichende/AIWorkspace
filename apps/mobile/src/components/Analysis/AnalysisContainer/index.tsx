@@ -1,12 +1,6 @@
 import { View } from '@tarojs/components'
 import { useAnalysisStore } from '@/stores/analysis.store'
-import { analysisApi } from '@/services/analysis.api'
-import type {
-  ChartConfig,
-  TableConfig,
-  AnalysisResult as AnalysisResultType,
-  AnalysisStatus,
-} from '@repo/types'
+import { useAnalysisStream } from '@/hooks/useAnalysisStream'
 import AnalysisUpload from '../AnalysisUpload'
 import AnalysisPreview from '../AnalysisPreview'
 import AnalysisPrompt from '../AnalysisPrompt'
@@ -32,24 +26,19 @@ export default function AnalysisContainer() {
     dataset,
     model,
     setFile,
-    setPrompt,
-    setSessionId,
-    addProgress,
-    appendText,
-    addChart,
-    addTable,
-    setComplete,
-    setFailed,
-    setStatus,
     result,
     charts,
     tables,
-    progress,
+    thinkingText,
+    progressStage,
+    progressPercent,
     streamingText,
     status,
     fileId,
     setModel,
   } = useAnalysisStore()
+
+  const { startAnalysis } = useAnalysisStream()
 
   // ── Upload → Preview ───────────────────────────────────────
 
@@ -63,60 +52,12 @@ export default function AnalysisContainer() {
     setStep('prompt')
   }
 
-  // ── Prompt → Analyzing (create + SSE subscribe) ─────────────
+  // ── Prompt → Analyzing（委托给 useAnalysisStream hook）─────
 
   const handleStartAnalysis = async (userPrompt: string) => {
     if (!fileId) return
-
-    setPrompt(userPrompt)
     setStep('analyzing')
-    setStatus('PENDING')
-    addProgress('正在创建分析任务...')
-
-    try {
-      // 1. 创建分析任务
-      const { id } = await analysisApi.create({
-        fileId,
-        prompt: userPrompt,
-        model,
-      })
-      setSessionId(id)
-      addProgress('✓ 任务已创建，等待执行...')
-
-      // 2. 订阅 SSE 流
-      analysisApi.stream(id, {
-        onStatus: (msg) => {
-          // 提取纯文本消息
-          const cleanMsg = msg.replace(/^[✓]\s*/, '✓ ').trim()
-          if (!cleanMsg.startsWith('✓')) {
-            setStatus('ANALYZING' as AnalysisStatus)
-          }
-          addProgress(cleanMsg.startsWith('✓') ? cleanMsg : `✓ ${cleanMsg}`)
-        },
-
-        onText: (delta) => {
-          appendText(delta)
-        },
-
-        onChart: (chart: ChartConfig) => {
-          addChart(chart)
-        },
-
-        onTable: (table: TableConfig) => {
-          addTable(table)
-        },
-
-        onComplete: (res: AnalysisResultType) => {
-          setComplete(res)
-        },
-
-        onError: (err: string) => {
-          setFailed(err)
-        },
-      })
-    } catch (err: any) {
-      setFailed(err.message || '创建任务失败')
-    }
+    startAnalysis(fileId, userPrompt, model)
   }
 
   // ── Render by Step ──────────────────────────────────────────
@@ -149,8 +90,10 @@ export default function AnalysisContainer() {
       {step === 'analyzing' && (
         <AnalysisProgress
           status={status}
-          progress={progress}
+          thinkingText={thinkingText}
           streamingText={streamingText}
+          progressStage={progressStage}
+          progressPercent={progressPercent}
           charts={charts}
           tables={tables}
         />

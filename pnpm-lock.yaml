@@ -55,6 +55,9 @@ importers:
       '@nutui/nutui-react-taro':
         specifier: 3.0.20
         version: 3.0.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@repo/analysis-parser':
+        specifier: workspace:*
+        version: link:../../packages/analysis-parser
       '@repo/constants':
         specifier: workspace:*
         version: link:../../packages/constants
@@ -239,6 +242,9 @@ importers:
       '@prisma/client':
         specifier: ^7.8.0
         version: 7.8.0(prisma@7.8.0(@types/react@18.3.29)(react-dom@18.3.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
+      '@repo/analysis-parser':
+        specifier: workspace:*
+        version: link:../../packages/analysis-parser
       '@repo/constants':
         specifier: workspace:*
         version: link:../../packages/constants
@@ -402,6 +408,12 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+
+  packages/analysis-parser:
+    dependencies:
+      '@repo/types':
+        specifier: workspace:*
+        version: link:../types
 
   packages/charts:
     dependencies:

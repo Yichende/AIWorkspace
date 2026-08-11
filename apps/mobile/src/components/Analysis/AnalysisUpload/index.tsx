@@ -90,7 +90,7 @@ export default function AnalysisUpload({ onUploaded }: Props) {
 
       {error && (
         <View className='upload-step__error'>
-          <Text>{error}</Text>
+          <Text user-select>{error}</Text>
         </View>
       )}
     </View>

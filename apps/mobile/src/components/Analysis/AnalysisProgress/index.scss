@@ -3,7 +3,7 @@
 }
 
 .progress-step__header {
-  margin-bottom: 32rpx;
+  margin-bottom: 24rpx;
 }
 
 .progress-step__title {
@@ -13,78 +13,40 @@
   color: #1B1B1B;
 }
 
-.progress-step__list {
+/* ── Progress Bar ─────────────────────────────────────── */
+
+.progress-step__bar-wrap {
   margin-bottom: 32rpx;
 }
 
-.progress-step__item {
-  display: flex;
-  align-items: flex-start;
-  gap: 16rpx;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid rgba(17, 124, 13, 0.06);
+.progress-step__bar-track {
+  height: 12rpx;
+  background: #E8E8E8;
+  border-radius: 6rpx;
+  overflow: hidden;
+  margin-bottom: 12rpx;
 }
 
-.progress-step__dot {
-  flex-shrink: 0;
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22rpx;
-  font-weight: 700;
-  margin-top: 4rpx;
-
-  &.done {
-    background: rgba(17, 124, 13, 0.12);
-    color: #117C0D;
-  }
-
-  &.active {
-    background: #117C0D;
-    border: 2rpx solid rgba(17, 124, 13, 0.3);
-    animation: pulse-dot 1.2s ease-in-out infinite;
-  }
-
-  &.error {
-    background: rgba(231, 76, 60, 0.12);
-    color: #E74C3C;
-  }
+.progress-step__bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #117C0D, #28A745);
+  border-radius: 6rpx;
+  transition: width 0.4s ease;
+  min-width: 2%;
 }
 
-@keyframes pulse-dot {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
+.progress-step__bar-label {
+  font-size: 24rpx;
+  color: #666;
 }
 
-.progress-step__msg {
-  font-size: 28rpx;
-  color: #1B1B1B;
-  line-height: 1.5;
-  flex: 1;
-}
-
-.progress-step__item.latest .progress-step__msg {
-  font-weight: 500;
-}
-
-.progress-step__item.error .progress-step__msg {
-  color: #E74C3C;
-}
-
-.progress-step__stream {
-  padding: 28rpx;
-  background: rgba(255, 255, 255, 0.72);
-  border-radius: 16rpx;
-  margin-bottom: 24rpx;
-}
+/* ── Generated tags ────────────────────────────────────── */
 
 .progress-step__generated {
   display: flex;
   flex-wrap: wrap;
   gap: 16rpx;
+  margin-bottom: 24rpx;
 }
 
 .progress-step__gen-tag {
@@ -93,4 +55,60 @@
   border-radius: 8rpx;
   font-size: 24rpx;
   color: #117C0D;
+}
+
+/* ── Thinking Area（包裹 chat 的 ThinkingBlock 组件）── */
+
+.progress-step__thinking {
+  background: #F5F0E8;  // 暖米色实色，与正文白色区域明确区分
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+  overflow: hidden;
+  padding: 12rpx 4rpx;
+}
+
+/* ── Streaming text area (green tint, clearly different) ── */
+
+.progress-step__stream {
+  border-radius: 16rpx;
+  background: #FFFFFF;  // 纯白实色
+  overflow: hidden;
+  border: 2rpx solid rgba(17, 124, 13, 0.12);
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.progress-step__stream-scroll {
+  max-height: 40vh;
+  padding: 28rpx;
+  box-sizing: border-box;
+}
+
+.progress-step__scroll-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12rpx 0 16rpx;
+  gap: 2rpx;
+  background: rgba(17, 124, 13, 0.04);
+
+  &:active {
+    opacity: 0.6;
+  }
+}
+
+.progress-step__scroll-arrow-icon {
+  font-size: 22rpx;
+  color: #117C0D;
+  animation: arrowBounce 1.4s ease-in-out infinite;
+}
+
+.progress-step__scroll-arrow-label {
+  font-size: 20rpx;
+  color: #117C0D;
+}
+
+@keyframes arrowBounce {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50%      { transform: translateY(6rpx); opacity: 1; }
 }

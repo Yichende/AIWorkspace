@@ -7,9 +7,8 @@ import type { IAIProvider, ProviderConfig, StreamChunk } from '@repo/types';
  * Handles both local Ollama instances and custom Ollama-compatible endpoints.
  * Uses Ollama's native /api/chat endpoint with stream=true.
  *
- * Thinking/reasoning is extracted from:
- *   1. Native "thinking" field (Ollama 0.5+)
- *   2. <think>...</think> tags in content (legacy fallback)
+ * Thinking/reasoning is extracted from the native "thinking" field (Ollama 0.5+).
+ * <think> tag parsing within content is delegated to the Queue-level ThinkTagParser.
  */
 export class OllamaProvider implements IAIProvider {
   readonly protocol = 'ollama';
@@ -119,67 +118,9 @@ export class OllamaProvider implements IAIProvider {
       chunks.push({ type: 'thinking', content: raw.message.thinking });
     }
 
-    // Content field (may contain <think> tags)
+    // Content field: emit as text (think tags handled by Queue-level ThinkTagParser)
     if (raw.message?.content) {
-      // If we already have native thinking, content is pure answer
-      if (raw.message.thinking) {
-        chunks.push({ type: 'text', content: raw.message.content });
-      } else {
-        // Parse <think> tags from content
-        for (const c of this.parseThinkTags(raw.message.content)) {
-          chunks.push(c);
-        }
-      }
-    }
-
-    return chunks;
-  }
-
-  /**
-   * Extract <think>...</think> blocks from content text.
-   * Content before <think> is regular text.
-   * Content inside <think>...</think> is thinking.
-   * Content after </think> is regular text.
-   */
-  private parseThinkTags(content: string): StreamChunk[] {
-    const chunks: StreamChunk[] = [];
-    const THINK_OPEN = '<think>';
-    const THINK_CLOSE = '</think>';
-
-    let remaining = content;
-
-    while (remaining.length > 0) {
-      const openIdx = remaining.indexOf(THINK_OPEN);
-
-      if (openIdx === -1) {
-        // No more think tags
-        if (remaining) chunks.push({ type: 'text', content: remaining });
-        break;
-      }
-
-      // Content before <think>
-      if (openIdx > 0) {
-        chunks.push({ type: 'text', content: remaining.slice(0, openIdx) });
-      }
-
-      const thinkStart = openIdx + THINK_OPEN.length;
-      const closeIdx = remaining.indexOf(THINK_CLOSE, thinkStart);
-
-      if (closeIdx === -1) {
-        // Unclosed think tag — treat rest as thinking
-        chunks.push({ type: 'thinking', content: remaining.slice(thinkStart) });
-        break;
-      }
-
-      // Content inside <think>...</think>
-      if (closeIdx > thinkStart) {
-        chunks.push({
-          type: 'thinking',
-          content: remaining.slice(thinkStart, closeIdx),
-        });
-      }
-
-      remaining = remaining.slice(closeIdx + THINK_CLOSE.length);
+      chunks.push({ type: 'text', content: raw.message.content });
     }
 
     return chunks;

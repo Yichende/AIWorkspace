@@ -5,8 +5,6 @@ import type {
   UploadFileResponse,
   PaginatedAnalyses,
   AnalysisDetail,
-  ChartConfig,
-  TableConfig,
   AnalysisResult,
 } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
@@ -20,10 +18,9 @@ const BASE_URL = 'http://localhost:3000'
 // ── SSE Stream Callbacks ────────────────────────────────────
 
 export interface AnalysisStreamCallbacks {
-  onStatus?: (message: string) => void
-  onText?: (delta: string) => void
-  onChart?: (chart: ChartConfig) => void
-  onTable?: (table: TableConfig) => void
+  onThinking?: (delta: string) => void
+  onAnalysisDelta?: (rawDelta: string) => void
+  onProgress?: (stage: string, percent: number) => void
   onComplete?: (result: AnalysisResult) => void
   onError?: (err: string) => void
 }
@@ -38,7 +35,40 @@ export const analysisApi = {
     filePath: string,
     fileName: string,
   ): Promise<UploadFileResponse> {
-    const token = useUserStore.getState().token || (await getToken())
+    let token: string | null =
+      useUserStore.getState().token || (await getToken())
+
+    // Pre-check: refresh token if expiring soon
+    if (token && isTokenExpiringSoon(token, 30000)) {
+      try {
+        const refreshToken = await getRefreshToken()
+        if (refreshToken) {
+          const refreshRes = await Taro.request<{
+            access_token: string
+            refresh_token: string
+          }>({
+            url: `${BASE_URL}/auth/refresh`,
+            method: 'POST',
+            data: { refresh_token: refreshToken },
+            header: { 'Content-Type': 'application/json' },
+          })
+
+          if (
+            refreshRes.statusCode >= 200 &&
+            refreshRes.statusCode < 300
+          ) {
+            const { access_token, refresh_token } = refreshRes.data
+            await setToken(access_token)
+            await setRefreshToken(refresh_token)
+            useUserStore.getState().setToken(access_token)
+            useUserStore.getState().setRefreshToken(refresh_token)
+            token = access_token
+          }
+        }
+      } catch {
+        // proceed with existing token
+      }
+    }
 
     return new Promise((resolve, reject) => {
       Taro.uploadFile({
@@ -199,35 +229,21 @@ export const analysisApi = {
     }
 
     switch (eventType) {
-      case 'status': {
-        // status content is JSON: {"message":"..."}
+      case 'thinking':
+        cb.onThinking?.(data)
+        break
+      case 'analysis_delta':
+        cb.onAnalysisDelta?.(data)
+        break
+      case 'progress': {
         try {
           const parsed = JSON.parse(data)
-          cb.onStatus?.(parsed.message ?? data)
+          cb.onProgress?.(parsed.stage ?? '', parsed.percent ?? 0)
         } catch {
-          cb.onStatus?.(data)
+          // ignore
         }
         break
       }
-      case 'text':
-        cb.onText?.(data)
-        break
-      case 'chart':
-        try {
-          const chart = JSON.parse(data) as ChartConfig
-          cb.onChart?.(chart)
-        } catch {
-          // ignore parse error
-        }
-        break
-      case 'table':
-        try {
-          const table = JSON.parse(data) as TableConfig
-          cb.onTable?.(table)
-        } catch {
-          // ignore parse error
-        }
-        break
       case 'complete':
         try {
           const result = JSON.parse(data) as AnalysisResult

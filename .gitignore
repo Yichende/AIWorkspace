@@ -53,6 +53,7 @@ Thumbs.db
 # =========================
 .vscode/
 .idea/
+.claude/
 
 # =========================
 # TypeScript

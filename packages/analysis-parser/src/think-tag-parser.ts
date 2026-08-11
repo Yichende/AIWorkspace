@@ -1,37 +1,18 @@
-/**
- * Streaming parser for <think>...</think> tags in AI responses.
- *
- * Stateful parser that handles partial tag arrivals during streaming.
- * Used as a client-side fallback when the server SSE does not separate
- * thinking content from answer content.
- *
- * Also handles edge cases:
- * - Orphan </think> without opening <think> (buggy Ollama versions
- *   that strip <think> but leave </think> in content)
- *
- * Usage:
- *   const parser = new ThinkTagParser()
- *   for (const chunk of stream) {
- *     for (const { type, content } of parser.feed(chunk)) {
- *       if (type === 'thinking') { ... } else { ... }
- *     }
- *   }
- *   parser.reset()
- */
-export interface ParsedChunk {
-  type: 'thinking' | 'answer'
-  content: string
-}
+import type { ThinkChunk } from './types'
+
+// ═══════════════════════════════════════════════════════════════
+// Think Tag Parser — extracts <think>...</think> from text stream
+// ═══════════════════════════════════════════════════════════════
 
 const THINK_OPEN = '<think>'
 const THINK_CLOSE = '</think>'
 
 export class ThinkTagParser {
-  private state: 'outside' | 'inside_think' | 'after_think' = 'outside'
+  private state: 'outside' | 'inside' | 'after' = 'outside'
   private buffer = ''
 
-  feed(chunk: string): ParsedChunk[] {
-    const results: ParsedChunk[] = []
+  feed(chunk: string): ThinkChunk[] {
+    const results: ThinkChunk[] = []
     this.buffer += chunk
 
     while (this.buffer.length > 0) {
@@ -39,7 +20,7 @@ export class ThinkTagParser {
         const openIdx = this.buffer.indexOf(THINK_OPEN)
         const closeIdx = this.buffer.indexOf(THINK_CLOSE)
 
-        // No tags at all — keep small buffer for partial tag match
+        // No tags at all — keep buffer for partial tag match
         if (openIdx === -1 && closeIdx === -1) {
           if (this.buffer.length < THINK_OPEN.length && this.buffer.length < THINK_CLOSE.length) break
           results.push({ type: 'answer', content: this.buffer })
@@ -55,7 +36,7 @@ export class ThinkTagParser {
             results.push({ type: 'thinking', content: this.buffer.slice(0, closeIdx) })
           }
           this.buffer = this.buffer.slice(closeIdx + THINK_CLOSE.length)
-          this.state = 'after_think'
+          this.state = 'after'
           continue
         }
 
@@ -64,15 +45,13 @@ export class ThinkTagParser {
           results.push({ type: 'answer', content: this.buffer.slice(0, openIdx) })
         }
         this.buffer = this.buffer.slice(openIdx + THINK_OPEN.length)
-        this.state = 'inside_think'
+        this.state = 'inside'
       }
 
-      if (this.state === 'inside_think') {
-        const closeIdx = this.buffer.indexOf(THINK_CLOSE)
-        if (closeIdx === -1) {
-          // Partial: keep enough to cover possible </think>
-          if (this.buffer.length <= THINK_CLOSE.length) break
-          // Emit what we have, keep tail for possible </think> match
+      if (this.state === 'inside') {
+        const idx = this.buffer.indexOf(THINK_CLOSE)
+        if (idx === -1) {
+          // 保留尾部以防 </think 被截断
           const safeEnd = Math.max(0, this.buffer.length - THINK_CLOSE.length)
           if (safeEnd > 0) {
             results.push({ type: 'thinking', content: this.buffer.slice(0, safeEnd) })
@@ -80,14 +59,14 @@ export class ThinkTagParser {
           }
           break
         }
-        if (closeIdx > 0) {
-          results.push({ type: 'thinking', content: this.buffer.slice(0, closeIdx) })
+        if (idx > 0) {
+          results.push({ type: 'thinking', content: this.buffer.slice(0, idx) })
         }
-        this.buffer = this.buffer.slice(closeIdx + THINK_CLOSE.length)
-        this.state = 'after_think'
+        this.buffer = this.buffer.slice(idx + THINK_CLOSE.length)
+        this.state = 'after'
       }
 
-      if (this.state === 'after_think') {
+      if (this.state === 'after') {
         const openIdx = this.buffer.indexOf(THINK_OPEN)
         const closeIdx = this.buffer.indexOf(THINK_CLOSE)
 
@@ -114,19 +93,18 @@ export class ThinkTagParser {
           results.push({ type: 'answer', content: this.buffer.slice(0, openIdx) })
         }
         this.buffer = this.buffer.slice(openIdx + THINK_OPEN.length)
-        this.state = 'inside_think'
+        this.state = 'inside'
       }
     }
 
     return results
   }
 
-  /** Flush any remaining buffered content */
-  flush(): ParsedChunk[] {
-    const results: ParsedChunk[] = []
+  flush(): ThinkChunk[] {
+    const results: ThinkChunk[] = []
     if (this.buffer.length > 0) {
       results.push({
-        type: this.state === 'inside_think' ? 'thinking' : 'answer',
+        type: this.state === 'inside' ? 'thinking' : 'answer',
         content: this.buffer,
       })
       this.buffer = ''

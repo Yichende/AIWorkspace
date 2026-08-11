@@ -29,7 +29,9 @@
       "@repo/types": ["../../packages/types/src"],
       "@repo/types/*": ["../../packages/types/src/*"],
       "@repo/utils": ["../../packages/utils/src"],
-      "@repo/utils/*": ["../../packages/utils/src/*"]
+      "@repo/utils/*": ["../../packages/utils/src/*"],
+      "@repo/analysis-parser": ["../../packages/analysis-parser/src"],
+      "@repo/analysis-parser/*": ["../../packages/analysis-parser/src/*"]
     },
 
     "types": ["node", "jest"]

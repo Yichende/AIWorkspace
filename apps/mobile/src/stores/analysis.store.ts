@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type {
   AnalysisStep,
   AnalysisStatus,
+  ProgressStage,
   DatasetSummary,
   ChartConfig,
   TableConfig,
@@ -27,10 +28,14 @@ interface AnalysisState {
 
   // ── 分析阶段 ──
   status: AnalysisStatus | null;
-  /** 进度消息列表 */
-  progress: string[];
-  /** 流式累积文本 */
+  /** 思考文本（仅内存，不持久化） */
+  thinkingText: string;
+  /** 流式累积正文 */
   streamingText: string;
+  /** 进度阶段 */
+  progressStage: ProgressStage | null;
+  /** 进度百分比 */
+  progressPercent: number;
 
   // ── 结果阶段 ──
   charts: ChartConfig[];
@@ -63,11 +68,14 @@ interface AnalysisActions {
   /** 设置分析状态 */
   setStatus: (status: AnalysisStatus) => void;
 
-  /** 追加一条进度消息 */
-  addProgress: (msg: string) => void;
+  /** 追加思考文本 */
+  appendThinking: (delta: string) => void;
 
   /** 追加流式文本 */
   appendText: (delta: string) => void;
+
+  /** 设置进度 */
+  setProgress: (stage: ProgressStage, percent: number) => void;
 
   /** 添加一个图表 */
   addChart: (chart: ChartConfig) => void;
@@ -104,8 +112,10 @@ const initialState: AnalysisState = {
   prompt: '',
   model: 'DeepSeek-R1',
   status: null,
-  progress: [],
+  thinkingText: '',
   streamingText: '',
+  progressStage: null,
+  progressPercent: 0,
   charts: [],
   tables: [],
   result: null,
@@ -135,15 +145,18 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
 
     setStatus: (status) => set({ status }),
 
-    addProgress: (msg) =>
+    appendThinking: (delta) =>
       set((state) => ({
-        progress: [...state.progress, msg],
+        thinkingText: state.thinkingText + delta,
       })),
 
     appendText: (delta) =>
       set((state) => ({
         streamingText: state.streamingText + delta,
       })),
+
+    setProgress: (stage, percent) =>
+      set({ progressStage: stage, progressPercent: percent }),
 
     addChart: (chart) =>
       set((state) => ({
@@ -159,14 +172,18 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       set({
         status: 'COMPLETED',
         result,
+        progressPercent: 100,
         step: 'result',
+        thinkingText: '',  // 分析完成后清除思考内容（不保存）
+        streamingText: '', // 正文已存入 result.content，清空流式缓存
       }),
 
     setFailed: (error) =>
-      set({
+      set((state) => ({
         status: 'FAILED',
-        progress: (state) => [...state.progress, `❌ ${error}`],
-      }),
+        thinkingText:
+          state.thinkingText + `\n❌ ${error}`,
+      })),
 
     hydrate: (data) =>
       set({

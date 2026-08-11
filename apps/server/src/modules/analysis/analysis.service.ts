@@ -31,7 +31,7 @@ export class AnalysisService {
   // ── File Upload ─────────────────────────────────────────────
 
   async saveFileRecord(
-    analysisId: string,
+    analysisId: string | null,
     fileName: string,
     fileUrl: string,
     size: number,
