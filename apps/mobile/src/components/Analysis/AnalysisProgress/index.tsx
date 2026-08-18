@@ -23,8 +23,8 @@ const STAGE_LABELS: Record<ProgressStage, string> = {
   upload: '正在上传文件...',
   parse: '正在解析文件结构...',
   profiling: '正在分析数据特征...',
-  analyzing: '正在生成分析报告...',
-  rendering: '正在渲染图表...',
+  analyzing: '正在思考分析结论...',
+  rendering: '正在生成分析报告...',
 }
 
 export default function AnalysisProgress({

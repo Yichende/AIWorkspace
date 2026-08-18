@@ -169,13 +169,26 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       })),
 
     setComplete: (result) =>
-      set({
-        status: 'COMPLETED',
-        result,
-        progressPercent: 100,
-        step: 'result',
-        thinkingText: '',  // 分析完成后清除思考内容（不保存）
-        streamingText: '', // 正文已存入 result.content，清空流式缓存
+      set((state) => {
+        // 合并服务端 complete payload 中的图表/表格（按 id 去重），
+        // 保证客户端流式解析遗漏时结果页仍能渲染服务端恢复的图表。
+        const mergeById = <T extends { id?: string }>(
+          list: T[],
+          incoming: T[],
+        ) => {
+          const ids = new Set(list.map((x) => x.id));
+          return [...list, ...incoming.filter((x) => x.id && !ids.has(x.id))];
+        };
+        return {
+          status: 'COMPLETED',
+          result,
+          progressPercent: 100,
+          step: 'result',
+          thinkingText: '',  // 分析完成后清除思考内容（不保存）
+          streamingText: '', // 正文已存入 result.content，清空流式缓存
+          charts: mergeById(state.charts, result.charts ?? []),
+          tables: mergeById(state.tables, result.tables ?? []),
+        };
       }),
 
     setFailed: (error) =>

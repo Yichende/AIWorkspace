@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
-import { ThinkTagParser, JsonlStreamParser } from '@repo/analysis-parser';
+import {
+  ThinkTagParser,
+  JsonlStreamParser,
+  tryFixJson,
+} from '@repo/analysis-parser';
+import type { JsonlParsedEvent } from '@repo/analysis-parser';
 import { ModelResolver, ResolvedModel } from '../chat/model-resolver.service';
 import { ProviderFactory } from '../chat/providers/provider-factory.service';
 import { AnalysisService } from './analysis.service';
@@ -87,7 +92,7 @@ export class AnalysisQueueService {
       // ── 5. 构建 LLM Prompt ──────────────────────────────────
       yield { type: 'progress', stage: 'analyzing', percent: 30 };
 
-      const aiPrompt = this.buildPrompt({
+      const { systemPrompt, userPrompt: dataPrompt } = this.buildPrompts({
         fileName: fileRecord.fileName,
         rowCount,
         columnCount,
@@ -106,7 +111,10 @@ export class AnalysisQueueService {
       );
       const provider = this.providerFactory.getProvider(resolved.protocolType);
 
-      const messages = [{ role: 'user' as const, content: aiPrompt }];
+      const messages = [
+        { role: 'system' as const, content: systemPrompt },
+        { role: 'user' as const, content: dataPrompt },
+      ];
 
       let fullText = ''; // 原始 JSONL 文本（不含 thinking）
       const charts: ChartConfig[] = [];
@@ -114,7 +122,8 @@ export class AnalysisQueueService {
       const thinkParser = new ThinkTagParser();
 
       // ── 7. 流式接收 + Think 解析 ──────────────────────────
-      let textStarted = false;
+
+      yield { type: 'progress', stage: 'analyzing', percent: 50 };
 
       for await (const chunk of provider.streamChat(
         messages,
@@ -143,15 +152,9 @@ export class AnalysisQueueService {
             );
             yield { type: 'thinking', delta: tr.content };
           } else {
-            // answer 部分 → 作为原始 JSONL 文本直接发送给客户端
+            // answer 部分 → 原始 JSONL 文本直接发送给客户端，
+            // 由客户端 JsonlStreamParser 解析渲染
             fullText += tr.content;
-
-            if (!textStarted) {
-              textStarted = true;
-              yield { type: 'progress', stage: 'analyzing', percent: 50 };
-            }
-
-            // 客户端负责 JsonlStreamParser 解析和渲染
             yield { type: 'analysis_delta', delta: tr.content };
           }
         }
@@ -168,12 +171,19 @@ export class AnalysisQueueService {
         }
       }
 
+      // ── 完整原始输出日志（仅正文，不含 thinking）──
+      this.logger.log(
+        `\n===== AI RAW OUTPUT (content only, no thinking) =====\n${fullText}\n===== END AI RAW OUTPUT =====`,
+      );
+
       // ── Post-stream: 解析 fullText 提取 charts/tables + 清洁文本用于持久化 ──
       let cleanContent = '';
+      let parsedAny = false; // 是否解析出任意事件（text/chart/table）
       const postParser = new JsonlStreamParser({
         onDebug: (msg) => this.logger.debug(msg),
       });
-      for (const event of postParser.feed(fullText)) {
+      const collectEvent = (event: JsonlParsedEvent) => {
+        parsedAny = true;
         if (event.type === 'text') {
           cleanContent += event.content;
         } else if (event.type === 'chart' && charts.length < MAX_CHARTS) {
@@ -181,17 +191,39 @@ export class AnalysisQueueService {
         } else if (event.type === 'table' && tables.length < MAX_CHARTS) {
           tables.push(event.payload);
         }
-      }
+      };
+      for (const event of postParser.feed(fullText)) collectEvent(event);
       // Flush 残余 JSON
-      for (const event of postParser.flush()) {
-        if (event.type === 'text') {
-          cleanContent += event.content;
-        } else if (event.type === 'chart' && charts.length < MAX_CHARTS) {
-          charts.push(event.payload);
-        } else if (event.type === 'table' && tables.length < MAX_CHARTS) {
-          tables.push(event.payload);
+      for (const event of postParser.flush()) collectEvent(event);
+
+      // ── Fallback：一个事件都没解析出（AI 完全未遵循 JSONL）→ 降级为纯文本 ──
+      // 只要解析出了任意事件（哪怕只有 chart/table），就绝不把原始 JSONL 倾倒给用户。
+      if (!parsedAny && fullText.trim().length > 0) {
+        this.logger.warn(
+          '[fallback] 未解析出任何事件，AI 未遵循 JSONL 格式，降级为纯文本模式',
+        );
+        cleanContent = fullText.trim();
+
+        // 尝试从原始文本中抢救 chart/table JSON 片段
+        const rescuedCharts = this.rescueChartFragments(fullText);
+        const rescuedTables = this.rescueTableFragments(fullText);
+        for (const c of rescuedCharts) {
+          if (charts.length < MAX_CHARTS) charts.push(c);
         }
+        for (const t of rescuedTables) {
+          if (tables.length < MAX_CHARTS) tables.push(t);
+        }
+        this.logger.log(
+          `[fallback] rescued charts=${rescuedCharts.length} tables=${rescuedTables.length}`,
+        );
       }
+
+      // ── 解析结果摘要日志 ──
+      this.logger.log(
+        `[parse-summary] eventsParsed=${parsedAny ? 'yes' : 'no'} ` +
+          `fallback=${cleanContent.length > 0 && !parsedAny ? 'yes' : 'no'} ` +
+          `textLen=${cleanContent.length} charts=${charts.length} tables=${tables.length}`,
+      );
 
       // ── 8. 提取 insights ────────────────────────────────────
       yield { type: 'progress', stage: 'rendering', percent: 85 };
@@ -304,10 +336,77 @@ export class AnalysisQueueService {
     return Math.round(n * 10 ** decimals) / 10 ** decimals;
   }
 
-  // ── Prompt Builder ────────────────────────────────────────
+  // ── Prompt Builders ───────────────────────────────────────
 
-  /** 构建 JSONL 格式的分析 Prompt */
-  private buildPrompt(params: {
+  /** 构建 System Prompt + User Prompt */
+  private buildPrompts(params: {
+    fileName: string;
+    rowCount: number;
+    columnCount: number;
+    columnProfiles: ColumnProfile[];
+    statistics?: Record<string, any>;
+    sampleRows: Record<string, any>[];
+    userPrompt: string;
+  }): { systemPrompt: string; userPrompt: string } {
+    const {
+      fileName,
+      rowCount,
+      columnCount,
+      columnProfiles,
+      statistics,
+      sampleRows,
+      userPrompt: rawUserPrompt,
+    } = params;
+
+    const systemPrompt = this.buildSystemPrompt();
+    const userPrompt = this.buildUserPrompt({
+      fileName,
+      rowCount,
+      columnCount,
+      columnProfiles,
+      statistics,
+      sampleRows,
+      userPrompt: rawUserPrompt,
+    });
+
+    return { systemPrompt, userPrompt };
+  }
+
+  /** System Prompt：角色 + 任务目标 + JSONL 格式（精简版） */
+  private buildSystemPrompt(): string {
+    return `你是数据分析专家。你的任务不是简单复述数据，而是：
+1. 发现数据中的关键趋势、异常和规律
+2. 主动识别适合可视化的维度，生成 chart 事件
+3. 用 text 事件输出 Markdown 分析报告（每个 text 事件只写一个章节）
+4. 用 table 事件展示结构化对比数据（可选）
+
+## 输出格式（JSONL）
+
+每行一个 JSON 对象，用 **"event"** 字段区分类型。禁止输出任何非 JSON 文本。
+每行必须是一个完整、独立的 JSON 对象，一个事件输出完毕后换行再输出下一个事件。
+
+### text — 分析正文
+{"event":"text","delta":"## 分析结果\\n\\n销售额呈上升趋势，其中..."}
+规则：换行转义为 \\n，字段名 delta；一个 text 事件只包含一个章节，禁止把整份报告塞进一个 text 事件。
+
+### chart — 图表（最多 ${MAX_CHARTS} 个）
+{"event":"chart","chart":{"id":"c1","type":"bar","title":"各产品销售额","data":[{"产品":"A","销售额":12000},{"产品":"B","销售额":8500}]}}
+- type: bar（类别对比）/ line（时间趋势）/ pie（占比分布）
+- data 第一个字段为维度，其余为数值系列（pie 用 name/value）
+- **只要数据包含数值列，就必须输出至少 1 个 chart 事件，不得省略**
+
+### table — 表格（最多 ${MAX_CHARTS} 个）
+{"event":"table","table":{"id":"t1","title":"汇总","columns":["产品","销售额"],"data":[{"产品":"A","销售额":12000}]}}
+
+## 禁止
+- 在 JSON 行外添加任何文字
+- 将 JSON 包裹在 \`\`\` 代码块中
+- JSON 字符串内使用真实换行（必须 \\n 转义）
+- 用 text 事件代替 chart 事件（图表必须用 chart 事件输出）`;
+  }
+
+  /** User Prompt：数据摘要 + 用户需求 */
+  private buildUserPrompt(params: {
     fileName: string;
     rowCount: number;
     columnCount: number;
@@ -326,7 +425,6 @@ export class AnalysisQueueService {
       userPrompt,
     } = params;
 
-    // 构建列摘要（紧凑格式）
     const colSummary = columnProfiles
       .map(
         (c) =>
@@ -342,9 +440,16 @@ export class AnalysisQueueService {
         '\n```';
     }
 
-    return `你是一个数据分析专家。请根据以下**数据摘要**进行分析。注意：你只能看到摘要和样本，看不到全量原始数据。
+    // 用户需求提到图表时，注入硬性要求（双保险）
+    const wantsChart =
+      /图表|柱状图|饼图|折线图|条形图|曲线图|趋势图|可视化|图形/.test(
+        userPrompt,
+      );
+    const chartRequirement = wantsChart
+      ? '\n【硬性要求】用户需求中明确要求输出图表，你必须输出至少 1 个 chart 事件，图表数据必须基于数据摘要中的真实统计值。'
+      : '';
 
-【数据摘要】
+    return `【数据摘要】
 - 文件名: ${fileName}
 - 总行数: ${rowCount}
 - 列数: ${columnCount}
@@ -356,39 +461,9 @@ ${JSON.stringify(sampleRows, null, 2)}
 \`\`\`
 
 【用户需求】
-${userPrompt}
+${userPrompt}${chartRequirement}
 
-【输出格式 — 严格 JSONL】
-你必须逐行输出 JSON 事件。每行一个完整的 JSON 对象。
-
-**关键规则：JSON 字符串内的换行必须转义为 \\n，禁止输出真实换行符。**
-正确示例：{"type":"text","delta":"第一行\\n第二行"}
-错误示例：{"type":"text","delta":"第一行
-第二行"}
-
-事件类型（每行一个）：
-1. 文本段落：
-{"type":"text","delta":"Markdown 分析文本（换行用 \\\\n）"}
-
-2. 图表（仅当数据特征适合时使用，最多 ${MAX_CHARTS} 个）：
-{"type":"chart","chart":{"id":"c1","type":"bar","title":"标题","data":[{"name":"类目","value":数值}]}}
-   - type: bar(类别对比) / line(时间趋势) / pie(占比分布)
-   - data 中放计算后的聚合数值，不要放原始数据
-
-3. 表格（仅当需要展示结构化数据时使用）：
-{"type":"table","table":{"id":"t1","title":"标题","columns":["列1","列2"],"data":[{"列1":"值","列2":"值"}]}}
-
-图表生成策略：
-- 类别对比数据（如各产品销售额）→ bar
-- 时间序列数据（如月度变化）→ line
-- 占比分布数据（如市场份额）→ pie
-- 不是所有数据都需要图表，文字能说清的不要强行画图
-- 若某列 uniqueCount > 20，不适合作为饼图分类维度
-
-禁止：
-- 输出 Python/pandas/SQL 代码
-- 在 JSON 行外添加任何文字说明
-- 将图表 JSON 放在 markdown 代码块（\`\`\`）内`;
+请严格按 System Prompt 的 JSONL 协议从第一行开始逐行输出，每行一个完整的 JSON 事件，不要输出 JSON 以外的任何内容。`;
   }
 
   // ── Insights Extraction ───────────────────────────────────
@@ -415,5 +490,74 @@ ${userPrompt}
     }
 
     return insights;
+  }
+
+  // ── Fragment Rescue（Fallback 用）───────────────────────────
+
+  /**
+   * 从非 JSONL 的原始文本中尝试提取 chart JSON 片段。
+   * 匹配模式：{"event":"chart",...} 或 {"chart":{...}}
+   */
+  private rescueChartFragments(raw: string): ChartConfig[] {
+    const charts: ChartConfig[] = [];
+    // 匹配 {"event":"chart","chart":{...}}
+    const re =
+      /\{"event"\s*:\s*"chart"\s*,\s*"chart"\s*:\s*(\{(?:[^{}]|(?:\{[^{}]*\}))*\})\s*\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(raw)) !== null) {
+      try {
+        const inner = m[1];
+        const obj = JSON.parse(inner);
+        if (obj?.type && obj?.title && obj?.data) {
+          charts.push(obj as ChartConfig);
+        }
+      } catch {
+        // 尝试用 tryFixJson 修复后再解析
+        const fixed = tryFixJson(m[0]);
+        if (fixed) {
+          try {
+            const repaired = JSON.parse(fixed);
+            const c = repaired?.chart;
+            if (c?.type && c?.title && c?.data) {
+              charts.push(c as ChartConfig);
+            }
+          } catch {
+            // 修复后仍无法解析，跳过
+          }
+        }
+      }
+    }
+    return charts;
+  }
+
+  /** 从非 JSONL 的原始文本中尝试提取 table JSON 片段 */
+  private rescueTableFragments(raw: string): TableConfig[] {
+    const tables: TableConfig[] = [];
+    const re =
+      /\{"event"\s*:\s*"table"\s*,\s*"table"\s*:\s*(\{(?:[^{}]|(?:\{[^{}]*\}))*\})\s*\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(raw)) !== null) {
+      try {
+        const inner = m[1];
+        const obj = JSON.parse(inner);
+        if (obj?.title && obj?.columns && obj?.data) {
+          tables.push(obj as TableConfig);
+        }
+      } catch {
+        const fixed = tryFixJson(m[0]);
+        if (fixed) {
+          try {
+            const repaired = JSON.parse(fixed);
+            const t = repaired?.table;
+            if (t?.title && t?.columns && t?.data) {
+              tables.push(t as TableConfig);
+            }
+          } catch {
+            // skip
+          }
+        }
+      }
+    }
+    return tables;
   }
 }
