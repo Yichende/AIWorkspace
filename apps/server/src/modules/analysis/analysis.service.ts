@@ -146,6 +146,34 @@ export class AnalysisService {
     };
   }
 
+  // ── Delete / Update ────────────────────────────────────────
+
+  /** 删除分析任务（级联删除文件/图表/结果记录） */
+  async deleteSession(userId: number, sessionId: string) {
+    const session = await this.getSession(userId, sessionId);
+
+    await this.fileModel.destroy({ where: { analysisId: sessionId } });
+    await this.chartModel.destroy({ where: { analysisId: sessionId } });
+    await this.resultModel.destroy({ where: { analysisId: sessionId } });
+    await session.destroy();
+    return { success: true };
+  }
+
+  /** 更新分析任务（目前仅支持重命名标题） */
+  async updateSession(
+    userId: number,
+    sessionId: string,
+    dto: { title?: string },
+  ) {
+    const session = await this.getSession(userId, sessionId);
+
+    const updateData: any = {};
+    if (dto.title !== undefined) updateData.title = dto.title;
+
+    await session.update(updateData);
+    return session;
+  }
+
   // ── Detail ──────────────────────────────────────────────────
 
   async getDetail(userId: number, sessionId: string) {

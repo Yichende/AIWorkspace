@@ -116,12 +116,22 @@ export class AnalysisQueueService {
         { role: 'user' as const, content: dataPrompt },
       ];
 
-      let fullText = ''; // 原始 JSONL 文本（不含 thinking）
+      // ── 7. 流式接收 + Think 解析 + 事件分类推送 ──────────────
+      let fullText = ''; // 原始 JSONL 文本（不含 thinking，仅日志/fallback 用）
       const charts: ChartConfig[] = [];
       const tables: TableConfig[] = [];
       const thinkParser = new ThinkTagParser();
-
-      // ── 7. 流式接收 + Think 解析 ──────────────────────────
+      const state = {
+        summaryText: '',
+        insightsList: [] as string[],
+        cleanContent: '',
+        charts,
+        tables,
+        parsedAny: false,
+      };
+      const streamParser = new JsonlStreamParser({
+        onDebug: (msg) => this.logger.debug(msg),
+      });
 
       yield { type: 'progress', stage: 'analyzing', percent: 50 };
 
@@ -152,10 +162,12 @@ export class AnalysisQueueService {
             );
             yield { type: 'thinking', delta: tr.content };
           } else {
-            // answer 部分 → 原始 JSONL 文本直接发送给客户端，
-            // 由客户端 JsonlStreamParser 解析渲染
+            // answer 部分 → 流式 JSONL 解析 → 分类推送（summary/insights/report/chart）
             fullText += tr.content;
-            yield { type: 'analysis_delta', delta: tr.content };
+            yield* this.dispatchParsedEvents(
+              streamParser.feed(tr.content),
+              state,
+            );
           }
         }
       }
@@ -167,42 +179,28 @@ export class AnalysisQueueService {
           yield { type: 'thinking', delta: tr.content };
         } else {
           fullText += tr.content;
-          yield { type: 'analysis_delta', delta: tr.content };
+          yield* this.dispatchParsedEvents(
+            streamParser.feed(tr.content),
+            state,
+          );
         }
       }
+
+      // Flush JSONL parser 残余
+      yield* this.dispatchParsedEvents(streamParser.flush(), state);
 
       // ── 完整原始输出日志（仅正文，不含 thinking）──
       this.logger.log(
         `\n===== AI RAW OUTPUT (content only, no thinking) =====\n${fullText}\n===== END AI RAW OUTPUT =====`,
       );
 
-      // ── Post-stream: 解析 fullText 提取 charts/tables + 清洁文本用于持久化 ──
-      let cleanContent = '';
-      let parsedAny = false; // 是否解析出任意事件（text/chart/table）
-      const postParser = new JsonlStreamParser({
-        onDebug: (msg) => this.logger.debug(msg),
-      });
-      const collectEvent = (event: JsonlParsedEvent) => {
-        parsedAny = true;
-        if (event.type === 'text') {
-          cleanContent += event.content;
-        } else if (event.type === 'chart' && charts.length < MAX_CHARTS) {
-          charts.push(event.payload);
-        } else if (event.type === 'table' && tables.length < MAX_CHARTS) {
-          tables.push(event.payload);
-        }
-      };
-      for (const event of postParser.feed(fullText)) collectEvent(event);
-      // Flush 残余 JSON
-      for (const event of postParser.flush()) collectEvent(event);
-
       // ── Fallback：一个事件都没解析出（AI 完全未遵循 JSONL）→ 降级为纯文本 ──
       // 只要解析出了任意事件（哪怕只有 chart/table），就绝不把原始 JSONL 倾倒给用户。
-      if (!parsedAny && fullText.trim().length > 0) {
+      if (!state.parsedAny && fullText.trim().length > 0) {
         this.logger.warn(
           '[fallback] 未解析出任何事件，AI 未遵循 JSONL 格式，降级为纯文本模式',
         );
-        cleanContent = fullText.trim();
+        state.cleanContent = fullText.trim();
 
         // 尝试从原始文本中抢救 chart/table JSON 片段
         const rescuedCharts = this.rescueChartFragments(fullText);
@@ -218,22 +216,35 @@ export class AnalysisQueueService {
         );
       }
 
-      // ── 解析结果摘要日志 ──
-      this.logger.log(
-        `[parse-summary] eventsParsed=${parsedAny ? 'yes' : 'no'} ` +
-          `fallback=${cleanContent.length > 0 && !parsedAny ? 'yes' : 'no'} ` +
-          `textLen=${cleanContent.length} charts=${charts.length} tables=${tables.length}`,
-      );
-
-      // ── 8. 提取 insights ────────────────────────────────────
+      // ── 8. 组装 summary / insights / 正文 ───────────────────
       yield { type: 'progress', stage: 'rendering', percent: 85 };
 
-      const insights = this.extractInsights(cleanContent);
+      let summary = state.summaryText.trim();
+      const insights = state.insightsList;
+      const cleanContent = state.cleanContent;
+
+      // 补充回退：AI 漏掉 summary/insights 事件时，从正文（如含"分析摘要/关键发现"章节）提取
+      if (!summary || insights.length === 0) {
+        const { summary: s, insights: i } =
+          this.extractSummaryAndInsights(cleanContent);
+        if (!summary) summary = s || (insights.length > 0 ? insights[0] : '');
+        insights.push(...i.filter((x) => !insights.includes(x)));
+      }
+
+      const finalSummary = summary || '分析完成';
+
+      // ── 解析结果摘要日志 ──
+      this.logger.log(
+        `[parse-summary] eventsParsed=${state.parsedAny ? 'yes' : 'no'} ` +
+          `fallback=${cleanContent.length > 0 && !state.parsedAny ? 'yes' : 'no'} ` +
+          `summaryLen=${finalSummary.length} insights=${insights.length} ` +
+          `textLen=${cleanContent.length} charts=${charts.length} tables=${tables.length}`,
+      );
 
       // ── 9. 持久化结果（不含 thinking） ──────────────────────
       await this.analysisService.saveCharts(sessionId, charts);
       await this.analysisService.saveResult(sessionId, {
-        summary: insights[0] ?? '分析完成',
+        summary: finalSummary,
         content: cleanContent,
         insights,
       });
@@ -244,7 +255,7 @@ export class AnalysisQueueService {
       yield {
         type: 'complete',
         payload: {
-          summary: insights[0] ?? '分析完成',
+          summary: finalSummary,
           content: cleanContent,
           charts,
           tables,
@@ -258,6 +269,57 @@ export class AnalysisQueueService {
         type: 'error',
         message: err.message || '分析失败，请重试',
       };
+    }
+  }
+
+  // ── Event Dispatch（流式解析结果的分类推送）────────────────
+
+  /**
+   * 将解析出的 JSONL 事件按四事件协议分类：
+   * - summary → SSE summary 事件
+   * - insights → SSE insights 事件
+   * - report / text（旧协议兼容）→ SSE report 事件 + 正文累积
+   * - chart / table → 累积（chart 同时推送 SSE chart 事件）
+   */
+  private *dispatchParsedEvents(
+    events: JsonlParsedEvent[],
+    state: {
+      summaryText: string;
+      insightsList: string[];
+      cleanContent: string;
+      charts: ChartConfig[];
+      tables: TableConfig[];
+      parsedAny: boolean;
+    },
+  ): Generator<AnalysisEvent, void, undefined> {
+    for (const event of events) {
+      state.parsedAny = true;
+      switch (event.type) {
+        case 'summary':
+          state.summaryText += event.content;
+          yield { type: 'summary', delta: event.content };
+          break;
+        case 'insights':
+          state.insightsList.push(...event.items);
+          yield { type: 'insights', items: event.items };
+          break;
+        case 'report':
+        case 'text': // 兼容旧协议：text 归入报告正文
+          state.cleanContent += event.content;
+          yield { type: 'report', delta: event.content };
+          break;
+        case 'chart':
+          if (state.charts.length < MAX_CHARTS) {
+            state.charts.push(event.payload);
+          }
+          yield { type: 'chart', chart: event.payload };
+          break;
+        case 'table':
+          if (state.tables.length < MAX_CHARTS) {
+            state.tables.push(event.payload);
+          }
+          break;
+      }
     }
   }
 
@@ -372,37 +434,42 @@ export class AnalysisQueueService {
     return { systemPrompt, userPrompt };
   }
 
-  /** System Prompt：角色 + 任务目标 + JSONL 格式（精简版） */
+  /** System Prompt：角色 + 任务目标 + 四事件 JSONL 协议 */
   private buildSystemPrompt(): string {
     return `你是数据分析专家。你的任务不是简单复述数据，而是：
 1. 发现数据中的关键趋势、异常和规律
 2. 主动识别适合可视化的维度，生成 chart 事件
-3. 用 text 事件输出 Markdown 分析报告（每个 text 事件只写一个章节）
-4. 用 table 事件展示结构化对比数据（可选）
+3. 用 report 事件输出 Markdown 分析报告（每个 report 事件只写一个章节）
 
-## 输出格式（JSONL）
+## 输出协议（JSONL）
 
 每行一个 JSON 对象，用 **"event"** 字段区分类型。禁止输出任何非 JSON 文本。
 每行必须是一个完整、独立的 JSON 对象，一个事件输出完毕后换行再输出下一个事件。
+必须严格按照以下顺序输出事件：
 
-### text — 分析正文
-{"event":"text","delta":"## 分析结果\\n\\n销售额呈上升趋势，其中..."}
-规则：换行转义为 \\n，字段名 delta；一个 text 事件只包含一个章节，禁止把整份报告塞进一个 text 事件。
+### 第 1 个事件：summary（分析摘要）
+{"event":"summary","delta":"用 1-2 句话、非技术语言概括数据整体情况与核心结论，不罗列细节、不出现指标清单"}
 
-### chart — 图表（最多 ${MAX_CHARTS} 个）
+### 第 2 个事件：insights（关键发现）
+{"event":"insights","items":["发现1","发现2","发现3","发现4","发现5"]}
+- 3-5 条结论性发现，每条一句话，按重要性降序排列，只写结论不写图表说明
+
+### 第 3 个及之后：report（分析报告正文）
+{"event":"report","delta":"## 章节标题\\n\\n正文内容..."}
+- 每个 report 事件只写一个章节，章节标题用 "## " 或 "### "
+- 换行必须转义为 \\n，禁止把整份报告塞进一个 report 事件
+
+### chart（分析图表，最多 ${MAX_CHARTS} 个）
 {"event":"chart","chart":{"id":"c1","type":"bar","title":"各产品销售额","data":[{"产品":"A","销售额":12000},{"产品":"B","销售额":8500}]}}
 - type: bar（类别对比）/ line（时间趋势）/ pie（占比分布）
 - data 第一个字段为维度，其余为数值系列（pie 用 name/value）
 - **只要数据包含数值列，就必须输出至少 1 个 chart 事件，不得省略**
 
-### table — 表格（最多 ${MAX_CHARTS} 个）
-{"event":"table","table":{"id":"t1","title":"汇总","columns":["产品","销售额"],"data":[{"产品":"A","销售额":12000}]}}
-
 ## 禁止
 - 在 JSON 行外添加任何文字
 - 将 JSON 包裹在 \`\`\` 代码块中
 - JSON 字符串内使用真实换行（必须 \\n 转义）
-- 用 text 事件代替 chart 事件（图表必须用 chart 事件输出）`;
+- 用 report 事件代替 chart 事件（图表必须用 chart 事件输出）`;
   }
 
   /** User Prompt：数据摘要 + 用户需求 */
@@ -466,30 +533,59 @@ ${userPrompt}${chartRequirement}
 请严格按 System Prompt 的 JSONL 协议从第一行开始逐行输出，每行一个完整的 JSON 事件，不要输出 JSON 以外的任何内容。`;
   }
 
-  // ── Insights Extraction ───────────────────────────────────
+  // ── Summary & Insights Extraction ─────────────────────────
 
-  /** 从分析文本中提取关键词/洞察 */
-  private extractInsights(text: string): string[] {
+  /**
+   * 从分析文本中提取"分析摘要"与"关键发现"。
+   *
+   * AI 遵循报告结构时（system prompt 强制）：
+   * - 摘要 = "分析摘要" 标题后的第一段
+   * - 发现 = "关键发现" 标题后的全部列表项（- / * / 数字编号）
+   * 回退：匹配不到摘要标题时取正文第一段。
+   */
+  private extractSummaryAndInsights(text: string): {
+    summary: string;
+    insights: string[];
+  } {
+    let summary = '';
     const insights: string[] = [];
-    const pattern =
-      /(?:\*\*关键发现\*\*|\*\*主要发现\*\*|关键发现|主要发现)[:：]\s*\n([\s\S]*?)(?=\n\n|$)/;
-    const match = text.match(pattern);
-    if (match) {
-      const lines = match[1]
-        .split('\n')
-        .map((l) => l.replace(/^[-*]\s*/, '').trim())
-        .filter(Boolean);
-      insights.push(...lines);
-    }
 
-    if (insights.length === 0) {
-      const firstParagraph = text.split('\n\n')[0];
-      if (firstParagraph) {
-        insights.push(firstParagraph.replace(/^#+\s*/, '').trim());
+    // 按标题切分章节：## 分析摘要 / **关键发现** 等（支持 # 标题与 **加粗** 两种形式）
+    const sections = text.split(/\n(?=#{1,6}\s+|\*\*[^*]+\*\*\s*[：:]?\s*\n)/);
+
+    for (const section of sections) {
+      const heading = section.split('\n')[0];
+
+      if (/分析摘要|摘要/.test(heading) && !summary) {
+        const body = section.split('\n').slice(1).join('\n').trim();
+        const firstPara = body
+          .split(/\n\n/)[0]
+          ?.replace(/\s*\n\s*/g, ' ')
+          .trim();
+        if (firstPara) summary = firstPara;
+      } else if (/关键发现|主要发现/.test(heading)) {
+        const body = section.split('\n').slice(1).join('\n');
+        for (const line of body.split('\n')) {
+          const item = line
+            .replace(/^\s*[-*•]\s*/, '')
+            .replace(/^\s*\d+[.、)]\s*/, '')
+            .replace(/\*\*/g, '')
+            .replace(/`/g, '')
+            .trim();
+          if (item) insights.push(item);
+        }
       }
     }
 
-    return insights;
+    // 回退：未匹配到摘要标题 → 取正文第一段
+    if (!summary) {
+      const firstParagraph = text.split('\n\n')[0];
+      if (firstParagraph) {
+        summary = firstParagraph.replace(/^#+\s*/, '').trim();
+      }
+    }
+
+    return { summary, insights };
   }
 
   // ── Fragment Rescue（Fallback 用）───────────────────────────

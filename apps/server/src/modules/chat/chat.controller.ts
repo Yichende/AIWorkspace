@@ -23,6 +23,7 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { QuerySessionsDto } from './dto/query-sessions.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
+import { ThinkTagParser } from '@repo/analysis-parser';
 
 @Controller('chat')
 export class ChatController {
@@ -92,11 +93,32 @@ export class ChatController {
 
     // Layer 3: Stream chat via AsyncGenerator<StreamChunk>
     try {
+      // content 中的 <think> 标签由 ThinkTagParser 剥离（与 analysis 队列一致），
+      // 否则思考内容会以 <think>...</think> 文本形式混入正文。
+      const thinkParser = new ThinkTagParser();
       for await (const chunk of provider.streamChat(
         body.messages,
         resolved.config,
       )) {
-        sseWrite(chunk.type, chunk.content);
+        // 原生 thinking 字段（reasoning_content / delta.thinking 等）直接透传
+        if (chunk.type === 'thinking') {
+          sseWrite('thinking', chunk.content);
+          continue;
+        }
+        // 普通 content：剥离 <think> 标签后按类型分发
+        for (const part of thinkParser.feed(chunk.content)) {
+          sseWrite(
+            part.type === 'thinking' ? 'thinking' : 'content',
+            part.content,
+          );
+        }
+      }
+      // Flush 流式残余（未闭合的 <think> 按 thinking 处理）
+      for (const part of thinkParser.flush()) {
+        sseWrite(
+          part.type === 'thinking' ? 'thinking' : 'content',
+          part.content,
+        );
       }
       sseWrite('done', '');
       res.end();

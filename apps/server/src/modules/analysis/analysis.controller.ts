@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -18,6 +20,7 @@ import { User } from '../user/entities/user.entity';
 import { AnalysisService } from './analysis.service';
 import { AnalysisQueueService } from './analysis-queue.service';
 import { CreateAnalysisDto } from './dto/create-analysis.dto';
+import { UpdateAnalysisDto } from './dto/update-analysis.dto';
 import { QueryAnalysisDto } from './dto/query-analysis.dto';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
@@ -166,8 +169,18 @@ export class AnalysisController {
           case 'thinking':
             sseWrite('thinking', event.delta);
             break;
-          case 'analysis_delta':
-            sseWrite('analysis_delta', event.delta);
+          // 规范化四事件：summary / insights / report / chart
+          case 'summary':
+            sseWrite('summary', event.delta);
+            break;
+          case 'insights':
+            sseWrite('insights', JSON.stringify({ items: event.items }));
+            break;
+          case 'report':
+            sseWrite('report', event.delta);
+            break;
+          case 'chart':
+            sseWrite('chart', JSON.stringify({ chart: event.chart }));
             break;
           case 'progress':
             sseWrite(
@@ -207,6 +220,24 @@ export class AnalysisController {
   @UseGuards(JwtAuthGuard)
   getDetail(@CurrentUser() user: User, @Param('id') id: string) {
     return this.analysisService.getDetail(user.id, id);
+  }
+
+  // ── Delete / Rename ────────────────────────────────────────
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  deleteAnalysis(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.analysisService.deleteSession(user.id, id);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  updateAnalysis(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: UpdateAnalysisDto,
+  ) {
+    return this.analysisService.updateSession(user.id, id, dto);
   }
 
   // ── Private Helpers ─────────────────────────────────────────

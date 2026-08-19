@@ -86,7 +86,13 @@ export default function ChartRenderer({ config }: Props) {
   return (
     <View className='chart-renderer'>
       <View className='chart-renderer__canvas'>
-        <Echarts option={option} isPage={false} />
+        {/* 库默认 canvas 高度为 300px（约 600rpx），超出 400rpx 容器会覆盖下方内容。
+            微信 canvas 为原生组件不随父级 overflow 裁剪，必须显式撑满容器高度 */}
+        <Echarts
+          option={option}
+          isPage={false}
+          style={{ width: '100%', height: '100%' }}
+        />
       </View>
     </View>
   )

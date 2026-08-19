@@ -158,6 +158,33 @@ function validateEvent(
       return { type: 'text', content: d }
     }
 
+    case 'summary': {
+      const d = obj.content ?? obj.delta
+      if (typeof d !== 'string') {
+        onDebug?.(`[validate] summary: delta/content 不是 string (type=${typeof d})`)
+        return null
+      }
+      return { type: 'summary', content: d }
+    }
+
+    case 'insights': {
+      const items = obj.items ?? obj.insights
+      if (!Array.isArray(items) || items.some((i) => typeof i !== 'string')) {
+        onDebug?.(`[validate] insights: items 不是 string[] (type=${typeof items})`)
+        return null
+      }
+      return { type: 'insights', items }
+    }
+
+    case 'report': {
+      const d = obj.content ?? obj.delta
+      if (typeof d !== 'string') {
+        onDebug?.(`[validate] report: delta/content 不是 string (type=${typeof d})`)
+        return null
+      }
+      return { type: 'report', content: d }
+    }
+
     case 'chart': {
       const c = obj.chart
       if (!c) {

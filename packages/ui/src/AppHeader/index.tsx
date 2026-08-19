@@ -1,5 +1,6 @@
 import { View, Text } from '@tarojs/components'
-import { CSSProperties } from 'react'
+import Taro from '@tarojs/taro'
+import { CSSProperties, useEffect, useState } from 'react'
 import Icon from '../Icon'
 import './index.scss'
 
@@ -47,6 +48,22 @@ export default function AppHeader({
   style,
   className,
 }: AppHeaderProps) {
+  // 微信小程序右上角有原生胶囊按钮，会盖住右侧操作区，需左移避让（H5 无胶囊不受影响）
+  const [rightInset, setRightInset] = useState(0)
+
+  useEffect(() => {
+    if (Taro.getEnv() !== Taro.ENV_TYPE.WEAPP) return
+    try {
+      const menu = Taro.getMenuButtonBoundingClientRect()
+      // getWindowInfo 替代已弃用的 getSystemInfoSync（避免控制台弃用警告）
+      const { windowWidth } = Taro.getWindowInfo()
+      // 胶囊左侧距屏幕右侧的间距（额外留 12px 边距），右操作区左移避开
+      setRightInset(windowWidth - menu.left + 12)
+    } catch {
+      // 环境不支持时保持默认布局
+    }
+  }, [])
+
   const cls = ['app-header', className].filter(Boolean).join(' ')
 
   return (
@@ -68,8 +85,11 @@ export default function AppHeader({
         {/* 标题 */}
         <Text className='app-header__title'>{title}</Text>
 
-        {/* 右侧区域 */}
-        <View className='app-header__right'>
+        {/* 右侧区域（有胶囊按钮时左移避让） */}
+        <View
+          className='app-header__right'
+          style={rightInset ? { right: `${rightInset}px` } : undefined}
+        >
           {rightAction}
         </View>
       </View>

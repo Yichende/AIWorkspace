@@ -23,7 +23,7 @@ export default function AnalysisDetailPage() {
   return (
     <View className='detail-page'>
       <AppHeader
-        title={detail.session.title}
+        title='分析结果'
         onBack={() => Taro.navigateBack({ delta: 1 })}
       />
       <View className='detail-page__body'>

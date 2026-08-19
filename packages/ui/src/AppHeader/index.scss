@@ -1,7 +1,12 @@
 /* AppHeader — 通用顶部导航栏样式 */
 
 .app-header {
-  position: relative;
+  /* 固定顶部：页面滚动时导航栏不随内容滚动。
+     z-index 需足够高：图表 canvas 为原生同层渲染组件，层级高于普通元素，
+     避免内容滚动经过导航栏时将其遮挡 */
+  position: sticky;
+  top: 0;
+  z-index: 999;
   padding: 0 32rpx;
   background: #F1ECE0; /* $bg-page */
 }

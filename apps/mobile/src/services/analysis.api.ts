@@ -6,6 +6,7 @@ import type {
   PaginatedAnalyses,
   AnalysisDetail,
   AnalysisResult,
+  ChartConfig,
 } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
 import { getToken, getRefreshToken, setToken, setRefreshToken } from '@/utils/auth'
@@ -15,11 +16,18 @@ import request from './request'
 
 const BASE_URL = 'http://localhost:3000'
 
-// ── SSE Stream Callbacks ────────────────────────────────────
+// ── SSE Stream Callbacks（规范化四事件：summary/insights/report/chart）─
 
 export interface AnalysisStreamCallbacks {
   onThinking?: (delta: string) => void
-  onAnalysisDelta?: (rawDelta: string) => void
+  /** 分析摘要 */
+  onSummary?: (delta: string) => void
+  /** 关键发现 */
+  onInsights?: (items: string[]) => void
+  /** 分析报告正文章节 */
+  onReport?: (delta: string) => void
+  /** 分析图表 */
+  onChart?: (chart: ChartConfig) => void
   onProgress?: (stage: string, percent: number) => void
   onComplete?: (result: AnalysisResult) => void
   onError?: (err: string) => void
@@ -212,6 +220,27 @@ export const analysisApi = {
     })
   },
 
+  /**
+   * 删除分析记录（级联删除文件/图表/结果）
+   */
+  deleteAnalysis(id: string): Promise<{ success: boolean }> {
+    return request({
+      url: `/analysis/${id}`,
+      method: 'DELETE',
+    })
+  },
+
+  /**
+   * 重命名分析标题
+   */
+  renameAnalysis(id: string, title: string): Promise<{ id: string }> {
+    return request({
+      url: `/analysis/${id}`,
+      method: 'PATCH',
+      data: { title },
+    })
+  },
+
   // ── Internal SSE helpers (same as chat.api.ts) ──────────────
 
   _processSSEMessage(raw: string, cb: AnalysisStreamCallbacks): void {
@@ -232,8 +261,28 @@ export const analysisApi = {
       case 'thinking':
         cb.onThinking?.(data)
         break
-      case 'analysis_delta':
-        cb.onAnalysisDelta?.(data)
+      // 规范化四事件：summary / insights / report / chart
+      case 'summary':
+        cb.onSummary?.(data)
+        break
+      case 'insights':
+        try {
+          const parsed = JSON.parse(data)
+          cb.onInsights?.(parsed.items ?? [])
+        } catch {
+          // ignore
+        }
+        break
+      case 'report':
+        cb.onReport?.(data)
+        break
+      case 'chart':
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed.chart) cb.onChart?.(parsed.chart)
+        } catch {
+          // ignore
+        }
         break
       case 'progress': {
         try {

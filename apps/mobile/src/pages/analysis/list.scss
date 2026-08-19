@@ -1,10 +1,18 @@
 .list-page {
   min-height: 100vh;
+  min-width: 100vw;
   background: #F1ECE0;
 }
 
 .list-page__scroll {
   height: calc(100vh - 182rpx);
+  width: 100%;
+}
+
+/* 内容容器：水平/垂直间距放在这里。
+   微信 scroll-view 直接加 padding 时内容宽度按全宽计算、padding 叠加，
+   会导致内容整体右侧溢出可视区域，因此间距必须由内部普通 View 承载 */
+.list-page__content {
   padding: 24rpx 32rpx;
 }
 
@@ -26,22 +34,160 @@
   color: #9B9B9B;
 }
 
+/* 左滑容器：overflow 裁剪操作层，间距挂在容器上 */
+.list-page__item-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 16rpx;
+  margin-bottom: 16rpx;
+}
+
 .list-page__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* 自适应父元素（scroll 内容区）宽度，避免内容撑宽卡片 */
+  width: 100%;
+  max-width: 100%;
   padding: 28rpx;
-  margin-bottom: 16rpx;
   background: rgba(255, 255, 255, 0.72);
   border-radius: 16rpx;
+  overflow: hidden;
+  transition: transform 0.25s ease;
 
   &:active {
     opacity: 0.8;
   }
 }
 
-.list-page__item-left {
+/* 左滑操作层（绝对定位在内容下方，默认平移到 wrap 外隐藏，左滑露出）。
+   z-index 需高于内容层：内容层展开时带 transform（创建同层堆叠上下文，
+   z-index auto 时 DOM 靠后者在上），否则会盖住操作按钮 */
+.list-page__item-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+
+/* 展开态：操作层滑入视区 */
+.list-page__item-wrap.is-open .list-page__item-actions {
+  transform: translateX(0);
+}
+
+.list-page__swipe-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 136rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+
+  &:active {
+    opacity: 0.85;
+  }
+}
+
+.list-page__swipe-btn--edit {
+  background: #FAC75E;
+  color: #1B1B1B;
+}
+
+.list-page__swipe-btn--delete {
+  background: #E74C3C;
+  border-radius: 0 16rpx 16rpx 0;
+}
+
+/* 编辑/删除确认弹窗 */
+.list-page__modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.list-page__modal {
+  width: 560rpx;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx 32rpx;
+}
+
+.list-page__modal-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #1B1B1B;
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+
+.list-page__modal-desc {
+  display: block;
+  font-size: 28rpx;
+  color: #5F5F5F;
+  line-height: 1.6;
+  text-align: center;
+  margin-bottom: 32rpx;
+  word-break: break-all;
+}
+
+.list-page__modal-input {
+  height: 80rpx;
+  background: #F7F5F0;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #1B1B1B;
+  margin-bottom: 32rpx;
+}
+
+.list-page__modal-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.list-page__modal-btn {
   flex: 1;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  background: #F1ECE0;
+  color: #5F5F5F;
+
+  &:active {
+    opacity: 0.85;
+  }
+}
+
+.list-page__modal-btn--primary {
+  background: #117C0D;
+  color: #FFFFFF;
+}
+
+.list-page__modal-btn--danger {
+  background: #E74C3C;
+  color: #FFFFFF;
+}
+
+.list-page__item-left {
+  flex: 0 0 80%;
   min-width: 0;
 }
 
@@ -60,12 +206,23 @@
   display: flex;
   flex-wrap: wrap;
   gap: 16rpx;
+  min-width: 0;
   font-size: 22rpx;
   color: #9B9B9B;
 }
 
+/* 元信息单项过长（如长文件名）时截断，避免把右侧状态挤出可视区域 */
+.list-page__item-file,
+.list-page__item-charts,
+.list-page__item-date {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .list-page__item-right {
-  flex-shrink: 0;
+  flex: 1;
   margin-left: 20rpx;
 }
 

@@ -15,6 +15,24 @@ export interface JsonlTextEvent {
   content: string
 }
 
+/** 分析摘要（text 事件的规范化替代） */
+export interface JsonlSummaryEvent {
+  type: 'summary'
+  content: string
+}
+
+/** 关键发现（列表形式） */
+export interface JsonlInsightsEvent {
+  type: 'insights'
+  items: string[]
+}
+
+/** 分析报告正文章节（text 事件的规范化替代） */
+export interface JsonlReportEvent {
+  type: 'report'
+  content: string
+}
+
 export interface JsonlChartEvent {
   type: 'chart'
   payload: ChartConfig
@@ -27,6 +45,9 @@ export interface JsonlTableEvent {
 
 export type JsonlParsedEvent =
   | JsonlTextEvent
+  | JsonlSummaryEvent
+  | JsonlInsightsEvent
+  | JsonlReportEvent
   | JsonlChartEvent
   | JsonlTableEvent
 

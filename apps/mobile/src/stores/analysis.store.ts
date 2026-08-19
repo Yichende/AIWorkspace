@@ -30,8 +30,12 @@ interface AnalysisState {
   status: AnalysisStatus | null;
   /** 思考文本（仅内存，不持久化） */
   thinkingText: string;
-  /** 流式累积正文 */
+  /** 流式累积正文（report 事件） */
   streamingText: string;
+  /** 流式累积摘要（summary 事件，complete 后由 result 覆盖） */
+  streamingSummary: string;
+  /** 流式累积关键发现（insights 事件，complete 后由 result 覆盖） */
+  streamingInsights: string[];
   /** 进度阶段 */
   progressStage: ProgressStage | null;
   /** 进度百分比 */
@@ -71,8 +75,14 @@ interface AnalysisActions {
   /** 追加思考文本 */
   appendThinking: (delta: string) => void;
 
-  /** 追加流式文本 */
-  appendText: (delta: string) => void;
+  /** 追加流式正文（report 事件） */
+  appendReport: (delta: string) => void;
+
+  /** 追加流式摘要（summary 事件） */
+  appendSummary: (delta: string) => void;
+
+  /** 追加关键发现（insights 事件） */
+  addInsights: (items: string[]) => void;
 
   /** 设置进度 */
   setProgress: (stage: ProgressStage, percent: number) => void;
@@ -114,6 +124,8 @@ const initialState: AnalysisState = {
   status: null,
   thinkingText: '',
   streamingText: '',
+  streamingSummary: '',
+  streamingInsights: [],
   progressStage: null,
   progressPercent: 0,
   charts: [],
@@ -150,9 +162,19 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         thinkingText: state.thinkingText + delta,
       })),
 
-    appendText: (delta) =>
+    appendReport: (delta) =>
       set((state) => ({
         streamingText: state.streamingText + delta,
+      })),
+
+    appendSummary: (delta) =>
+      set((state) => ({
+        streamingSummary: state.streamingSummary + delta,
+      })),
+
+    addInsights: (items) =>
+      set((state) => ({
+        streamingInsights: [...state.streamingInsights, ...items],
       })),
 
     setProgress: (stage, percent) =>
@@ -184,8 +206,10 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           result,
           progressPercent: 100,
           step: 'result',
-          thinkingText: '',  // 分析完成后清除思考内容（不保存）
-          streamingText: '', // 正文已存入 result.content，清空流式缓存
+          thinkingText: '',       // 分析完成后清除思考内容（不保存）
+          streamingText: '',      // 正文已存入 result.content，清空流式缓存
+          streamingSummary: '',   // 摘要已存入 result.summary
+          streamingInsights: [],  // 发现已存入 result.insights
           charts: mergeById(state.charts, result.charts ?? []),
           tables: mergeById(state.tables, result.tables ?? []),
         };

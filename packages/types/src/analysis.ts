@@ -28,9 +28,28 @@ export interface AnalysisThinkingEvent {
   delta: string
 }
 
-export interface AnalysisDeltaEvent {
-  type: 'analysis_delta'
-  delta: string  // raw JSONL line content
+/** 分析摘要（规范化事件之一） */
+export interface AnalysisSummaryEvent {
+  type: 'summary'
+  delta: string
+}
+
+/** 关键发现（规范化事件之一） */
+export interface AnalysisInsightsEvent {
+  type: 'insights'
+  items: string[]
+}
+
+/** 分析报告正文章节（规范化事件之一） */
+export interface AnalysisReportEvent {
+  type: 'report'
+  delta: string
+}
+
+/** 分析图表（规范化事件之一） */
+export interface AnalysisChartEvent {
+  type: 'chart'
+  chart: ChartConfig
 }
 
 export interface AnalysisProgressEvent {
@@ -49,9 +68,16 @@ export interface AnalysisErrorEvent {
   message: string
 }
 
+/**
+ * 规范化 SSE 事件协议：
+ *   chart / report / insights / summary 分别对应分析图表、分析报告、关键发现、分析摘要
+ */
 export type AnalysisEvent =
   | AnalysisThinkingEvent
-  | AnalysisDeltaEvent
+  | AnalysisSummaryEvent
+  | AnalysisInsightsEvent
+  | AnalysisReportEvent
+  | AnalysisChartEvent
   | AnalysisProgressEvent
   | AnalysisCompleteEvent
   | AnalysisErrorEvent

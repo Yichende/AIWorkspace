@@ -43,7 +43,6 @@ export default function AnalysisResult({ charts, tables, result }: Props) {
           <Text className='result-step__section-title'>📊 分析图表</Text>
           {charts.map((chart) => (
             <View key={chart.id} className='result-step__chart-wrap'>
-              <Text className='result-step__chart-title'>{chart.title}</Text>
               <ChartRenderer config={chart} />
             </View>
           ))}
