@@ -67,6 +67,7 @@ export default function ChatPage() {
     sendMessage,
     retryMessage,
     switchChat,
+    openSession,
     deleteChat,
     batchDeleteChats,
     renameChat,
@@ -81,10 +82,30 @@ export default function ChatPage() {
     hasMoreSessions,
   } = useChatController()
 
+  // URL 参数可能已被 Taro 解码，解码失败则原样返回
+  const safeDecode = (v?: string) => {
+    if (!v) return undefined
+    try {
+      return decodeURIComponent(v)
+    } catch {
+      return v
+    }
+  }
+
   // Init: load persisted state on mount — wait for auth to be ready first
   useEffect(() => {
     if (authReady) {
-      init()
+      init().then((currentId) => {
+        // 从搜索结果进入：打开指定会话
+        const params = Taro.getCurrentInstance().router?.params
+        const openSessionId = params?.sessionId
+        if (openSessionId && openSessionId !== currentId) {
+          openSession(openSessionId, {
+            title: safeDecode(params.title),
+            model: safeDecode(params.model),
+          })
+        }
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady])

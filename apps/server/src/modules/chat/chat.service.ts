@@ -33,10 +33,14 @@ export class ChatService {
     userId: number,
     page = DEFAULT_PAGE,
     limit = DEFAULT_PAGE_SIZE,
+    keyword?: string,
   ) {
     const offset = (page - 1) * limit;
     const { rows, count } = await this.sessionModel.findAndCountAll({
-      where: { userId },
+      where: {
+        userId,
+        ...(keyword ? { title: { [Op.like]: `%${keyword}%` } } : {}),
+      },
       attributes: [
         'id',
         'title',

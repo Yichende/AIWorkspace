@@ -65,7 +65,11 @@ export default function AnalysisContainer() {
   return (
     <View className='analysis-container'>
       {step === 'upload' && (
-        <AnalysisUpload onUploaded={handleUploaded} />
+        <AnalysisUpload
+          model={model}
+          onModelChange={setModel}
+          onUploaded={handleUploaded}
+        />
       )}
 
       {step === 'preview' && file && dataset && (

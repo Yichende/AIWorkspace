@@ -598,6 +598,51 @@ export function useChatController() {
     syncMessagesFromAPI(sessionId)
   }
 
+  // ── openSession ───────────────────────────────────────────
+
+  /** 从搜索结果打开指定会话（会话可能不在已加载索引中，先补录再切换） */
+  const openSession = async (
+    sessionId: string,
+    meta?: { title?: string; model?: string },
+  ): Promise<void> => {
+    // Save current session before switching
+    persistCurrentSession()
+
+    // 搜索结果中的会话可能不在已加载索引中，先补入索引
+    const state = useChatStore.getState()
+    if (!state.sessionsIndex.some((i) => i.id === sessionId)) {
+      const now = Date.now()
+      store.addSessionToIndex({
+        id: sessionId,
+        title: meta?.title || '对话',
+        model: meta?.model || DEFAULT_MODEL,
+        messageCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+
+    const indexItem = useChatStore
+      .getState()
+      .sessionsIndex.find((i) => i.id === sessionId)
+    if (!indexItem) return
+
+    // Switch store — clears currentMessages
+    store.switchSession(sessionId, {
+      title: indexItem.title,
+      model: indexItem.model,
+    })
+
+    // Load from local cache first
+    const localMsgs = chatStorage.getSessionMessages(sessionId)
+    if (localMsgs.length > 0) {
+      store.setMessages(localMsgs, true) // assume hasMore when loading from cache
+    }
+
+    // Background API sync (gets most recent + correct hasMore)
+    syncMessagesFromAPI(sessionId)
+  }
+
   // ── deleteChat ────────────────────────────────────────────
 
   const deleteChat = (sessionId: string): void => {
@@ -760,6 +805,7 @@ export function useChatController() {
     sendMessage,
     retryMessage,
     switchChat,
+    openSession,
     deleteChat,
     batchDeleteChats,
     renameChat,

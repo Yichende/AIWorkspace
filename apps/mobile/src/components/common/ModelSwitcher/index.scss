@@ -1,0 +1,382 @@
+@use '@/styles/theme.scss' as *;
+
+/* ===========================
+   Model Switcher (collapsible)
+   =========================== */
+
+.model-switcher {
+  overflow: visible; // 允许模型列表展开时不被裁剪
+}
+
+/* 折叠卡片 — 点击展开 / 收起 */
+.model-toggle-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 80rpx;
+
+  padding: 0 20rpx;
+
+  border-radius: $radius-medium;
+
+  background: $bg-card;
+
+  border: 2rpx solid $border-light;
+
+  box-shadow: $shadow-card;
+
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(0.98);
+    border-color: $color-secondary;
+  }
+}
+
+.model-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.model-toggle-label {
+  font-size: 28rpx;
+  font-weight: 500;
+
+  color: $text-primary;
+}
+
+.model-toggle-right {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.model-current-name {
+  font-size: 24rpx;
+  font-weight: 500;
+
+  color: $text-secondary;
+
+  max-width: 180rpx;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-toggle-arrow {
+  font-size: 18rpx;
+
+  color: $text-secondary;
+
+  transition: transform 0.25s ease;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+/* 模型选项列表 */
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+
+  margin-top: 0;
+  padding: 0 8rpx;
+
+  border-radius: $radius-medium;
+
+  background: $bg-card;
+
+  border: 2rpx solid transparent;
+
+  // 默认折叠状态
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+
+  // 平滑展开 / 收起
+  transition:
+    max-height 0.35s ease,
+    opacity 0.25s ease,
+    margin-top 0.35s ease,
+    padding-top 0.35s ease,
+    padding-bottom 0.35s ease,
+    border-color 0.25s ease;
+
+  // 隐藏滚动条（展开后可能出现滚动）
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  // ── 展开状态 ──
+  &.model-list--expanded {
+    max-height: 520rpx; // 限制最大高度，ScrollView 提供内部滚动
+    opacity: 1;
+    overflow: hidden; // ScrollView 自行管理滚动，此处仅作容器裁剪
+    margin-top: 12rpx;
+    padding: 8rpx;
+    border-color: $border-light;
+  }
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  min-height: 72rpx;
+
+  padding: 0 8rpx 0 16rpx;
+
+  border-radius: $radius-small;
+
+  background: transparent;
+
+  transition: $transition-fast;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.06);
+  }
+
+  &.active {
+    background: rgba(17, 124, 13, 0.08);
+  }
+}
+
+.model-item-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  min-height: 72rpx;
+  min-width: 0; // allow flex shrink
+  overflow: hidden;
+}
+
+.model-item-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: $text-primary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .active & {
+    color: $color-secondary;
+    font-weight: 600;
+  }
+}
+
+/* 连接状态指示点 — 贴近模型名称右侧 */
+.model-status-dot {
+  flex-shrink: 0;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: $color-secondary; // 绿色 = 可用 / 未测试
+  margin-left: 2rpx;
+  transition: background 0.2s ease;
+
+  // 红色 = 上次连接测试不可用
+  &.model-status-dot--error {
+    background: #E65050;
+  }
+}
+
+.model-item-tag {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: $text-placeholder;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  background: rgba(17, 124, 13, 0.06);
+  margin-left: 4rpx;
+}
+
+/* 操作区（编辑 + 更多） */
+.model-item-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  margin-left: 4rpx;
+}
+
+.model-item-edit {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.1);
+  }
+}
+
+.model-item-more-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.model-item-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.1);
+  }
+}
+
+/* 模型操作弹窗 */
+.model-popover {
+  position: absolute;
+  right: 0;
+  top: 64rpx;
+  z-index: 2200;
+
+  min-width: 200rpx;
+
+  padding: 12rpx 0;
+
+  background: #fff;
+  border-radius: $radius-medium;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+
+  height: 80rpx;
+
+  padding: 0 24rpx;
+
+  transition: $transition-fast;
+
+  &:active {
+    background: rgba(17, 124, 13, 0.05);
+  }
+}
+
+.popover-item-text {
+  font-size: 28rpx;
+  color: $text-primary;
+}
+
+.popover-item-text-danger {
+  color: #E65050;
+}
+
+/* 删除模型确认弹窗 */
+.popover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2300;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.confirm-dialog {
+  width: 560rpx;
+
+  padding: 48rpx 40rpx 32rpx;
+
+  background: #fff;
+  border-radius: $radius-large;
+
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.15);
+}
+
+.confirm-title {
+  display: block;
+
+  font-size: 34rpx;
+  font-weight: 600;
+  color: $text-primary;
+
+  text-align: center;
+
+  margin-bottom: 16rpx;
+}
+
+.confirm-content {
+  display: block;
+
+  font-size: 28rpx;
+  color: $text-secondary;
+
+  text-align: center;
+
+  margin-bottom: 40rpx;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.confirm-btn {
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 80rpx;
+
+  border-radius: $radius-small;
+
+  font-size: 30rpx;
+  font-weight: 500;
+
+  transition: $transition-fast;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.confirm-btn.cancel {
+  background: rgba(0, 0, 0, 0.05);
+  color: $text-secondary;
+}
+
+.confirm-btn.danger {
+  background: #E65050;
+  color: #fff;
+}
+
+/* Add Model Button */
+.model-item-add {
+  justify-content: center;
+  gap: 12rpx;
+  margin-top: 8rpx;
+  border: 2rpx dashed $border-normal;
+}
+
+.model-add-text {
+  color: $text-secondary;
+}

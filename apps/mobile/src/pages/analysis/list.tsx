@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, Input } from '@tarojs/components'
-import { AppHeader } from '@my/ui'
+import { AppHeader, Icon } from '@my/ui'
+import { IconColors } from '@/styles/theme'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { analysisApi } from '@/services/analysis.api'
@@ -111,6 +112,10 @@ export default function AnalysisListPage() {
     Taro.navigateBack({ delta: 1 })
   }
 
+  const handleSearch = () => {
+    Taro.navigateTo({ url: '/pages/search/index?type=analysis' })
+  }
+
   // ── 左滑：编辑（重命名）/ 删除 ─────────────────────────────
 
   const openRename = (item: AnalysisListItem) => {
@@ -187,7 +192,15 @@ export default function AnalysisListPage() {
 
   return (
     <View className='list-page'>
-      <AppHeader title='我的分析' onBack={handleBack} />
+      <AppHeader
+        title='我的分析'
+        onBack={handleBack}
+        rightAction={
+          <View className='list-page__search-btn' onClick={handleSearch}>
+            <Icon name='sousuo' size={40} color={IconColors.secondary} />
+          </View>
+        }
+      />
 
       <ScrollView
         scrollY
@@ -199,7 +212,6 @@ export default function AnalysisListPage() {
         <View className='list-page__content'>
         {items.length === 0 && !loading && (
           <View className='list-page__empty'>
-            <Text className='list-page__empty-icon'>📊</Text>
             <Text className='list-page__empty-text'>暂无分析记录</Text>
           </View>
         )}
@@ -219,12 +231,14 @@ export default function AnalysisListPage() {
                   className='list-page__swipe-btn list-page__swipe-btn--edit'
                   onClick={() => openRename(item)}
                 >
+                  <Icon name='bianji' size={36} color='#1B1B1B' />
                   <Text>编辑</Text>
                 </View>
                 <View
                   className='list-page__swipe-btn list-page__swipe-btn--delete'
                   onClick={() => openDelete(item)}
                 >
+                  <Icon name='shanchu' size={36} color='#FFFFFF' />
                   <Text>删除</Text>
                 </View>
               </View>
@@ -242,10 +256,13 @@ export default function AnalysisListPage() {
                   <Text className='list-page__item-title'>{item.title}</Text>
                   <View className='list-page__item-meta'>
                     {item.fileName && (
-                      <Text className='list-page__item-file'>📄 {item.fileName}</Text>
+                      <Text className='list-page__item-file'>{item.fileName}</Text>
                     )}
                     {item.chartCount > 0 && (
-                      <Text className='list-page__item-charts'>📊 {item.chartCount} 个图表</Text>
+                      <View className='list-page__item-charts'>
+                        <Icon name='zhuzhuangtu' size={24} color={IconColors.secondary} />
+                        <Text>{item.chartCount} 个图表</Text>
+                      </View>
                     )}
                     <Text className='list-page__item-date'>{formatTime(item.createdAt)}</Text>
                   </View>

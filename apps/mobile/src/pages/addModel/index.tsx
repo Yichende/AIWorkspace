@@ -1,8 +1,7 @@
 import { View, Text, Input, ScrollView, Switch } from '@tarojs/components'
 import { useState, useEffect, useCallback } from 'react'
 import Taro from '@tarojs/taro'
-import { Icon } from '@my/ui'
-import { IconColors } from '@/styles/theme'
+import { AppHeader } from '@my/ui'
 import { modelApi } from '@/services/model.api'
 import { useUserStore } from '@/stores/user.store'
 import { getModelById } from '@repo/types'
@@ -253,16 +252,10 @@ export default function AddModelPage() {
 
   return (
     <View className='add-model-page'>
-      {/* Header */}
-      <View className='add-model-header'>
-        <View className='header-back' onClick={handleBack}>
-          <Icon name='fanhui' size={44} color={IconColors.secondary} />
-        </View>
-        <Text className='header-title'>
-          {isBuiltinEdit ? '配置模型' : isEdit ? '编辑模型' : '添加模型'}
-        </Text>
-        <View className='header-placeholder' />
-      </View>
+      <AppHeader
+        title={isBuiltinEdit ? '配置模型' : isEdit ? '编辑模型' : '添加模型'}
+        onBack={handleBack}
+      />
 
       <ScrollView className='add-model-form' scrollY showScrollbar={false}>
         {/* Protocol Type Selector */}

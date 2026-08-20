@@ -97,10 +97,13 @@ export class AnalysisService {
 
   // ── List ────────────────────────────────────────────────────
 
-  async listSessions(userId: number, page = 1, limit = 20) {
+  async listSessions(userId: number, page = 1, limit = 20, keyword?: string) {
     const offset = (page - 1) * limit;
     const { rows, count } = await this.sessionModel.findAndCountAll({
-      where: { userId },
+      where: {
+        userId,
+        ...(keyword ? { title: { [Op.like]: `%${keyword}%` } } : {}),
+      },
       attributes: ['id', 'title', 'status', 'model', 'created_at'],
       order: [['created_at', 'DESC']],
       offset,

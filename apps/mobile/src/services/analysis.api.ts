@@ -200,13 +200,21 @@ export const analysisApi = {
   },
 
   /**
-   * 历史分析列表
+   * 历史分析列表（keyword 按标题模糊搜索）
    */
-  listAnalyses(page = 1, limit = DEFAULT_PAGE_SIZE): Promise<PaginatedAnalyses> {
+  listAnalyses(
+    page = 1,
+    limit = DEFAULT_PAGE_SIZE,
+    keyword?: string,
+  ): Promise<PaginatedAnalyses> {
+    const data: Record<string, any> = { page, limit }
+    if (keyword) {
+      data.keyword = keyword
+    }
     return request({
       url: '/analysis/list',
       method: 'GET',
-      data: { page, limit },
+      data,
     })
   },
 

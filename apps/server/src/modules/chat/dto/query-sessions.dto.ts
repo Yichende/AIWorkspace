@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsInt,
+  IsString,
+  MaxLength,
+  Min,
+  Max,
+} from 'class-validator';
 import {
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
@@ -19,4 +26,10 @@ export class QuerySessionsDto {
   @Min(1)
   @Max(MAX_PAGE_SIZE)
   limit?: number = DEFAULT_PAGE_SIZE;
+
+  /** 按标题模糊搜索（可选） */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  keyword?: string;
 }

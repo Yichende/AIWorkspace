@@ -211,7 +211,12 @@ export class AnalysisController {
   @Get('list')
   @UseGuards(JwtAuthGuard)
   listAnalyses(@CurrentUser() user: User, @Query() query: QueryAnalysisDto) {
-    return this.analysisService.listSessions(user.id, query.page, query.limit);
+    return this.analysisService.listSessions(
+      user.id,
+      query.page,
+      query.limit,
+      query.keyword?.trim(),
+    );
   }
 
   // ── Detail ─────────────────────────────────────────────────

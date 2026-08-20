@@ -38,7 +38,12 @@ export class ChatController {
   @Get('sessions')
   @UseGuards(JwtAuthGuard)
   listSessions(@CurrentUser() user: User, @Query() query: QuerySessionsDto) {
-    return this.chatService.listSessions(user.id, query.page, query.limit);
+    return this.chatService.listSessions(
+      user.id,
+      query.page,
+      query.limit,
+      query.keyword?.trim(),
+    );
   }
 
   @Post('sessions')

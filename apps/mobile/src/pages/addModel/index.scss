@@ -10,44 +10,6 @@
 }
 
 /* ===========================
-   Header
-   =========================== */
-
-.add-model-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  height: 88rpx;
-  padding: 0 24rpx;
-  // 状态栏安全区 + 90rpx 基准高度，与 ChatMenu/Search 保持一致
-  padding-top: calc(90rpx + env(safe-area-inset-top));
-  background: $bg-page;
-}
-
-.header-back {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  &:active {
-    background: rgba(17, 124, 13, 0.06);
-  }
-}
-
-.header-title {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: $text-primary;
-}
-
-.header-placeholder {
-  width: 72rpx;
-}
-
-/* ===========================
    Form
    =========================== */
 

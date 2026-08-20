@@ -24,12 +24,20 @@ export interface StreamCallbacks {
 // ── API ────────────────────────────────────────────────────
 
 export const chatApi = {
-  /** 分页获取会话列表（仅元数据，无消息体） */
-  listSessions(page = 1, limit = DEFAULT_PAGE_SIZE): Promise<PaginatedSessions> {
+  /** 分页获取会话列表（仅元数据，无消息体），keyword 按标题模糊搜索 */
+  listSessions(
+    page = 1,
+    limit = DEFAULT_PAGE_SIZE,
+    keyword?: string,
+  ): Promise<PaginatedSessions> {
+    const data: Record<string, any> = { page, limit }
+    if (keyword) {
+      data.keyword = keyword
+    }
     return request({
       url: '/chat/sessions',
       method: 'GET',
-      data: { page, limit },
+      data,
     })
   },
 

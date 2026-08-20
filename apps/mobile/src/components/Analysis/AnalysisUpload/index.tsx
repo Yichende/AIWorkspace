@@ -1,11 +1,19 @@
 import { View, Text } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useState } from 'react'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState, useEffect, useCallback } from 'react'
+import { Icon } from '@my/ui'
+import { IconColors } from '@/styles/theme'
 import { analysisApi } from '@/services/analysis.api'
-import type { DatasetSummary } from '@repo/types'
+import { modelApi } from '@/services/model.api'
+import { useUserStore } from '@/stores/user.store'
+import ModelSwitcher from '@/components/common/ModelSwitcher'
+import { AI_MODELS } from '@repo/types'
+import type { DatasetSummary, ModelListItem } from '@repo/types'
 import './index.scss'
 
 interface Props {
+  model: string
+  onModelChange: (model: string) => void
   onUploaded: (
     file: { name: string; size: number },
     fileId: string,
@@ -16,9 +24,74 @@ interface Props {
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_EXTS = ['.xlsx', '.xls', '.csv']
 
-export default function AnalysisUpload({ onUploaded }: Props) {
+export default function AnalysisUpload({ model, onModelChange, onUploaded }: Props) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+
+  // 等待 auth 初始化完成再发起 API 调用，避免启动竞态导致 401
+  const authReady = useUserStore((state) => state.authReady)
+
+  // Model list: start with built-in models as fallback, then fetch merged list
+  const [models, setModels] = useState<ModelListItem[]>(
+    AI_MODELS.map((m) => ({
+      id: m.id,
+      displayName: m.id,
+      protocolType: undefined,
+      provider: m.provider,
+      supportsThinking: m.supportsThinking,
+      source: 'builtin' as const,
+    })),
+  )
+
+  // Refresh model list on mount and when returning from addModel page
+  const fetchModels = useCallback(async () => {
+    try {
+      const res = await modelApi.listModels()
+      if (res.models?.length > 0) {
+        setModels(res.models)
+      }
+    } catch (err) {
+      // Keep current models (builtin fallback) on error
+      console.warn('[AnalysisUpload] Failed to fetch models:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (authReady) {
+      fetchModels()
+    }
+  }, [authReady, fetchModels])
+
+  useDidShow(() => {
+    fetchModels()
+  })
+
+  // ── Model management ──
+
+  const handleAddModel = () => {
+    Taro.navigateTo({ url: '/pages/addModel/index' })
+  }
+
+  const handleEditModel = (modelId: string) => {
+    const modelItem = models.find((m) => m.id === modelId)
+    const source = modelItem?.source ?? 'custom'
+    Taro.navigateTo({
+      url: `/pages/addModel/index?modelId=${modelId}&source=${source}`,
+    })
+  }
+
+  const handleDeleteModel = async (modelId: string) => {
+    try {
+      await modelApi.deleteModel(modelId)
+      Taro.showToast({ title: '模型已删除', icon: 'success' })
+      // Refresh model list
+      fetchModels()
+    } catch {
+      Taro.showToast({ title: '删除失败', icon: 'none' })
+    }
+  }
+
+  // ── Upload ──
 
   const handleChooseFile = async () => {
     setError('')
@@ -73,6 +146,18 @@ export default function AnalysisUpload({ onUploaded }: Props) {
         </Text>
       </View>
 
+      {/* 模型切换 */}
+      <View className='upload-step__model'>
+        <ModelSwitcher
+          models={models}
+          currentModel={model}
+          onModelChange={onModelChange}
+          onAddModel={handleAddModel}
+          onEditModel={handleEditModel}
+          onDeleteModel={handleDeleteModel}
+        />
+      </View>
+
       <View className='upload-step__zone' onClick={handleChooseFile}>
         {uploading ? (
           <View className='upload-step__loading'>
@@ -81,7 +166,12 @@ export default function AnalysisUpload({ onUploaded }: Props) {
           </View>
         ) : (
           <>
-            <Text className='upload-step__icon'>📁</Text>
+            <Icon
+              name='wenjianjia'
+              size={80}
+              color={IconColors.secondary}
+              className='upload-step__icon'
+            />
             <Text className='upload-step__cta'>点击选择文件</Text>
             <Text className='upload-step__hint'>从聊天记录中选择 Excel 或 CSV 文件</Text>
           </>
