@@ -2,33 +2,31 @@
 
 .home-page {
   min-height: 100vh;
-  padding: 0 32rpx;
   box-sizing: border-box;
   background: $bg-page;
 }
 
-// 状态栏占位（需根据实际机型动态计算，此处给出固定安全值）
-.status-bar-placeholder {
-  height: 90rpx;      // 一般等于状态栏高度 + 导航栏高度，可根据需要调整
-}
-
-// 标题行：居中
-.title-row {
+// 顶部用户入口按钮（AppHeader leftActions，样式同 chat 页菜单按钮）
+.home-page__user-btn {
+  position: relative;
+  width: 72rpx;
+  height: 72rpx;
   display: flex;
+  align-items: center;
   justify-content: center;
-  margin-bottom: 16rpx;
-}
+  background: transparent;
+  border: none;
+  transition: transform $transition-fast, opacity $transition-fast;
 
-.main-title {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: $text-primary;
+  &:active {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
 }
-
 
 // 装饰图区域（整行）
 .decorate-area {
-  margin-bottom: 32rpx;
+  margin: 0 32rpx 32rpx;
   border-radius: $radius-medium;
   overflow: hidden;           // 保证图片圆角
   background: #f5f5f5;        // 未提供图片时的背景色
@@ -44,7 +42,7 @@
 .feature-section {
   display: flex;
   gap: 24rpx;
-  margin-bottom: 32rpx;
+  margin: 0 32rpx 32rpx;
 }
 
 .feature-card {
@@ -98,6 +96,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin: 0 32rpx 32rpx;
   padding: 28rpx;
   background: $bg-card;
   border-radius: $radius-medium;
@@ -115,4 +114,9 @@
   font-size: 40rpx;
   color: $color-secondary;
   font-weight: 600;
+}
+
+// 测试入口（与内容块保持同一左右边距）
+.home-page__test-btn {
+  margin: 0 32rpx;
 }

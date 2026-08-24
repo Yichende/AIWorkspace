@@ -1,0 +1,55 @@
+@use '@/styles/theme.scss' as *;
+
+.model-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: $bg-page;
+}
+
+.model-page__content {
+  padding: 24rpx 32rpx 48rpx;
+}
+
+/* =========================
+ * 分段 Tabs
+ * =========================
+ */
+
+.model-page__tabs {
+  display: flex;
+
+  margin-bottom: 24rpx;
+  padding: 8rpx;
+
+  background: $bg-card;
+  border: 2rpx solid $border-light;
+  border-radius: $radius-medium;
+  box-shadow: $shadow-card;
+}
+
+.model-page__tab {
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 72rpx;
+
+  border-radius: $radius-small;
+
+  font-size: 30rpx;
+  color: $text-secondary;
+
+  transition: background $transition-fast, color $transition-fast;
+
+  &:active {
+    opacity: 0.8;
+  }
+
+  &.active {
+    background: rgba(17, 124, 13, 0.1);
+    color: $color-secondary;
+    font-weight: 600;
+  }
+}

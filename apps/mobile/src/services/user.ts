@@ -70,6 +70,20 @@ export const getSessionsApi = (deviceId?: string) => {
   });
 };
 
+export interface ProfileResult {
+  id: number;
+  username: string;
+  email: string;
+}
+
+/** 获取当前用户资料（GET /user/profile, Bearer） */
+export const getProfileApi = () => {
+  return request<ProfileResult>({
+    url: "/user/profile",
+    method: "GET",
+  });
+};
+
 /** 单设备登出 */
 export const revokeSessionApi = (sessionId: number) => {
   return request<void>({

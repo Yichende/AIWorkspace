@@ -82,11 +82,10 @@ export default function ChatMenu({
     onHistorySelect?.(id)
   }
 
-  /** 进入个人页 */
+  /** 进入用户页 */
   const handleUserProfile = () => {
     onClose()
-    // TODO: 待创建用户个人页面后替换路由
-    Taro.navigateTo({ url: '/pages/myTest/index' })
+    Taro.navigateTo({ url: '/pages/user/index' })
   }
 
   // ── Batch mode handlers ──

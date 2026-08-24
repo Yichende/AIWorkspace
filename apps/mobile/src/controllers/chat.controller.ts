@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useCallback } from 'react'
 import Taro from '@tarojs/taro'
 import {
   useChatStore,
@@ -30,6 +30,20 @@ interface ActiveStream {
   assistantMsgId: string
   /** 用户主动停止标记 — 中止时与真实错误区分 */
   aborted: boolean
+}
+
+/**
+ * 模块级活动流注册（而非组件内 ref）：
+ * 使退出登录等跨页面场景也能中断进行中的 SSE。
+ */
+let activeStream: ActiveStream | null = null
+
+/** 中断当前流式回答（停止回答按钮与退出登录共用） */
+export function stopActiveStream(): void {
+  if (!activeStream) return
+  activeStream.aborted = true
+  activeStream.task?.abort()
+  activeStream = null
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -105,9 +119,6 @@ async function syncMessagesFromAPI(sessionId: string): Promise<void> {
 
 export function useChatController() {
   const store = useChatStore()
-
-  // 当前流式请求的句柄（发送/重试共用），供 stopGenerating 中止
-  const activeStreamRef = useRef<ActiveStream | null>(null)
 
   // ── init ──────────────────────────────────────────────────
 
@@ -267,7 +278,7 @@ export function useChatController() {
 
     // 6.1 注册当前流（供"停止回答"中止）
     const streamCtl: ActiveStream = { assistantMsgId, aborted: false }
-    activeStreamRef.current = streamCtl
+    activeStream = streamCtl
 
     // 7. Build message history for AI context
     const currentState = useChatStore.getState()
@@ -398,7 +409,7 @@ export function useChatController() {
               .catch((err) =>
                 console.warn('[chat] Failed to sync assistant message:', err),
               )
-            activeStreamRef.current = null
+            activeStream = null
           },
           onTaskReady: (task: Taro.RequestTask<any>) => {
             streamCtl.task = task
@@ -406,7 +417,7 @@ export function useChatController() {
             if (streamCtl.aborted) task.abort()
           },
           onError: () => {
-            activeStreamRef.current = null
+            activeStream = null
             if (streamCtl.aborted) {
               // 用户主动停止：保留已生成内容，标记为完成
               const blocks: MessageBlock[] = []
@@ -447,7 +458,7 @@ export function useChatController() {
       }
     } catch {
       // 10. Error: mark as error, persist（主动停止导致的 reject 已在 onError 处理，忽略）
-      activeStreamRef.current = null
+      activeStream = null
       if (!streamCtl.aborted) {
         store.updateMessage(assistantMsgId, { status: 'error' })
         persistCurrentSession()
@@ -485,7 +496,7 @@ export function useChatController() {
 
     // 注册当前流（供"停止回答"中止）
     const streamCtl: ActiveStream = { assistantMsgId, aborted: false }
-    activeStreamRef.current = streamCtl
+    activeStream = streamCtl
 
     let thinkAccumulated = ''
     let contentAccumulated = ''
@@ -607,7 +618,7 @@ export function useChatController() {
               .catch((err) =>
                 console.warn('[chat] Failed to sync retry message:', err),
               )
-            activeStreamRef.current = null
+            activeStream = null
           },
           onTaskReady: (task: Taro.RequestTask<any>) => {
             streamCtl.task = task
@@ -615,7 +626,7 @@ export function useChatController() {
             if (streamCtl.aborted) task.abort()
           },
           onError: () => {
-            activeStreamRef.current = null
+            activeStream = null
             if (streamCtl.aborted) {
               // 用户主动停止：保留已生成内容，标记为完成
               const blocks: MessageBlock[] = []
@@ -654,7 +665,7 @@ export function useChatController() {
         persistCurrentSession()
       }
     } catch {
-      activeStreamRef.current = null
+      activeStream = null
       // 主动停止导致的 reject 已在 onError 处理，忽略
       if (!streamCtl.aborted) {
         store.updateMessage(assistantMsgId, { status: 'error' })
@@ -667,11 +678,7 @@ export function useChatController() {
 
   /** 停止当前流式回答（保留已生成内容，消息标记为完成） */
   const stopGenerating = useCallback((): void => {
-    const active = activeStreamRef.current
-    if (!active) return
-    active.aborted = true
-    active.task?.abort()
-    activeStreamRef.current = null
+    stopActiveStream()
   }, [])
 
   // ── switchChat ────────────────────────────────────────────

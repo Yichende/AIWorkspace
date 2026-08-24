@@ -52,6 +52,11 @@ export default function LoginPage() {
       console.log('[Login] 登录成功:', res)
 
       await saveTokens(res.access_token, res.refresh_token)
+      useUserStore.getState().setUserInfo({
+        id: res.user.id,
+        username: res.user.username,
+        email: res.user.email,
+      })
 
       // 跳转首页
       Taro.reLaunch({
@@ -96,6 +101,11 @@ export default function LoginPage() {
       })
 
       await saveTokens(res.access_token, res.refresh_token)
+      useUserStore.getState().setUserInfo({
+        id: res.user.id,
+        username: res.user.username,
+        email: res.user.email,
+      })
 
       Taro.showToast({
         title: '注册成功',

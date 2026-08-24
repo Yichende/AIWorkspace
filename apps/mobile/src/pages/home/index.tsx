@@ -1,11 +1,17 @@
 import { View, Text, Image } from '@tarojs/components'
 import { IconColors } from '@/styles/theme'
-import { Icon } from '@my/ui'
+import { AppHeader, Icon } from '@my/ui'
 
 import Taro from '@tarojs/taro'
 import './index.scss'
 
 export default function HomePage() {
+
+  const go2User = () => {
+    Taro.navigateTo({
+      url: '/pages/user/index',
+    })
+  }
 
   const gotoChat = () => {
     Taro.navigateTo({
@@ -33,13 +39,15 @@ export default function HomePage() {
 
   return (
     <View className='home-page'>
-      {/* 状态栏占位（自定义导航栏时需手动处理） */}
-      <View className='status-bar-placeholder' />
-
-      {/* 标题行 */}
-      <View className='title-row'>
-        <Text className='main-title'>一叶</Text>
-      </View>
+      <AppHeader
+        title='一叶'
+        showBack={false}
+        leftActions={
+          <View className='home-page__user-btn' onClick={go2User}>
+            <Icon name='wode' size={46} color={IconColors.secondary} />
+          </View>
+        }
+      />
 
       {/* 装饰图区域 */}
       <View className='decorate-area'>
@@ -96,7 +104,7 @@ export default function HomePage() {
         </View>
         <Icon name='qianjin' size={28} color={IconColors.secondary} />
       </View>
-      <button onClick={go2Test}>Test Page</button>
+      <button className='home-page__test-btn' onClick={go2Test}>Test Page</button>
     </View>
   )
 }

@@ -77,6 +77,9 @@ interface ChatStoreActions {
   ) => void
   clearCurrentSession: () => void
 
+  /** 重置为初始状态（退出登录时调用，防止跨账号串状态） */
+  reset: () => void
+
   // ── Loading flags ─────────────────────────────────────────
 
   setSessionsLoading: (loading: boolean) => void
@@ -211,6 +214,21 @@ export const useChatStore = create<ChatStore>((set) => ({
       currentSessionMeta: null,
       currentMessages: [],
       hasMoreMessages: true,
+    }),
+
+  // ── Reset（退出登录）─────────────────────────────────────
+
+  reset: () =>
+    set({
+      sessionsIndex: [],
+      currentMessages: [],
+      currentSessionMeta: null,
+      currentSessionId: null,
+      sessionsLoading: false,
+      messagesLoading: false,
+      hasMoreSessions: true,
+      hasMoreMessages: true,
+      sessionsPage: 0,
     }),
 
   // ── Loading flags ─────────────────────────────────────────

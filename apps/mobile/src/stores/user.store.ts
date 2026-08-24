@@ -1,8 +1,10 @@
 import { create } from "zustand";
 
 interface UserInfo {
-  id: string;
+  /** 与后端保持一致：Sequelize 自增主键为 number */
+  id: number;
   username: string;
+  email?: string;
   avatar?: string;
 }
 
