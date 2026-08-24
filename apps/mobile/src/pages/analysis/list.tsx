@@ -195,7 +195,7 @@ export default function AnalysisListPage() {
       <AppHeader
         title='我的分析'
         onBack={handleBack}
-        rightAction={
+        leftActions={
           <View className='list-page__search-btn' onClick={handleSearch}>
             <Icon name='sousuo' size={40} color={IconColors.secondary} />
           </View>

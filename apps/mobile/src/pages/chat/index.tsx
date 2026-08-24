@@ -2,7 +2,8 @@ import { View, ScrollView } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
 
-import ChatHeader from '@/components/Chat/ChatHeader'
+import { AppHeader, Icon } from '@my/ui'
+import { IconColors } from '@/styles/theme'
 import ChatInput from '@/components/Chat/ChatInput'
 import ChatMessage from '@/components/Chat/ChatMessage'
 import ChatMenu from '@/components/Chat/ChatMenu'
@@ -66,6 +67,7 @@ export default function ChatPage() {
     switchModel,
     sendMessage,
     retryMessage,
+    stopGenerating,
     switchChat,
     openSession,
     deleteChat,
@@ -179,6 +181,11 @@ export default function ChatPage() {
     [retryMessage],
   )
 
+  // 停止当前流式回答
+  const handleStop = useCallback(() => {
+    stopGenerating()
+  }, [stopGenerating])
+
   const handleDelete = useCallback(
     (sessionId: string) => {
       // If deleting current session, switch to a new chat
@@ -259,7 +266,15 @@ export default function ChatPage() {
   return (
     <>
       <View className='chat-page'>
-        <ChatHeader onBack={onBack} onMenu={onMenu} />
+        <AppHeader
+          title='一叶'
+          onBack={onBack}
+          leftActions={
+            <View className='chat-page__menu-btn' onClick={onMenu}>
+              <Icon name='AI--' size={46} color={IconColors.secondary} />
+            </View>
+          }
+        />
 
         <View className='message-wrapper'>
           <ScrollView
@@ -299,7 +314,13 @@ export default function ChatPage() {
           </ScrollView>
         </View>
 
-        <ChatInput value={input} onChange={setInput} onSend={handleSend} />
+        <ChatInput
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          streaming={isStreaming}
+          onStop={handleStop}
+        />
       </View>
 
       <ChatMenu

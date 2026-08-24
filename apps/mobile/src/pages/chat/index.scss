@@ -11,6 +11,40 @@
   overflow: hidden;
 }
 
+/* 顶部菜单按钮（原 ChatHeader 样式迁移） */
+
+.chat-page__menu-btn {
+  position: relative;
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  transition: 0.2s ease;
+
+  &:active {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+}
+
+.chat-page__menu-btn::after {
+  content: '';
+  position: absolute;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: rgba(17, 124, 13, 0.06);
+  opacity: 0;
+  transition: 0.2s;
+}
+
+.chat-page__menu-btn:active::after {
+  opacity: 1;
+}
+
 .message-wrapper {
   flex: 1;
 

@@ -1,3 +1,5 @@
+import { useRef, useCallback } from 'react'
+import Taro from '@tarojs/taro'
 import {
   useChatStore,
   generateId,
@@ -19,6 +21,16 @@ import type { ChatMessage, SessionIndexItem, MessageBlock } from '@repo/types'
 
 /** 100ms — ~10 renders/sec, smooth enough for text streaming, gentle on Mini Program render thread */
 const STREAM_THROTTLE_MS = 100
+
+// ── Active stream tracking ───────────────────────────────────
+
+/** 当前进行中的流式请求句柄，用于"停止回答" */
+interface ActiveStream {
+  task?: Taro.RequestTask<any>
+  assistantMsgId: string
+  /** 用户主动停止标记 — 中止时与真实错误区分 */
+  aborted: boolean
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -93,6 +105,9 @@ async function syncMessagesFromAPI(sessionId: string): Promise<void> {
 
 export function useChatController() {
   const store = useChatStore()
+
+  // 当前流式请求的句柄（发送/重试共用），供 stopGenerating 中止
+  const activeStreamRef = useRef<ActiveStream | null>(null)
 
   // ── init ──────────────────────────────────────────────────
 
@@ -250,6 +265,10 @@ export function useChatController() {
     // 6. Persist placeholder (for "响应中断" recovery on reload)
     persistCurrentSession()
 
+    // 6.1 注册当前流（供"停止回答"中止）
+    const streamCtl: ActiveStream = { assistantMsgId, aborted: false }
+    activeStreamRef.current = streamCtl
+
     // 7. Build message history for AI context
     const currentState = useChatStore.getState()
     const historyMessages: Array<{ role: string; content: string }> = []
@@ -379,10 +398,40 @@ export function useChatController() {
               .catch((err) =>
                 console.warn('[chat] Failed to sync assistant message:', err),
               )
+            activeStreamRef.current = null
           },
-          onError: (err: string) => {
-            store.updateMessage(assistantMsgId, { status: 'error' })
-            persistCurrentSession()
+          onTaskReady: (task: Taro.RequestTask<any>) => {
+            streamCtl.task = task
+            // 用户在 task 创建前就已点击暂停 → 立即中止
+            if (streamCtl.aborted) task.abort()
+          },
+          onError: () => {
+            activeStreamRef.current = null
+            if (streamCtl.aborted) {
+              // 用户主动停止：保留已生成内容，标记为完成
+              const blocks: MessageBlock[] = []
+              if (thinkAccumulated) {
+                blocks.push({
+                  type: 'text',
+                  content: thinkAccumulated,
+                  thinking: true,
+                })
+              }
+              if (contentAccumulated) {
+                blocks.push({ type: 'text', content: contentAccumulated })
+              }
+              if (blocks.length === 0) {
+                blocks.push({ type: 'text', content: '（已停止）' })
+              }
+              store.updateMessage(assistantMsgId, {
+                blocks,
+                status: 'success',
+              })
+              persistCurrentSession()
+            } else {
+              store.updateMessage(assistantMsgId, { status: 'error' })
+              persistCurrentSession()
+            }
           },
         },
       )
@@ -397,9 +446,12 @@ export function useChatController() {
         persistCurrentSession()
       }
     } catch {
-      // 10. Error: mark as error, persist
-      store.updateMessage(assistantMsgId, { status: 'error' })
-      persistCurrentSession()
+      // 10. Error: mark as error, persist（主动停止导致的 reject 已在 onError 处理，忽略）
+      activeStreamRef.current = null
+      if (!streamCtl.aborted) {
+        store.updateMessage(assistantMsgId, { status: 'error' })
+        persistCurrentSession()
+      }
     }
   }
 
@@ -430,6 +482,10 @@ export function useChatController() {
       blocks: [{ type: 'text', content: '' }],
       status: 'sending',
     })
+
+    // 注册当前流（供"停止回答"中止）
+    const streamCtl: ActiveStream = { assistantMsgId, aborted: false }
+    activeStreamRef.current = streamCtl
 
     let thinkAccumulated = ''
     let contentAccumulated = ''
@@ -551,10 +607,40 @@ export function useChatController() {
               .catch((err) =>
                 console.warn('[chat] Failed to sync retry message:', err),
               )
+            activeStreamRef.current = null
+          },
+          onTaskReady: (task: Taro.RequestTask<any>) => {
+            streamCtl.task = task
+            // 用户在 task 创建前就已点击暂停 → 立即中止
+            if (streamCtl.aborted) task.abort()
           },
           onError: () => {
-            store.updateMessage(assistantMsgId, { status: 'error' })
-            persistCurrentSession()
+            activeStreamRef.current = null
+            if (streamCtl.aborted) {
+              // 用户主动停止：保留已生成内容，标记为完成
+              const blocks: MessageBlock[] = []
+              if (thinkAccumulated) {
+                blocks.push({
+                  type: 'text',
+                  content: thinkAccumulated,
+                  thinking: true,
+                })
+              }
+              if (contentAccumulated) {
+                blocks.push({ type: 'text', content: contentAccumulated })
+              }
+              if (blocks.length === 0) {
+                blocks.push({ type: 'text', content: '（已停止）' })
+              }
+              store.updateMessage(assistantMsgId, {
+                blocks,
+                status: 'success',
+              })
+              persistCurrentSession()
+            } else {
+              store.updateMessage(assistantMsgId, { status: 'error' })
+              persistCurrentSession()
+            }
           },
         },
       )
@@ -568,10 +654,25 @@ export function useChatController() {
         persistCurrentSession()
       }
     } catch {
-      store.updateMessage(assistantMsgId, { status: 'error' })
-      persistCurrentSession()
+      activeStreamRef.current = null
+      // 主动停止导致的 reject 已在 onError 处理，忽略
+      if (!streamCtl.aborted) {
+        store.updateMessage(assistantMsgId, { status: 'error' })
+        persistCurrentSession()
+      }
     }
   }
+
+  // ── stopGenerating ────────────────────────────────────────
+
+  /** 停止当前流式回答（保留已生成内容，消息标记为完成） */
+  const stopGenerating = useCallback((): void => {
+    const active = activeStreamRef.current
+    if (!active) return
+    active.aborted = true
+    active.task?.abort()
+    activeStreamRef.current = null
+  }, [])
 
   // ── switchChat ────────────────────────────────────────────
 
@@ -804,6 +905,7 @@ export function useChatController() {
     switchModel,
     sendMessage,
     retryMessage,
+    stopGenerating,
     switchChat,
     openSession,
     deleteChat,

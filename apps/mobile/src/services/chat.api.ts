@@ -19,6 +19,8 @@ export interface StreamCallbacks {
   onContent?: (text: string) => void
   onDone?: (fullText: string) => void
   onError?: (err: string) => void
+  /** RequestTask 创建完成即同步回调 — 调用方可持有它用于 abort() 中断流 */
+  onTaskReady?: (task: Taro.RequestTask<any>) => void
 }
 
 // ── API ────────────────────────────────────────────────────
@@ -106,13 +108,15 @@ export const chatApi = {
    * SSE 流式对话（通过 enableChunked 接收分块数据）。
    * 微信小程序兼容：使用 Taro.request 的 enableChunked + onChunkReceived。
    *
-   * @returns 返回 RequestTask，可用于 abort()
+   * 注意：RequestTask 是 thenable（Promise 子类），async 返回会被解包，
+   * 因此不能通过 await 返回值拿到它 —— 统一通过 onTaskReady 回调获取以支持 abort()。
+   * 本 promise 仅在请求结束时 settle（success/fail），可 await 作流程控制。
    */
   async streamCompletion(
     model: string,
     messages: Array<{ role: string; content: string }>,
     callbacks: StreamCallbacks,
-  ): Promise<Taro.RequestTask<any>> {
+  ): Promise<void> {
     const reqUrl = `${BASE_URL}/chat/completions`
     let token = await getToken()
 
@@ -189,7 +193,11 @@ export const chatApi = {
       }
     })
 
-    return Promise.resolve(requestTask)
+    // 同步把 RequestTask 交给调用方（用于 abort 中断）
+    callbacks.onTaskReady?.(requestTask)
+
+    // Promise.resolve(thenable) 会采纳 RequestTask —— settle 时机即请求结束
+    return Promise.resolve(requestTask) as unknown as Promise<void>
   },
 
   // ── Internal helpers ─────────────────────────────────────

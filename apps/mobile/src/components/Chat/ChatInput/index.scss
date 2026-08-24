@@ -123,6 +123,33 @@
 }
 
 /* =========================
+ * 暂停按钮（生成中）
+ * =========================
+ */
+
+.send-btn--stop {
+  background: $color-accent;
+}
+
+/* 暂停图标：两条圆角竖线（无需字体图标） */
+
+.pause-icon {
+  display: flex;
+  align-items: center;
+
+  gap: 8rpx;
+
+  &::before,
+  &::after {
+    content: '';
+    width: 10rpx;
+    height: 32rpx;
+    border-radius: 4rpx;
+    background: currentColor;
+  }
+}
+
+/* =========================
  * 禁用状态（未来可用）
  * =========================
  */
