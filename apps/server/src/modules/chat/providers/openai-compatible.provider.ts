@@ -43,6 +43,11 @@ export class OpenAICompatibleProvider implements IAIProvider {
           model: config.apiModelName,
           messages,
           stream: true,
+          // jsonMode: 服务端约束输出合法 JSON（DeepSeek/Qwen/OpenAI 等均支持；
+          // 部分厂商要求 prompt 中出现 "json" 字样，analysis prompt 已包含）
+          ...(config.jsonMode
+            ? { response_format: { type: 'json_object' } }
+            : {}),
         }),
         signal: aborter.signal,
       });

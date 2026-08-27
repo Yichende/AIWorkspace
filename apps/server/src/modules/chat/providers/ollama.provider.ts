@@ -35,6 +35,10 @@ export class OllamaProvider implements IAIProvider {
       response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // 注意：不发送 format: 'json'。
+        // Ollama 的 JSON grammar 会约束包括思考阶段在内的全部生成，而 deepseek-r1
+        // 等推理模型的思考是自由文本，grammar 会使其坍缩为 "{}"（已实测复现）。
+        // 结构化输出改由 analysis 侧的模板式 prompt 保证。
         body: JSON.stringify({
           model: config.apiModelName,
           messages,

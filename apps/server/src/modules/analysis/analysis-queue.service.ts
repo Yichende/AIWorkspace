@@ -135,10 +135,12 @@ export class AnalysisQueueService {
 
       yield { type: 'progress', stage: 'analyzing', percent: 50 };
 
-      for await (const chunk of provider.streamChat(
-        messages,
-        resolved.config,
-      )) {
+      // 注意：不传 jsonMode（response_format: json_object 会强制单一 JSON 对象，
+      // 与 JSONL 多事件序列冲突；且 deepseek-reasoner 类模型不支持该参数）。
+      // 结构化输出由 System Prompt 的 JSONL 事件模板保证。
+      for await (const chunk of provider.streamChat(messages, {
+        ...resolved.config,
+      })) {
         // 诊断日志：记录每个 chunk 的类型和内容长度
         this.logger.log(
           `[stream] chunk.type="${chunk.type}" contentLen=${chunk.content.length} preview="${chunk.content.slice(0, 80)}"`,
@@ -221,7 +223,7 @@ export class AnalysisQueueService {
 
       let summary = state.summaryText.trim();
       const insights = state.insightsList;
-      const cleanContent = state.cleanContent;
+      let cleanContent = state.cleanContent;
 
       // 补充回退：AI 漏掉 summary/insights 事件时，从正文（如含"分析摘要/关键发现"章节）提取
       if (!summary || insights.length === 0) {
@@ -229,6 +231,22 @@ export class AnalysisQueueService {
           this.extractSummaryAndInsights(cleanContent);
         if (!summary) summary = s || (insights.length > 0 ? insights[0] : '');
         insights.push(...i.filter((x) => !insights.includes(x)));
+      }
+
+      // 兜底：AI 未输出 reports 正文时，用 summary + insights 拼装 Markdown 正文
+      if (!state.cleanContent.trim()) {
+        const parts: string[] = [];
+        if (summary) parts.push(`## 分析摘要\n\n${summary}`);
+        if (insights.length > 0) {
+          parts.push(
+            `## 关键发现\n\n${insights.map((x) => `- ${x}`).join('\n')}`,
+          );
+        }
+        if (parts.length > 0) {
+          const assembled = parts.join('\n\n');
+          cleanContent = assembled;
+          state.cleanContent = assembled;
+        }
       }
 
       const finalSummary = summary || '分析完成';
@@ -275,7 +293,7 @@ export class AnalysisQueueService {
   // ── Event Dispatch（流式解析结果的分类推送）────────────────
 
   /**
-   * 将解析出的 JSONL 事件按四事件协议分类：
+   * 将解析出的 JSONL 事件按五事件协议分类：
    * - summary → SSE summary 事件
    * - insights → SSE insights 事件
    * - report / text（旧协议兼容）→ SSE report 事件 + 正文累积
@@ -434,42 +452,203 @@ export class AnalysisQueueService {
     return { systemPrompt, userPrompt };
   }
 
-  /** System Prompt：角色 + 任务目标 + 四事件 JSONL 协议 */
+  /** System Prompt：角色 + 任务目标 + JSONL 事件枚举协议（统一 data 信封，模板复制式） */
   private buildSystemPrompt(): string {
-    return `你是数据分析专家。你的任务不是简单复述数据，而是：
-1. 发现数据中的关键趋势、异常和规律
-2. 主动识别适合可视化的维度，生成 chart 事件
-3. 用 report 事件输出 Markdown 分析报告（每个 report 事件只写一个章节）
+    return `
+    你是 JSONL 数据协议生成器，不是聊天助手，不是分析过程记录器。
 
-## 输出协议（JSONL）
+你的输出会被程序直接解析。
+任何不符合协议的输出都会导致解析失败。
 
-每行一个 JSON 对象，用 **"event"** 字段区分类型。禁止输出任何非 JSON 文本。
-每行必须是一个完整、独立的 JSON 对象，一个事件输出完毕后换行再输出下一个事件。
-必须严格按照以下顺序输出事件：
+## 输出硬约束
 
-### 第 1 个事件：summary（分析摘要）
-{"event":"summary","delta":"用 1-2 句话、非技术语言概括数据整体情况与核心结论，不罗列细节、不出现指标清单"}
+1. 只能输出 JSONL。
+2. 每行必须是一个完整 JSON 对象。
+3. 第一字符必须是 {。禁止以 [ 开头，禁止把多个事件放进一个顶层 JSON 数组。
+4. 禁止输出 Markdown 代码块。禁止用 \`\`\`json 或 \`\`\` 包裹 JSON，直接输出 JSON 对象。
+5. 禁止输出解释文字。
+6. 禁止输出思考过程。
+7. 禁止输出分析步骤。
+8. 禁止在 data 内书写计算表达式（如 "7128.31 + 11587.77 = 18716.08"），必须直接输出计算后的数值。
 
-### 第 2 个事件：insights（关键发现）
-{"event":"insights","items":["发现1","发现2","发现3","发现4","发现5"]}
-- 3-5 条结论性发现，每条一句话，按重要性降序排列，只写结论不写图表说明
+## event 枚举（最高优先级）
 
-### 第 3 个及之后：report（分析报告正文）
-{"event":"report","delta":"## 章节标题\\n\\n正文内容..."}
-- 每个 report 事件只写一个章节，章节标题用 "## " 或 "### "
-- 换行必须转义为 \\n，禁止把整份报告塞进一个 report 事件
+event 是固定协议字段，不代表分析阶段。
 
-### chart（分析图表，最多 ${MAX_CHARTS} 个）
-{"event":"chart","chart":{"id":"c1","type":"bar","title":"各产品销售额","data":[{"产品":"A","销售额":12000},{"产品":"B","销售额":8500}]}}
-- type: bar（类别对比）/ line（时间趋势）/ pie（占比分布）
-- data 第一个字段为维度，其余为数值系列（pie 用 name/value）
-- **只要数据包含数值列，就必须输出至少 1 个 chart 事件，不得省略**
+event 只能是以下五种：
 
-## 禁止
-- 在 JSON 行外添加任何文字
-- 将 JSON 包裹在 \`\`\` 代码块中
-- JSON 字符串内使用真实换行（必须 \\n 转义）
-- 用 report 事件代替 chart 事件（图表必须用 chart 事件输出）`;
+summary
+insights
+chart
+table
+report
+
+禁止创建任何新的 event。禁止使用英文自定义名（如 trend_chart、summary_conclusion）。
+
+非法示例：
+
+{"event":"数据概览","data":{}}
+{"event":"销售趋势分析","data":{}}
+{"event":"关键时间段识别","data":{}}
+{"event":"数据分析报告生成","data":{}}
+{"event":"trend_chart","data":{}}
+{"event":"summary_conclusion","data":[]}
+
+正确示例：
+
+{"event":"summary","data":{}}
+{"event":"chart","data":{}}
+{"event":"report","data":{}}
+
+非法示例（顶层数组包裹，禁止）：
+
+[
+ {"event":"summary","data":"总结"},
+ {"event":"report","data":{"title":"章节","content":"正文"}}
+]
+
+正确示例（逐行输出，每行一个完整 JSON 对象）：
+
+{"event":"summary","data":"总结"}
+{"event":"report","data":{"title":"章节","content":"正文"}}
+
+
+## 输出结构
+
+所有事件必须使用：
+
+{"event":"事件类型","data":内容}
+
+禁止使用其他字段。
+
+禁止：
+
+{
+ "event":"chart",
+ "title":"xxx",
+ "content":"xxx"
+}
+
+正确：
+
+{
+ "event":"chart",
+ "data":{
+   "title":"xxx"
+ }
+}
+
+
+## 输出顺序
+
+必须严格按照以下顺序：
+
+### 1. summary
+
+必须且只能输出一次。
+
+用途：
+用1-2句话总结数据整体情况和核心结论。
+
+格式：
+
+{"event":"summary","data":"整体情况总结"}
+
+
+### 2. insights
+
+必须且只能输出一次。
+
+用途：
+输出3-5条关键发现。
+
+格式：
+
+{"event":"insights","data":["发现1","发现2","发现3"]}
+
+
+### 3. chart
+
+可输出0-${MAX_CHARTS}次。
+
+当数据存在有分析价值的数值关系时，必须输出至少1个 chart。
+
+禁止生成无意义图表。
+
+格式：
+
+{"event":"chart","data":{
+"type":"line",
+"title":"标题",
+"data":[
+ {"日期":"2026-01-01","销售额":12000}
+]
+}}
+
+data 必须是行对象数组：每行一个对象，对象的字段就是图表列名，x 轴数据（日期/类别）必须作为每行的一个字段值。
+禁止使用 series、values、points、x_axis、y_axis 等其他图表结构。
+禁止输出 null 值，缺失数据用 0 或前一数值补全。
+
+type只能是：
+
+line：时间趋势
+bar：类别比较
+pie：占比分布
+
+
+规则：
+
+- 时间、日期、月份、季度等维度必须使用 line。
+- 类别比较使用 bar。
+- 占比分析使用 pie。
+- 图表数据必须来自输入数据。
+- 禁止虚构数据。
+
+
+### 4. table
+
+可输出0-N次。
+
+当存在多列明细数据，需要展示结构化记录时输出。
+
+格式：
+
+{"event":"table","data":{
+"title":"表格标题",
+"columns":["字段1","字段2"],
+"data":[
+ {"字段1":"xxx","字段2":100}
+]
+}}
+
+规则：
+
+- columns 必须与 data 中字段完全一致。
+- 数据必须来自输入数据。
+
+
+### 5. report
+
+必须至少输出一次。
+
+用途：
+输出最终分析报告。
+
+每个 report 事件只包含一个章节。
+
+格式：
+
+{"event":"report","data":{
+"title":"章节标题",
+"content":"章节正文"
+}}
+
+规则：
+
+- 不输出完整报告到一个事件。
+- 每个事件只包含一个章节。
+- 内容使用 Markdown，但必须作为 JSON 字符串。
+- 换行必须使用 \n 转义。`;
   }
 
   /** User Prompt：数据摘要 + 用户需求 */
@@ -513,7 +692,7 @@ export class AnalysisQueueService {
         userPrompt,
       );
     const chartRequirement = wantsChart
-      ? '\n【硬性要求】用户需求中明确要求输出图表，你必须输出至少 1 个 chart 事件，图表数据必须基于数据摘要中的真实统计值。'
+      ? '\n【硬性要求】用户需求中明确要求输出图表，必须至少输出 1 个 chart 事件，图表数据必须基于数据摘要中的真实统计值。'
       : '';
 
     return `【数据摘要】
@@ -530,7 +709,7 @@ ${JSON.stringify(sampleRows, null, 2)}
 【用户需求】
 ${userPrompt}${chartRequirement}
 
-请严格按 System Prompt 的 JSONL 协议从第一行开始逐行输出，每行一个完整的 JSON 事件，不要输出 JSON 以外的任何内容。`;
+请严格按 System Prompt 的 JSONL 事件协议逐行输出事件对象，所有事件必须使用统一的 {"event":"...","data":...} 结构，不要输出 JSON 以外的任何内容。`;
   }
 
   // ── Summary & Insights Extraction ─────────────────────────
