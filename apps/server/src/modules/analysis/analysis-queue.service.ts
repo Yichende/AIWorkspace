@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
+import { randomUUID } from 'crypto';
 import {
   ThinkTagParser,
   JsonlStreamParser,
@@ -22,6 +23,9 @@ const MIN_ROWS_FOR_STATS = 10;
 
 /** 图表最大数量 */
 const MAX_CHARTS = 5;
+
+/** 表格最大数量（与图表分开控制，避免混用同一上限） */
+const MAX_TABLES = 5;
 
 @Injectable()
 export class AnalysisQueueService {
@@ -208,10 +212,14 @@ export class AnalysisQueueService {
         const rescuedCharts = this.rescueChartFragments(fullText);
         const rescuedTables = this.rescueTableFragments(fullText);
         for (const c of rescuedCharts) {
-          if (charts.length < MAX_CHARTS) charts.push(c);
+          if (charts.length < MAX_CHARTS) {
+            charts.push(c.id ? c : { ...c, id: randomUUID() });
+          }
         }
         for (const t of rescuedTables) {
-          if (tables.length < MAX_CHARTS) tables.push(t);
+          if (tables.length < MAX_TABLES) {
+            tables.push(t.id ? t : { ...t, id: randomUUID() });
+          }
         }
         this.logger.log(
           `[fallback] rescued charts=${rescuedCharts.length} tables=${rescuedTables.length}`,
@@ -326,17 +334,29 @@ export class AnalysisQueueService {
           state.cleanContent += event.content;
           yield { type: 'report', delta: event.content };
           break;
-        case 'chart':
+        case 'chart': {
+          // 解析器产出的 payload 不保证带 id（模型通常不输出），补唯一 id：
+          // 保证流式渲染 React key 唯一，且 setComplete mergeById 能正确去重，
+          // 避免流式图表与 complete payload 图表重复渲染。
+          const chartWithId: ChartConfig = event.payload.id
+            ? event.payload
+            : { ...event.payload, id: randomUUID() };
           if (state.charts.length < MAX_CHARTS) {
-            state.charts.push(event.payload);
+            state.charts.push(chartWithId);
           }
-          yield { type: 'chart', chart: event.payload };
+          yield { type: 'chart', chart: chartWithId };
           break;
-        case 'table':
-          if (state.tables.length < MAX_CHARTS) {
-            state.tables.push(event.payload);
+        }
+        case 'table': {
+          const tableWithId: TableConfig = event.payload.id
+            ? event.payload
+            : { ...event.payload, id: randomUUID() };
+          if (state.tables.length < MAX_TABLES) {
+            state.tables.push(tableWithId);
           }
+          yield { type: 'table', table: tableWithId };
           break;
+        }
       }
     }
   }
@@ -455,200 +475,255 @@ export class AnalysisQueueService {
   /** System Prompt：角色 + 任务目标 + JSONL 事件枚举协议（统一 data 信封，模板复制式） */
   private buildSystemPrompt(): string {
     return `
-    你是 JSONL 数据协议生成器，不是聊天助手，不是分析过程记录器。
+    你是一个 JSONL 数据分析协议生成器。你的输出会被程序直接解析。
 
-你的输出会被程序直接解析。
-任何不符合协议的输出都会导致解析失败。
+不要输出聊天内容、解释文字、分析步骤或思考过程，只输出符合协议的 JSONL。
 
-## 输出硬约束
+## 1. JSONL 协议
 
-1. 只能输出 JSONL。
-2. 每行必须是一个完整 JSON 对象。
-3. 第一字符必须是 {。禁止以 [ 开头，禁止把多个事件放进一个顶层 JSON 数组。
-4. 禁止输出 Markdown 代码块。禁止用 \`\`\`json 或 \`\`\` 包裹 JSON，直接输出 JSON 对象。
-5. 禁止输出解释文字。
-6. 禁止输出思考过程。
-7. 禁止输出分析步骤。
-8. 禁止在 data 内书写计算表达式（如 "7128.31 + 11587.77 = 18716.08"），必须直接输出计算后的数值。
+* 只能输出 JSONL。
+* 每行必须是一个完整、独立的 JSON 对象。
+* 每行只能包含 \`event\` 和 \`data\` 两个字段。
+* 不得输出 Markdown 代码块。
+* 不得使用 \` \`\`\`json \` 或 \` \`\`\` \` 包裹 JSON。
+* 不得输出顶层 JSON 数组。
+* 不得输出协议之外的字段。
+* 不得输出新的 event 类型。
+* \`data\` 中必须使用最终计算值，不得输出计算表达式。
+* 不得虚构、修改或推测输入数据。
 
-## event 枚举（最高优先级）
+## 2. event 类型
 
-event 是固定协议字段，不代表分析阶段。
+\`event\` 只能是：
 
-event 只能是以下五种：
+* \`summary\`
+* \`insights\`
+* \`chart\`
+* \`table\`
+* \`report\`
 
-summary
-insights
-chart
-table
-report
+禁止使用其他名称，例如：
 
-禁止创建任何新的 event。禁止使用英文自定义名（如 trend_chart、summary_conclusion）。
-
-非法示例：
-
+\`\`\`json
 {"event":"数据概览","data":{}}
 {"event":"销售趋势分析","data":{}}
-{"event":"关键时间段识别","data":{}}
-{"event":"数据分析报告生成","data":{}}
 {"event":"trend_chart","data":{}}
-{"event":"summary_conclusion","data":[]}
-
-正确示例：
-
-{"event":"summary","data":{}}
-{"event":"chart","data":{}}
-{"event":"report","data":{}}
-
-非法示例（顶层数组包裹，禁止）：
-
-[
- {"event":"summary","data":"总结"},
- {"event":"report","data":{"title":"章节","content":"正文"}}
-]
-
-正确示例（逐行输出，每行一个完整 JSON 对象）：
-
-{"event":"summary","data":"总结"}
-{"event":"report","data":{"title":"章节","content":"正文"}}
-
-
-## 输出结构
-
-所有事件必须使用：
-
-{"event":"事件类型","data":内容}
-
-禁止使用其他字段。
-
-禁止：
-
-{
- "event":"chart",
- "title":"xxx",
- "content":"xxx"
-}
+{"event":"summary_conclusion","data":{}}
+\`\`\`
 
 正确：
 
-{
- "event":"chart",
- "data":{
-   "title":"xxx"
- }
-}
+\`\`\`json
+{"event":"summary","data":"总结"}
+{"event":"chart","data":{}}
+{"event":"report","data":{}}
+\`\`\`
 
+## 3. 输出顺序
 
-## 输出顺序
+必须严格按照以下顺序输出：
 
-必须严格按照以下顺序：
+1. \`summary\`：1 次
+2. \`insights\`：1 次
+3. \`chart\`：0-${MAX_CHARTS} 次
+4. \`table\`：0-${MAX_TABLES} 次
+5. \`report\`：至少 1 次
 
-### 1. summary
+事件顺序是输出协议，不代表分析思考过程。
+
+禁止输出“分析开始”“数据概览”“正在分析”等额外事件。
+
+## 4. summary
 
 必须且只能输出一次。
 
-用途：
-用1-2句话总结数据整体情况和核心结论。
+用途：用 1-2 句话总结数据整体情况和核心结论。
 
 格式：
 
+\`\`\`json
 {"event":"summary","data":"整体情况总结"}
+\`\`\`
 
-
-### 2. insights
+## 5. insights
 
 必须且只能输出一次。
 
-用途：
-输出3-5条关键发现。
+用途：输出 3-5 条最重要的发现。
 
 格式：
 
+\`\`\`json
 {"event":"insights","data":["发现1","发现2","发现3"]}
+\`\`\`
 
+只输出有数据依据的发现，不得虚构结论。
 
-### 3. chart
+## 6. chart
 
-可输出0-${MAX_CHARTS}次。
+可输出 0-${MAX_CHARTS} 次。
 
-当数据存在有分析价值的数值关系时，必须输出至少1个 chart。
+仅当数据存在有分析价值的趋势、比较或占比关系时生成图表。
 
-禁止生成无意义图表。
+禁止为了满足数量要求强行生成图表。
 
-格式：
+### 通用格式
 
+\`\`\`json
 {"event":"chart","data":{
-"type":"line",
-"title":"标题",
-"data":[
- {"日期":"2026-01-01","销售额":12000}
-]
+  "type":"line",
+  "title":"图表标题",
+  "data":[
+    {"月份":"1月","销售额":12000},
+    {"月份":"2月","销售额":15000}
+  ]
 }}
+\`\`\`
 
-data 必须是行对象数组：每行一个对象，对象的字段就是图表列名，x 轴数据（日期/类别）必须作为每行的一个字段值。
-禁止使用 series、values、points、x_axis、y_axis 等其他图表结构。
-禁止输出 null 值，缺失数据用 0 或前一数值补全。
+要求：
 
-type只能是：
+* \`type\` 只能是 \`line\`、\`bar\`、\`pie\`。
+* \`data\` 必须是对象数组。
+* 每个对象代表一条图表数据。
+* X 轴维度必须作为对象字段。
+* 数值指标必须作为对象字段。
+* 图表数据必须来自输入数据或对输入数据进行合理聚合。
+* 不得虚构数据。
+* 不得自行填补缺失数据。
+* 不得使用 \`series\`、\`values\`、\`points\`、\`x_axis\`、\`y_axis\` 等其他结构。
 
-line：时间趋势
-bar：类别比较
-pie：占比分布
+### line：时间趋势
 
+用于时间序列趋势。
 
-规则：
+必须存在日期、时间、月份、季度等有序时间维度。
 
-- 时间、日期、月份、季度等维度必须使用 line。
-- 类别比较使用 bar。
-- 占比分析使用 pie。
-- 图表数据必须来自输入数据。
-- 禁止虚构数据。
+X 轴使用时间维度，Y 轴使用数值指标。
 
+示例：
 
-### 4. table
+\`\`\`json
+{"event":"chart","data":{
+  "type":"line",
+  "title":"月度销售额趋势",
+  "data":[
+    {"月份":"1月","销售额":12000},
+    {"月份":"2月","销售额":15000},
+    {"月份":"3月","销售额":18000}
+  ]
+}}
+\`\`\`
 
-可输出0-N次。
+### bar：类别比较
 
-当存在多列明细数据，需要展示结构化记录时输出。
+用于不同类别之间的数值比较。
+
+必须存在分类维度和数值指标。
+
+示例：
+
+\`\`\`json
+{"event":"chart","data":{
+  "type":"bar",
+  "title":"各产品销售额对比",
+  "data":[
+    {"产品":"A","销售额":12000},
+    {"产品":"B","销售额":18000},
+    {"产品":"C","销售额":15000}
+  ]
+}}
+\`\`\`
+
+### pie：占比分布
+
+用于展示总体构成或占比。
+
+必须存在一个分类维度和一个非负数值指标。
+
+\`data\` 应使用按类别聚合后的结果，不应直接使用大量明细记录。
+
+类别过多时不要使用 pie，应优先使用 bar。
+
+示例：
+
+\`\`\`json
+{"event":"chart","data":{
+  "type":"pie",
+  "title":"各产品销售额占比",
+  "data":[
+    {"产品":"A","销售额":300},
+    {"产品":"B","销售额":300},
+    {"产品":"C","销售额":400}
+  ]
+}}
+\`\`\`
+
+## 7. table
+
+可输出 0-${MAX_TABLES} 次。
+
+用于展示明细数据或结构化记录。
 
 格式：
 
+\`\`\`json
 {"event":"table","data":{
-"title":"表格标题",
-"columns":["字段1","字段2"],
-"data":[
- {"字段1":"xxx","字段2":100}
-]
+  "title":"销售明细",
+  "columns":["产品","数量","销售额"],
+  "data":[
+    {"产品":"A","数量":100,"销售额":12000}
+  ]
 }}
+\`\`\`
 
-规则：
+要求：
 
-- columns 必须与 data 中字段完全一致。
-- 数据必须来自输入数据。
+* \`columns\` 必须与每条 \`data\` 记录的字段完全一致。
+* 不得增加未声明字段。
+* 数据必须来自输入数据。
+* 不得虚构记录。
+* 表格用于结构化数据展示，不用于替代有分析价值的图表。
 
-
-### 5. report
+## 8. report
 
 必须至少输出一次。
 
-用途：
-输出最终分析报告。
+用于输出最终分析报告。
 
-每个 report 事件只包含一个章节。
+每个 \`report\` 事件只能包含一个章节。
 
 格式：
 
+\`\`\`json
 {"event":"report","data":{
-"title":"章节标题",
-"content":"章节正文"
+  "title":"销售趋势分析",
+  "content":"## 销售趋势\n\n本期销售额整体呈增长趋势。"
 }}
+\`\`\`
 
-规则：
+要求：
 
-- 不输出完整报告到一个事件。
-- 每个事件只包含一个章节。
-- 内容使用 Markdown，但必须作为 JSON 字符串。
-- 换行必须使用 \n 转义。`;
+* \`title\` 为章节标题。
+* \`content\` 为 Markdown 字符串。
+* Markdown 只能出现在 \`report.data.content\` 中。
+* JSON 字符串中的换行必须使用 \`\\n\` 转义。
+* 不要把完整报告放入单个 report 事件。
+* 每个 report 事件只描述一个章节。
+
+## 9. 最终要求
+
+最终输出必须满足：
+
+\`\`\`text
+summary
+→ insights
+→ chart（可选）
+→ table（可选）
+→ report
+\`\`\`
+
+除上述 JSONL 事件外，不得输出任何其他内容。
+`;
   }
 
   /** User Prompt：数据摘要 + 用户需求 */

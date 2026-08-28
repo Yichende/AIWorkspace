@@ -33,6 +33,9 @@ export default function AnalysisContainer() {
     progressStage,
     progressPercent,
     streamingText,
+    streamingSummary,
+    streamingInsights,
+    parsedAny,
     status,
     fileId,
     setModel,
@@ -96,6 +99,9 @@ export default function AnalysisContainer() {
           status={status}
           thinkingText={thinkingText}
           streamingText={streamingText}
+          streamingSummary={streamingSummary}
+          streamingInsights={streamingInsights}
+          parsedAny={parsedAny}
           progressStage={progressStage}
           progressPercent={progressPercent}
           charts={charts}

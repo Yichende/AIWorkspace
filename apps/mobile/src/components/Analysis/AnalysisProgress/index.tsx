@@ -1,8 +1,12 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import type { AnalysisStatus, ProgressStage, ChartConfig, TableConfig } from '@repo/types'
 import MarkdownBlock from '@/components/Chat/Blocks/MarkdownBlock'
 import ThinkingBlock from '@/components/Chat/Blocks/ThinkingBlock'
-import type { AnalysisStatus, ProgressStage, ChartConfig, TableConfig } from '@repo/types'
+import AnalysisSummary from '../AnalysisSummary'
+import AnalysisInsights from '../AnalysisInsights'
+import AnalysisCharts from '../AnalysisCharts'
+import AnalysisTables from '../AnalysisTables'
 import './index.scss'
 
 /** Minimum interval (ms) between auto-scroll triggers during streaming */
@@ -12,6 +16,10 @@ interface Props {
   status: AnalysisStatus | null
   thinkingText: string
   streamingText: string
+  streamingSummary: string
+  streamingInsights: string[]
+  /** 是否已解析出任一事件（false 说明服务端最终会纯文本兜底） */
+  parsedAny: boolean
   progressStage: ProgressStage | null
   progressPercent: number
   charts: ChartConfig[]
@@ -31,6 +39,9 @@ export default function AnalysisProgress({
   status,
   thinkingText,
   streamingText,
+  streamingSummary,
+  streamingInsights,
+  parsedAny,
   progressStage,
   progressPercent,
   charts,
@@ -45,11 +56,38 @@ export default function AnalysisProgress({
     : '正在准备...'
 
   const hasThinking = thinkingText.length > 0
+  const hasSummary = streamingSummary.length > 0
+  const hasInsights = streamingInsights.length > 0
+  const hasCharts = charts.length > 0
+  const hasTables = tables.length > 0
   const hasText = streamingText.length > 0
   // 思考仍在进行中：正在分析且正文尚未开始输出
   const thinkingActive = isAnalyzing && !hasText
+  const hasStreamContent =
+    hasSummary || hasInsights || hasCharts || hasTables || hasText
 
-  // ── Auto-scroll for streaming text ─────────────────────────
+  // ── 事件驱动状态文案（按已收到的事件推进：思考→摘要→发现→图表→表格→报告）─
+  const eventStage = isFailed
+    ? '分析失败'
+    : isPending
+      ? '等待执行...'
+      : parsedAny
+        ? hasText
+          ? '正在撰写分析报告'
+          : hasTables
+            ? '正在生成表格'
+            : hasCharts
+              ? '正在生成图表'
+              : hasInsights
+                ? '正在整理关键发现'
+                : hasSummary
+                  ? '正在分析摘要'
+                  : '正在分析数据'
+        : thinkingActive
+          ? '正在思考分析数据'
+          : '正在生成分析结果...'
+
+  // ── Auto-scroll for streaming content ─────────────────────
   const [followStreaming, setFollowStreaming] = useState(true)
   const [showScrollArrow, setShowScrollArrow] = useState(false)
   const contentLenRef = useRef(0)
@@ -63,10 +101,18 @@ export default function AnalysisProgress({
   const anchorA = `${blockId}-a`
   const anchorB = `${blockId}-b`
 
+  // 内容指纹：各事件类型内容长度之和，驱动流式滚动
+  const contentLen =
+    streamingText.length +
+    streamingSummary.length +
+    streamingInsights.length +
+    charts.length +
+    tables.length
+
   useEffect(() => {
-    if (isAnalyzing && followStreaming && hasText) {
-      if (streamingText.length > contentLenRef.current) {
-        contentLenRef.current = streamingText.length
+    if (isAnalyzing && followStreaming && hasStreamContent) {
+      if (contentLen > contentLenRef.current) {
+        contentLenRef.current = contentLen
         const now = Date.now()
         if (now - lastFollowTickRef.current > SCROLL_THROTTLE_MS) {
           lastFollowTickRef.current = now
@@ -74,7 +120,7 @@ export default function AnalysisProgress({
         }
       }
     }
-  }, [streamingText, isAnalyzing, followStreaming, hasText])
+  }, [contentLen, isAnalyzing, followStreaming, hasStreamContent])
 
   const handleDragStart = useCallback(() => {
     if (isAnalyzing && followStreaming) {
@@ -86,10 +132,10 @@ export default function AnalysisProgress({
   const handleArrowClick = useCallback(() => {
     setFollowStreaming(true)
     setShowScrollArrow(false)
-    contentLenRef.current = streamingText.length
+    contentLenRef.current = contentLen
     lastFollowTickRef.current = 0
     setFollowTick((t) => t + 1)
-  }, [streamingText.length])
+  }, [contentLen])
 
   const scrollIntoView =
     followStreaming && isAnalyzing
@@ -111,6 +157,9 @@ export default function AnalysisProgress({
                 ? '分析失败'
                 : ''}
         </Text>
+        {isAnalyzing && (
+          <Text className='progress-step__status'>{eventStage}</Text>
+        )}
       </View>
 
       {/* ── Progress Bar ──────────────────────────────────── */}
@@ -124,22 +173,6 @@ export default function AnalysisProgress({
         <Text className='progress-step__bar-label'>{stageLabel}</Text>
       </View>
 
-      {/* 已生成的图表/表格计数 */}
-      {(charts.length > 0 || tables.length > 0) && (
-        <View className='progress-step__generated'>
-          {charts.length > 0 && (
-            <Text className='progress-step__gen-tag'>
-              📊 {charts.length} 个图表已生成
-            </Text>
-          )}
-          {tables.length > 0 && (
-            <Text className='progress-step__gen-tag'>
-              📋 {tables.length} 个表格已生成
-            </Text>
-          )}
-        </View>
-      )}
-
       {/* ── Thinking Area（复用 chat 的 ThinkingBlock 组件）─ */}
       {hasThinking && (
         <View className='progress-step__thinking'>
@@ -150,8 +183,8 @@ export default function AnalysisProgress({
         </View>
       )}
 
-      {/* ── Streaming Text Area ───────────────────────────── */}
-      {hasText && (
+      {/* ── Streaming Content Area（每解析完一个事件立即增量显示）─ */}
+      {hasStreamContent && (
         <View className='progress-step__stream'>
           <ScrollView
             id={blockId}
@@ -163,7 +196,11 @@ export default function AnalysisProgress({
             showScrollbar={false}
             onDragStart={handleDragStart}
           >
-            <MarkdownBlock content={streamingText} />
+            <AnalysisSummary summary={streamingSummary} />
+            <AnalysisInsights insights={streamingInsights} />
+            <AnalysisCharts charts={charts} />
+            <AnalysisTables tables={tables} />
+            {hasText && <MarkdownBlock content={streamingText} />}
             <View id={anchorA} style={{ height: 1 }} />
             <View id={anchorB} style={{ height: 1 }} />
           </ScrollView>

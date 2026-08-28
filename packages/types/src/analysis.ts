@@ -52,6 +52,12 @@ export interface AnalysisChartEvent {
   chart: ChartConfig
 }
 
+/** 分析表格（规范化事件之一） */
+export interface AnalysisTableEvent {
+  type: 'table'
+  table: TableConfig
+}
+
 export interface AnalysisProgressEvent {
   type: 'progress'
   stage: ProgressStage
@@ -70,7 +76,7 @@ export interface AnalysisErrorEvent {
 
 /**
  * 规范化 SSE 事件协议：
- *   chart / report / insights / summary 分别对应分析图表、分析报告、关键发现、分析摘要
+ *   chart / table / report / insights / summary 分别对应分析图表、分析表格、分析报告、关键发现、分析摘要
  */
 export type AnalysisEvent =
   | AnalysisThinkingEvent
@@ -78,6 +84,7 @@ export type AnalysisEvent =
   | AnalysisInsightsEvent
   | AnalysisReportEvent
   | AnalysisChartEvent
+  | AnalysisTableEvent
   | AnalysisProgressEvent
   | AnalysisCompleteEvent
   | AnalysisErrorEvent

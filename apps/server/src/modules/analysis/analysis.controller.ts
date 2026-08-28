@@ -182,6 +182,9 @@ export class AnalysisController {
           case 'chart':
             sseWrite('chart', JSON.stringify({ chart: event.chart }));
             break;
+          case 'table':
+            sseWrite('table', JSON.stringify({ table: event.table }));
+            break;
           case 'progress':
             sseWrite(
               'progress',

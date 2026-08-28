@@ -7,6 +7,7 @@ import type {
   AnalysisDetail,
   AnalysisResult,
   ChartConfig,
+  TableConfig,
 } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
 import { getToken, getRefreshToken, setToken, setRefreshToken } from '@/utils/auth'
@@ -28,6 +29,8 @@ export interface AnalysisStreamCallbacks {
   onReport?: (delta: string) => void
   /** 分析图表 */
   onChart?: (chart: ChartConfig) => void
+  /** 分析表格 */
+  onTable?: (table: TableConfig) => void
   onProgress?: (stage: string, percent: number) => void
   onComplete?: (result: AnalysisResult) => void
   onError?: (err: string) => void
@@ -288,6 +291,14 @@ export const analysisApi = {
         try {
           const parsed = JSON.parse(data)
           if (parsed.chart) cb.onChart?.(parsed.chart)
+        } catch {
+          // ignore
+        }
+        break
+      case 'table':
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed.table) cb.onTable?.(parsed.table)
         } catch {
           // ignore
         }

@@ -1,0 +1,21 @@
+.analysis-summary {
+  padding: 28rpx;
+  background: rgba(17, 124, 13, 0.06);
+  border-left: 6rpx solid #117C0D;
+  border-radius: 0 16rpx 16rpx 0;
+  margin-bottom: 32rpx;
+}
+
+.analysis-summary__label {
+  display: block;
+  font-size: 24rpx;
+  color: #117C0D;
+  margin-bottom: 8rpx;
+  font-weight: 600;
+}
+
+.analysis-summary__text {
+  font-size: 30rpx;
+  color: #1B1B1B;
+  line-height: 1.6;
+}

@@ -30,20 +30,24 @@ interface AnalysisState {
   status: AnalysisStatus | null;
   /** 思考文本（仅内存，不持久化） */
   thinkingText: string;
-  /** 流式累积正文（report 事件） */
+  /** 流式正文（report 事件，append 语义） */
   streamingText: string;
-  /** 流式累积摘要（summary 事件，complete 后由 result 覆盖） */
+  /** 流式摘要（summary 事件，set 语义，complete 后由 result 覆盖） */
   streamingSummary: string;
-  /** 流式累积关键发现（insights 事件，complete 后由 result 覆盖） */
+  /** 流式关键发现（insights 事件，set 语义，complete 后由 result 覆盖） */
   streamingInsights: string[];
+  /** 流式图表（chart 事件，add 语义） */
+  charts: ChartConfig[];
+  /** 流式表格（table 事件，add 语义） */
+  tables: TableConfig[];
+  /** 是否已解析出任一事件（false 时服务端兜底为纯文本） */
+  parsedAny: boolean;
   /** 进度阶段 */
   progressStage: ProgressStage | null;
   /** 进度百分比 */
   progressPercent: number;
 
   // ── 结果阶段 ──
-  charts: ChartConfig[];
-  tables: TableConfig[];
   result: AnalysisResult | null;
 }
 
@@ -76,13 +80,13 @@ interface AnalysisActions {
   appendThinking: (delta: string) => void;
 
   /** 追加流式正文（report 事件） */
-  appendReport: (delta: string) => void;
+  appendStreamingText: (delta: string) => void;
 
-  /** 追加流式摘要（summary 事件） */
-  appendSummary: (delta: string) => void;
+  /** 设置流式摘要（summary 事件，set 语义） */
+  setStreamingSummary: (delta: string) => void;
 
-  /** 追加关键发现（insights 事件） */
-  addInsights: (items: string[]) => void;
+  /** 设置流式关键发现（insights 事件，set 语义） */
+  setStreamingInsights: (items: string[]) => void;
 
   /** 设置进度 */
   setProgress: (stage: ProgressStage, percent: number) => void;
@@ -126,10 +130,11 @@ const initialState: AnalysisState = {
   streamingText: '',
   streamingSummary: '',
   streamingInsights: [],
-  progressStage: null,
-  progressPercent: 0,
   charts: [],
   tables: [],
+  parsedAny: false,
+  progressStage: null,
+  progressPercent: 0,
   result: null,
 };
 
@@ -162,20 +167,23 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         thinkingText: state.thinkingText + delta,
       })),
 
-    appendReport: (delta) =>
+    appendStreamingText: (delta) =>
       set((state) => ({
         streamingText: state.streamingText + delta,
+        parsedAny: true,
       })),
 
-    appendSummary: (delta) =>
-      set((state) => ({
-        streamingSummary: state.streamingSummary + delta,
-      })),
+    setStreamingSummary: (delta) =>
+      set({
+        streamingSummary: delta,
+        parsedAny: true,
+      }),
 
-    addInsights: (items) =>
-      set((state) => ({
-        streamingInsights: [...state.streamingInsights, ...items],
-      })),
+    setStreamingInsights: (items) =>
+      set({
+        streamingInsights: items,
+        parsedAny: true,
+      }),
 
     setProgress: (stage, percent) =>
       set({ progressStage: stage, progressPercent: percent }),
@@ -183,11 +191,13 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     addChart: (chart) =>
       set((state) => ({
         charts: [...state.charts, chart],
+        parsedAny: true,
       })),
 
     addTable: (table) =>
       set((state) => ({
         tables: [...state.tables, table],
+        parsedAny: true,
       })),
 
     setComplete: (result) =>

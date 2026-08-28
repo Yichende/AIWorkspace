@@ -1,0 +1,39 @@
+.analysis-insights {
+  margin-bottom: 32rpx;
+}
+
+.analysis-insights__label {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #5F5F5F;
+  margin-bottom: 16rpx;
+}
+
+.analysis-insights__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  padding: 12rpx 0;
+}
+
+.analysis-insights__num {
+  flex-shrink: 0;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: #117C0D;
+  color: #FFFFFF;
+  font-size: 24rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.analysis-insights__text {
+  font-size: 28rpx;
+  color: #1B1B1B;
+  line-height: 1.5;
+  flex: 1;
+}
