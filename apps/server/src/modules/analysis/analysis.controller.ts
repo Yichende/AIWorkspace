@@ -26,6 +26,7 @@ import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DatasetSummary } from '@repo/types';
+import { DEFAULT_MODEL } from '@repo/constants';
 
 /** multer v2 不自带类型，内联定义文件类型 */
 interface UploadedFile {
@@ -113,7 +114,7 @@ export class AnalysisController {
     const session = await this.analysisService.createSession(user.id, {
       fileId: dto.fileId,
       prompt: dto.prompt,
-      model: dto.model ?? 'DeepSeek-R1',
+      model: dto.model ?? DEFAULT_MODEL,
       // 标题由 prompt 生成：prompt 为多行 textarea，需折叠空白/换行，
       // 否则小程序 text 组件会把 \n 渲染成换行（white-space 无法抑制）
       title: dto.prompt.replace(/\s+/g, ' ').trim().slice(0, 50),

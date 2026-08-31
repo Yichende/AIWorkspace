@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Input, Button, Text } from '@tarojs/components'
-import { loginApi, registerApi } from '@/services/user'
+import { loginApi, registerApi, resolveAvatar } from '@/services/user'
 import { setToken, setRefreshToken, getToken } from '@/utils/auth'
 import { useUserStore } from '@/stores/user.store'
 import Taro from '@tarojs/taro'
@@ -56,6 +56,7 @@ export default function LoginPage() {
         id: res.user.id,
         username: res.user.username,
         email: res.user.email,
+        avatar: resolveAvatar(res.user.avatar),
       })
 
       // 跳转首页
@@ -105,6 +106,7 @@ export default function LoginPage() {
         id: res.user.id,
         username: res.user.username,
         email: res.user.email,
+        avatar: resolveAvatar(res.user.avatar),
       })
 
       Taro.showToast({

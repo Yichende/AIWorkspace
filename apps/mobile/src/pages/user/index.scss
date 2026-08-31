@@ -70,6 +70,24 @@
   color: $text-secondary;
 }
 
+/* 编辑按钮（卡片右侧） */
+.user-card__edit {
+  flex-shrink: 0;
+  width: 72rpx;
+  height: 72rpx;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(17, 124, 13, 0.06);
+  transition: opacity $transition-fast;
+
+  &:active {
+    opacity: 0.7;
+  }
+}
+
 /* =========================
  * 设置分区
  * =========================

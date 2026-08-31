@@ -5,6 +5,7 @@ import {
   generateId,
   buildHistoryGroups,
 } from '@/stores/chat.store'
+import { useSettingsStore } from '@/stores/settings.store'
 import { chatStorage } from '@/stores/storage/chat'
 import { chatApi } from '@/services/chat.api'
 import { migrateLegacyData } from '@/utils/migration'
@@ -47,6 +48,11 @@ export function stopActiveStream(): void {
 }
 
 // ── Helpers ──────────────────────────────────────────────────
+
+/** 当前默认模型：用户设置优先，不存在/非法时回退系统 DEFAULT_MODEL */
+function currentDefaultModel(): string {
+  return useSettingsStore.getState().defaultModel || DEFAULT_MODEL
+}
 
 function createGreetingMessage(now: number): ChatMessage {
   const id = generateId()
@@ -149,7 +155,7 @@ export function useChatController() {
     }
 
     // No local cache — create fresh session
-    const sessionId = newChat(DEFAULT_MODEL)
+    const sessionId = newChat(currentDefaultModel())
     // Background sync
     syncSessionsFromAPI()
     return sessionId
@@ -226,7 +232,7 @@ export function useChatController() {
 
     // Auto-create session if none exists
     if (!sessionId) {
-      sessionId = newChat(DEFAULT_MODEL)
+      sessionId = newChat(currentDefaultModel())
     }
 
     const now = Date.now()
@@ -331,7 +337,7 @@ export function useChatController() {
 
     try {
       await chatApi.streamCompletion(
-        meta?.model ?? DEFAULT_MODEL,
+        meta?.model ?? currentDefaultModel(),
         historyMessages,
         {
           onThinking: (text: string) => {
@@ -545,7 +551,7 @@ export function useChatController() {
       }
 
       await chatApi.streamCompletion(
-        state.currentSessionMeta?.model ?? DEFAULT_MODEL,
+        state.currentSessionMeta?.model ?? currentDefaultModel(),
         historyMessages,
         {
           onThinking: (text: string) => {
@@ -727,7 +733,7 @@ export function useChatController() {
       store.addSessionToIndex({
         id: sessionId,
         title: meta?.title || '对话',
-        model: meta?.model || DEFAULT_MODEL,
+        model: meta?.model || currentDefaultModel(),
         messageCount: 0,
         createdAt: now,
         updatedAt: now,
@@ -930,7 +936,7 @@ export function useChatController() {
     currentSessionId: store.currentSessionId,
     currentSession,
     currentMessages: store.currentMessages,
-    currentModel: store.currentSessionMeta?.model ?? DEFAULT_MODEL,
+    currentModel: store.currentSessionMeta?.model ?? currentDefaultModel(),
     historyGroups,
     messagesLoading: store.messagesLoading,
     sessionsLoading: store.sessionsLoading,

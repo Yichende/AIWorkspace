@@ -8,6 +8,7 @@ export default defineAppConfig({
     'pages/addModel/index',
     'pages/user/index',
     'pages/model/index',
+    'pages/profile/index',
   ],
   window: {
     navigationBarTitleText: 'AI WorkSpace',

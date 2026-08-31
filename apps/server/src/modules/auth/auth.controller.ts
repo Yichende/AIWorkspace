@@ -19,6 +19,7 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -59,6 +60,16 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body() refreshDto: RefreshDto) {
     return this.authService.refreshToken(refreshDto.refresh_token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  changePassword(@CurrentUser() user: any, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(
+      user.id,
+      dto.oldPassword,
+      dto.newPassword,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

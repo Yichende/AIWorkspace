@@ -34,6 +34,14 @@ export class User extends Model {
   })
   declare password: string;
 
+  /** 头像相对路径（如 /uploads/avatar/xxx.jpg），无头像为 null */
+  @Column({
+    type: DataType.STRING,
+
+    allowNull: true,
+  })
+  declare avatar: string | null;
+
   @HasMany(() => RefreshToken)
   declare refresh_tokens: RefreshToken[];
 }

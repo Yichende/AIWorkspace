@@ -62,7 +62,12 @@ export class AuthService {
     );
 
     return {
-      user: { id: user.id, username: user.username, email: user.email },
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar ?? null,
+      },
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
     };
@@ -101,7 +106,12 @@ export class AuthService {
     );
 
     return {
-      user: { id: user.id, username: user.username, email: user.email },
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar ?? null,
+      },
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
     };
@@ -174,6 +184,39 @@ export class AuthService {
       created_at: r.createdAt,
       is_current: currentDeviceId ? r.device_id === currentDeviceId : false,
     }));
+  }
+
+  /**
+   * 修改密码：校验旧密码、禁止新旧相同，更新后撤销全部 refresh token
+   * （客户端需清除本地登录态并重新登录）。
+   */
+  async changePassword(
+    userId: number,
+    oldPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) {
+      throw new BadRequestException('用户不存在');
+    }
+
+    const isOldMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isOldMatch) {
+      throw new BadRequestException('旧密码错误');
+    }
+
+    const isSameAsOld = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsOld) {
+      throw new BadRequestException('新密码不能与旧密码相同');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await user.update({ password: hashedPassword });
+
+    // 撤销全部设备的 refresh token，强制重新登录
+    await this.revokeAllSessions(userId);
+
+    return { success: true };
   }
 
   async revokeSession(userId: number, tokenId: number) {

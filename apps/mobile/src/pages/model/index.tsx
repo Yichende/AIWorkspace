@@ -5,6 +5,7 @@ import { AppHeader } from '@my/ui'
 import ModelSwitcher from '@/components/common/ModelSwitcher'
 import { modelApi } from '@/services/model.api'
 import { useUserStore } from '@/stores/user.store'
+import { useSettingsStore } from '@/stores/settings.store'
 import { useChatStore } from '@/stores/chat.store'
 import { useAnalysisStore } from '@/stores/analysis.store'
 import { useChatController } from '@/controllers/chat.controller'
@@ -39,6 +40,8 @@ export default function ModelPage() {
       const res = await modelApi.listModels()
       if (res.models?.length > 0) {
         setModels(res.models)
+        // 默认模型若指向已删除的模型，回退系统默认并更新 storage
+        useSettingsStore.getState().ensureDefaultModelValid(res.models)
       }
     } catch (err) {
       // Keep current models (builtin fallback) on error
@@ -61,7 +64,10 @@ export default function ModelPage() {
 
   // 对话模块：当前会话的模型
   const chatModel = useChatStore(
-    (s) => s.currentSessionMeta?.model ?? DEFAULT_MODEL,
+    (s) =>
+      s.currentSessionMeta?.model ??
+      useSettingsStore.getState().defaultModel ??
+      DEFAULT_MODEL,
   )
   const { switchModel } = useChatController()
 
@@ -126,6 +132,7 @@ export default function ModelPage() {
             onAddModel={handleAddModel}
             onEditModel={handleEditModel}
             onDeleteModel={handleDeleteModel}
+            defaultExpanded
           />
         ) : (
           <ModelSwitcher
@@ -135,6 +142,7 @@ export default function ModelPage() {
             onAddModel={handleAddModel}
             onEditModel={handleEditModel}
             onDeleteModel={handleDeleteModel}
+            defaultExpanded
           />
         )}
       </View>

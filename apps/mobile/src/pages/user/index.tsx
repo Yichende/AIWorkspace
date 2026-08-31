@@ -1,17 +1,24 @@
-import { View, Text, Image } from '@tarojs/components'
-import { useCallback } from 'react'
+import { View, Text, Image, Switch } from '@tarojs/components'
+import { useCallback, useEffect, useState } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { AppHeader, Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
 import { useUserStore } from '@/stores/user.store'
+import { useSettingsStore } from '@/stores/settings.store'
 import { useChatStore } from '@/stores/chat.store'
 import { useAnalysisStore } from '@/stores/analysis.store'
 import { chatStorage } from '@/stores/storage/chat'
-import { getProfileApi } from '@/services/user'
+import { getProfileApi, resolveAvatar } from '@/services/user'
+import { modelApi } from '@/services/model.api'
 import { clearLocalCache } from '@/utils/cache'
 import { clearAllAuth } from '@/utils/auth'
-import { stopActiveStream } from '@/controllers/chat.controller'
-import { DEFAULT_MODEL } from '@repo/constants'
+import {
+  stopActiveStream,
+  useChatController,
+} from '@/controllers/chat.controller'
+import ModelPickerPopup from '@/components/common/ModelPickerPopup'
+import { AI_MODELS } from '@repo/types'
+import type { ModelListItem } from '@repo/types'
 import './index.scss'
 
 const APP_VERSION = '1.0.0'
@@ -19,6 +26,49 @@ const APP_VERSION = '1.0.0'
 export default function UserPage() {
   const userInfo = useUserStore((s) => s.userInfo)
   const setUserInfo = useUserStore((s) => s.setUserInfo)
+  const defaultModel = useSettingsStore((s) => s.defaultModel)
+  const showThinking = useSettingsStore((s) => s.showThinking)
+  const setDefaultModel = useSettingsStore((s) => s.setDefaultModel)
+  const setShowThinking = useSettingsStore((s) => s.setShowThinking)
+
+  const [pickerVisible, setPickerVisible] = useState(false)
+
+  // 取聊天控制器（仅用其 switchModel 联动当前会话模型；hook 无副作用）
+  const { switchModel } = useChatController()
+
+  // Model list: start with built-in models as fallback, then fetch merged list
+  const [models, setModels] = useState<ModelListItem[]>(
+    AI_MODELS.map((m) => ({
+      id: m.id,
+      displayName: m.id,
+      protocolType: undefined,
+      provider: m.provider,
+      supportsThinking: m.supportsThinking,
+      source: 'builtin' as const,
+    })),
+  )
+
+  const authReady = useUserStore((state) => state.authReady)
+
+  const fetchModels = useCallback(async () => {
+    try {
+      const res = await modelApi.listModels()
+      if (res.models?.length > 0) {
+        setModels(res.models)
+        // 默认模型若指向已删除的模型，回退系统默认并更新 storage
+        useSettingsStore.getState().ensureDefaultModelValid(res.models)
+      }
+    } catch (err) {
+      // Keep current models (builtin fallback) on error
+      console.warn('[UserPage] Failed to fetch models:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (authReady) {
+      fetchModels()
+    }
+  }, [authReady, fetchModels])
 
   // 每次进入页面拉取最新资料（401 由 request.ts 自动登出；网络错误保留旧数据）
   const loadProfile = useCallback(async () => {
@@ -28,6 +78,7 @@ export default function UserPage() {
         id: profile.id,
         username: profile.username,
         email: profile.email,
+        avatar: resolveAvatar(profile.avatar),
       })
     } catch {
       // 静默失败 — 保留 store 中的已有数据
@@ -42,14 +93,24 @@ export default function UserPage() {
     Taro.navigateBack({ delta: 1 })
   }
 
-  // ── 预留入口（未实现，后续按 TODO 完善） ──────────────
+  // ── 默认模型 / 思考过程偏好 ───────────────────────────
 
-  const handleDefaultModel = () => {
-    // TODO: 全局默认模型设置 —— 影响新建会话与分析任务的默认模型
+  const handleDefaultModelConfirm = (model: string) => {
+    setDefaultModel(model)
+    // 联动「分析」模块：切换其当前使用的模型
+    useAnalysisStore.getState().setModel(model)
+    // 联动「对话」模块：有当前会话时切换其模型；
+    // 无当前会话时不新建（新会话已实时读取默认值）
+    const chatState = useChatStore.getState()
+    if (chatState.currentSessionId && chatState.currentSessionMeta) {
+      switchModel(model)
+    }
+    setPickerVisible(false)
+    Taro.showToast({ title: '默认模型已更新', icon: 'success' })
   }
 
-  const handleThinkingPref = () => {
-    // TODO: 显示思考过程全局偏好 —— 关闭后聊天/分析页隐藏 thinking 块
+  const handleThinkingChange = (e: any) => {
+    setShowThinking(e.detail.value)
   }
 
   const handleTheme = () => {
@@ -144,16 +205,28 @@ export default function UserPage() {
           </Text>
           <Text className='user-card__email'>{userInfo?.email || '--'}</Text>
         </View>
+        <View
+          className='user-card__edit'
+          onClick={() => Taro.navigateTo({ url: '/pages/profile/index' })}
+        >
+          <Icon name='bianji' size={36} color={IconColors.secondary} />
+        </View>
       </View>
 
       {/* AI 设置 */}
       <View className='setting-section'>
         <Text className='setting-section__label'>AI 设置</Text>
         <View className='setting-card'>
-          <View className='setting-row' onClick={handleDefaultModel}>
+          <View
+            className='setting-row'
+            onClick={() => setPickerVisible(true)}
+          >
             <Text className='setting-row__label'>默认模型</Text>
             <View className='setting-row__right'>
-              <Text className='setting-row__value'>{DEFAULT_MODEL}</Text>
+              <Text className='setting-row__value'>
+                {models.find((m) => m.id === defaultModel)?.displayName ||
+                  defaultModel}
+              </Text>
               <Icon name='qianjin' size={28} color={IconColors.secondary} />
             </View>
           </View>
@@ -163,10 +236,14 @@ export default function UserPage() {
               <Icon name='qianjin' size={28} color={IconColors.secondary} />
             </View>
           </View>
-          <View className='setting-row' onClick={handleThinkingPref}>
+          <View className='setting-row'>
             <Text className='setting-row__label'>显示思考过程</Text>
             <View className='setting-row__right'>
-              <Icon name='qianjin' size={28} color={IconColors.secondary} />
+              <Switch
+                checked={showThinking}
+                onChange={handleThinkingChange}
+                color='#117C0D'
+              />
             </View>
           </View>
         </View>
@@ -235,6 +312,15 @@ export default function UserPage() {
       <View className='logout-btn' onClick={handleLogout}>
         <Text className='logout-btn__text'>退出登录</Text>
       </View>
+
+      {/* 默认模型选择弹窗 */}
+      <ModelPickerPopup
+        visible={pickerVisible}
+        currentModel={defaultModel}
+        models={models}
+        onCancel={() => setPickerVisible(false)}
+        onConfirm={handleDefaultModelConfirm}
+      />
     </View>
   )
 }

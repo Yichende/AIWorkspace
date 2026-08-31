@@ -8,6 +8,8 @@ import type {
   TableConfig,
   AnalysisResult,
 } from '@repo/types';
+import { DEFAULT_MODEL } from '@repo/constants';
+import { useSettingsStore } from './settings.store';
 
 // ── State ─────────────────────────────────────────────────────
 
@@ -124,7 +126,8 @@ const initialState: AnalysisState = {
   fileId: null,
   dataset: null,
   prompt: '',
-  model: 'DeepSeek-R1',
+  // 默认模型：用户设置优先，不存在/非法时回退系统默认
+  model: useSettingsStore.getState().defaultModel || DEFAULT_MODEL,
   status: null,
   thinkingText: '',
   streamingText: '',
@@ -242,6 +245,11 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         result: data.result,
       }),
 
-    reset: () => set(initialState),
+    // 每次重置时重取用户设置的默认模型（AnalysisPage 每次进入都调 reset）
+    reset: () =>
+      set({
+        ...initialState,
+        model: useSettingsStore.getState().defaultModel || DEFAULT_MODEL,
+      }),
   }),
 );

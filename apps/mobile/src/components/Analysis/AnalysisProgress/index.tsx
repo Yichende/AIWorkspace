@@ -1,6 +1,7 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { AnalysisStatus, ChartConfig, TableConfig } from '@repo/types'
+import { useSettingsStore } from '@/stores/settings.store'
 import MarkdownBlock from '@/components/Chat/Blocks/MarkdownBlock'
 import ThinkingBlock from '@/components/Chat/Blocks/ThinkingBlock'
 import AnalysisSummary from '../AnalysisSummary'
@@ -39,6 +40,8 @@ export default function AnalysisProgress({
   const isPending = status === 'PENDING'
   const isAnalyzing = status === 'ANALYZING'
   const isFailed = status === 'FAILED'
+  // 全局"显示思考过程"偏好（关闭后隐藏思考区）
+  const showThinking = useSettingsStore((s) => s.showThinking)
 
   const hasThinking = thinkingText.length > 0
   const hasSummary = streamingSummary.length > 0
@@ -46,8 +49,8 @@ export default function AnalysisProgress({
   const hasCharts = charts.length > 0
   const hasTables = tables.length > 0
   const hasText = streamingText.length > 0
-  // 思考仍在进行中：正在分析且正文尚未开始输出
-  const thinkingActive = isAnalyzing && !hasText
+  // 思考仍在进行中：正在分析、正文尚未开始输出且未隐藏思考区
+  const thinkingActive = isAnalyzing && !hasText && showThinking
   const hasStreamContent =
     hasSummary || hasInsights || hasCharts || hasTables || hasText
 
@@ -158,7 +161,7 @@ export default function AnalysisProgress({
       </View>
 
       {/* ── Thinking Area（复用 chat 的 ThinkingBlock 组件）─ */}
-      {hasThinking && (
+      {hasThinking && showThinking && (
         <View className='progress-step__thinking'>
           <ThinkingBlock
             content={thinkingText}

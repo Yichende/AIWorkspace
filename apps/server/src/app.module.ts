@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { ModelModule } from './modules/model/model.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AnalysisModule } from './modules/analysis/analysis.module';
     ChatModule,
     ModelModule,
     AnalysisModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],

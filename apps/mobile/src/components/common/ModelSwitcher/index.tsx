@@ -14,6 +14,8 @@ interface Props {
   onAddModel: () => void
   onEditModel?: (modelId: string) => void
   onDeleteModel?: (modelId: string) => void
+  /** 初始是否展开（模型管理页传 true；ChatMenu 不传保持折叠） */
+  defaultExpanded?: boolean
 }
 
 /**
@@ -29,9 +31,10 @@ export default function ModelSwitcher({
   onAddModel,
   onEditModel,
   onDeleteModel,
+  defaultExpanded = false,
 }: Props) {
   const modelTestResults = useUserStore((state) => state.modelTestResults)
-  const [modelExpanded, setModelExpanded] = useState(false)
+  const [modelExpanded, setModelExpanded] = useState(defaultExpanded)
   const [modelPopoverId, setModelPopoverId] = useState<string | null>(null)
   const [confirmDeleteModelId, setConfirmDeleteModelId] = useState<string | null>(null)
 
