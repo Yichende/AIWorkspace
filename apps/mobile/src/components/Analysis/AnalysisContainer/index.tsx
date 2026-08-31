@@ -30,7 +30,6 @@ export default function AnalysisContainer() {
     charts,
     tables,
     thinkingText,
-    progressStage,
     progressPercent,
     streamingText,
     streamingSummary,
@@ -102,7 +101,6 @@ export default function AnalysisContainer() {
           streamingSummary={streamingSummary}
           streamingInsights={streamingInsights}
           parsedAny={parsedAny}
-          progressStage={progressStage}
           progressPercent={progressPercent}
           charts={charts}
           tables={tables}

@@ -13,15 +13,6 @@
   color: #1B1B1B;
 }
 
-/* 事件驱动状态文案（思考→摘要→发现→图表→表格→报告） */
-
-.progress-step__status {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 26rpx;
-  color: #117C0D;
-}
-
 /* ── Progress Bar ─────────────────────────────────────── */
 
 .progress-step__bar-wrap {
@@ -44,9 +35,12 @@
   min-width: 2%;
 }
 
+/* 进度条下方的事件驱动状态文案（思考→摘要→发现→图表→表格→报告） */
+
 .progress-step__bar-label {
-  font-size: 24rpx;
-  color: #666;
+  display: block;
+  font-size: 26rpx;
+  color: #117C0D;
 }
 
 /* ── Thinking Area（包裹 chat 的 ThinkingBlock 组件）── */

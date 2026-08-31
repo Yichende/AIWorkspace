@@ -1,6 +1,6 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import type { AnalysisStatus, ProgressStage, ChartConfig, TableConfig } from '@repo/types'
+import type { AnalysisStatus, ChartConfig, TableConfig } from '@repo/types'
 import MarkdownBlock from '@/components/Chat/Blocks/MarkdownBlock'
 import ThinkingBlock from '@/components/Chat/Blocks/ThinkingBlock'
 import AnalysisSummary from '../AnalysisSummary'
@@ -20,19 +20,9 @@ interface Props {
   streamingInsights: string[]
   /** 是否已解析出任一事件（false 说明服务端最终会纯文本兜底） */
   parsedAny: boolean
-  progressStage: ProgressStage | null
   progressPercent: number
   charts: ChartConfig[]
   tables: TableConfig[]
-}
-
-/** 阶段 → 中文文字 */
-const STAGE_LABELS: Record<ProgressStage, string> = {
-  upload: '正在上传文件...',
-  parse: '正在解析文件结构...',
-  profiling: '正在分析数据特征...',
-  analyzing: '正在思考分析结论...',
-  rendering: '正在生成分析报告...',
 }
 
 export default function AnalysisProgress({
@@ -42,7 +32,6 @@ export default function AnalysisProgress({
   streamingSummary,
   streamingInsights,
   parsedAny,
-  progressStage,
   progressPercent,
   charts,
   tables,
@@ -50,10 +39,6 @@ export default function AnalysisProgress({
   const isPending = status === 'PENDING'
   const isAnalyzing = status === 'ANALYZING'
   const isFailed = status === 'FAILED'
-
-  const stageLabel = progressStage
-    ? STAGE_LABELS[progressStage]
-    : '正在准备...'
 
   const hasThinking = thinkingText.length > 0
   const hasSummary = streamingSummary.length > 0
@@ -157,12 +142,9 @@ export default function AnalysisProgress({
                 ? '分析失败'
                 : ''}
         </Text>
-        {isAnalyzing && (
-          <Text className='progress-step__status'>{eventStage}</Text>
-        )}
       </View>
 
-      {/* ── Progress Bar ──────────────────────────────────── */}
+      {/* ── Progress Bar（下方为事件驱动状态文案）────────────── */}
       <View className='progress-step__bar-wrap'>
         <View className='progress-step__bar-track'>
           <View
@@ -170,7 +152,9 @@ export default function AnalysisProgress({
             style={{ width: `${Math.max(progressPercent, 2)}%` }}
           />
         </View>
-        <Text className='progress-step__bar-label'>{stageLabel}</Text>
+        {isAnalyzing && (
+          <Text className='progress-step__bar-label'>{eventStage}</Text>
+        )}
       </View>
 
       {/* ── Thinking Area（复用 chat 的 ThinkingBlock 组件）─ */}

@@ -251,6 +251,10 @@ export function useChatController() {
       useChatStore.setState({
         currentSessionMeta: { ...meta, title: newTitle },
       })
+      // 同步标题到服务端，避免重启后被服务端索引（仍为「新对话」）覆盖
+      chatApi
+        .updateSession(sessionId!, { title: newTitle })
+        .catch((err) => console.warn('[chat] Failed to sync auto title:', err))
     }
 
     // 3. Persist user message immediately

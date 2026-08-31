@@ -19,6 +19,9 @@ const SWIPE_ACTIONS_WIDTH = 272
 /** 判定为"滑动"的最小位移（px） */
 const SWIPE_THRESHOLD = 30
 
+/** 数据标题可能含换行符（小程序 text 组件会把 \n 渲染成换行），折叠为单行 */
+const normalizeTitle = (title: string) => title.replace(/\s+/g, ' ')
+
 export default function AnalysisListPage() {
   const [items, setItems] = useState<AnalysisListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -119,7 +122,7 @@ export default function AnalysisListPage() {
   // ── 左滑：编辑（重命名）/ 删除 ─────────────────────────────
 
   const openRename = (item: AnalysisListItem) => {
-    setRenameValue(item.title)
+    setRenameValue(normalizeTitle(item.title))
     setModal({ type: 'rename', item })
   }
 
@@ -253,7 +256,7 @@ export default function AnalysisListPage() {
                 onClick={() => handleItemTap(item.id)}
               >
                 <View className='list-page__item-left'>
-                  <Text className='list-page__item-title'>{item.title}</Text>
+                  <Text className='list-page__item-title'>{normalizeTitle(item.title)}</Text>
                   <View className='list-page__item-meta'>
                     {item.fileName && (
                       <Text className='list-page__item-file'>{item.fileName}</Text>
@@ -311,7 +314,7 @@ export default function AnalysisListPage() {
               <>
                 <Text className='list-page__modal-title'>删除分析</Text>
                 <Text className='list-page__modal-desc'>
-                  确定删除「{modal.item.title}」吗？删除后不可恢复。
+                  确定删除「{normalizeTitle(modal.item.title)}」吗？删除后不可恢复。
                 </Text>
               </>
             ) : (

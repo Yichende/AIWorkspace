@@ -16,6 +16,9 @@ function getSearchType(): SearchType {
   return params?.type === 'analysis' ? 'analysis' : 'chat'
 }
 
+/** 旧数据标题可能含换行符（小程序 text 组件会把 \n 渲染成换行），折叠为单行 */
+const normalizeTitle = (title: string) => title.replace(/\s+/g, ' ')
+
 /** 格式化时间：兼容时间戳（会话）与 ISO 字符串（分析） */
 const formatTime = (value: number | string) => {
   if (!value) return ''
@@ -103,7 +106,7 @@ export default function SearchPage() {
       renderItem={(item) => (
         <>
           <View className='search-item-main'>
-            <Text className='search-item-title'>{item.title}</Text>
+            <Text className='search-item-title'>{normalizeTitle(item.title)}</Text>
             <View className='search-item-meta'>
               <Text
                 className='search-item-status'

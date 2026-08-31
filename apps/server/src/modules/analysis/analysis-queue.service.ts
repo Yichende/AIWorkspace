@@ -483,51 +483,47 @@ export class AnalysisQueueService {
 
 * 只能输出 JSONL。
 * 每行必须是一个完整、独立的 JSON 对象。
-* 每行只能包含 \`event\` 和 \`data\` 两个字段。
+* 每行只能包含 event 和 data 两个字段。
 * 不得输出 Markdown 代码块。
 * 不得使用 \` \`\`\`json \` 或 \` \`\`\` \` 包裹 JSON。
 * 不得输出顶层 JSON 数组。
 * 不得输出协议之外的字段。
 * 不得输出新的 event 类型。
-* \`data\` 中必须使用最终计算值，不得输出计算表达式。
+* data 中必须使用最终计算值，不得输出计算表达式。
 * 不得虚构、修改或推测输入数据。
 
 ## 2. event 类型
 
-\`event\` 只能是：
+event 只能是：
 
-* \`summary\`
-* \`insights\`
-* \`chart\`
-* \`table\`
-* \`report\`
+* summary
+* insights
+* chart
+* table
+* report
 
 禁止使用其他名称，例如：
 
-\`\`\`json
 {"event":"数据概览","data":{}}
 {"event":"销售趋势分析","data":{}}
 {"event":"trend_chart","data":{}}
 {"event":"summary_conclusion","data":{}}
-\`\`\`
 
 正确：
 
-\`\`\`json
 {"event":"summary","data":"总结"}
 {"event":"chart","data":{}}
 {"event":"report","data":{}}
-\`\`\`
 
 ## 3. 输出顺序
 
 必须严格按照以下顺序输出：
 
-1. \`summary\`：1 次
-2. \`insights\`：1 次
-3. \`chart\`：0-${MAX_CHARTS} 次
-4. \`table\`：0-${MAX_TABLES} 次
-5. \`report\`：至少 1 次
+1. summary：1 次
+2. insights：1 次
+3. chart：0-${MAX_CHARTS} 次
+4. table：0-${MAX_TABLES} 次
+5. report：至少 1 次
 
 事件顺序是输出协议，不代表分析思考过程。
 
@@ -541,9 +537,7 @@ export class AnalysisQueueService {
 
 格式：
 
-\`\`\`json
 {"event":"summary","data":"整体情况总结"}
-\`\`\`
 
 ## 5. insights
 
@@ -553,9 +547,7 @@ export class AnalysisQueueService {
 
 格式：
 
-\`\`\`json
 {"event":"insights","data":["发现1","发现2","发现3"]}
-\`\`\`
 
 只输出有数据依据的发现，不得虚构结论。
 
@@ -569,7 +561,6 @@ export class AnalysisQueueService {
 
 ### 通用格式
 
-\`\`\`json
 {"event":"chart","data":{
   "type":"line",
   "title":"图表标题",
@@ -578,19 +569,18 @@ export class AnalysisQueueService {
     {"月份":"2月","销售额":15000}
   ]
 }}
-\`\`\`
 
 要求：
 
-* \`type\` 只能是 \`line\`、\`bar\`、\`pie\`。
-* \`data\` 必须是对象数组。
+* type 只能是 line、bar、pie。
+* data 必须是对象数组。
 * 每个对象代表一条图表数据。
 * X 轴维度必须作为对象字段。
 * 数值指标必须作为对象字段。
 * 图表数据必须来自输入数据或对输入数据进行合理聚合。
 * 不得虚构数据。
 * 不得自行填补缺失数据。
-* 不得使用 \`series\`、\`values\`、\`points\`、\`x_axis\`、\`y_axis\` 等其他结构。
+* 不得使用 series、values、points、x_axis、y_axis 等其他结构。
 
 ### line：时间趋势
 
@@ -602,7 +592,6 @@ X 轴使用时间维度，Y 轴使用数值指标。
 
 示例：
 
-\`\`\`json
 {"event":"chart","data":{
   "type":"line",
   "title":"月度销售额趋势",
@@ -612,7 +601,6 @@ X 轴使用时间维度，Y 轴使用数值指标。
     {"月份":"3月","销售额":18000}
   ]
 }}
-\`\`\`
 
 ### bar：类别比较
 
@@ -622,7 +610,6 @@ X 轴使用时间维度，Y 轴使用数值指标。
 
 示例：
 
-\`\`\`json
 {"event":"chart","data":{
   "type":"bar",
   "title":"各产品销售额对比",
@@ -632,7 +619,6 @@ X 轴使用时间维度，Y 轴使用数值指标。
     {"产品":"C","销售额":15000}
   ]
 }}
-\`\`\`
 
 ### pie：占比分布
 
@@ -640,13 +626,12 @@ X 轴使用时间维度，Y 轴使用数值指标。
 
 必须存在一个分类维度和一个非负数值指标。
 
-\`data\` 应使用按类别聚合后的结果，不应直接使用大量明细记录。
+data 应使用按类别聚合后的结果，不应直接使用大量明细记录。
 
 类别过多时不要使用 pie，应优先使用 bar。
 
 示例：
 
-\`\`\`json
 {"event":"chart","data":{
   "type":"pie",
   "title":"各产品销售额占比",
@@ -656,7 +641,6 @@ X 轴使用时间维度，Y 轴使用数值指标。
     {"产品":"C","销售额":400}
   ]
 }}
-\`\`\`
 
 ## 7. table
 
@@ -666,7 +650,6 @@ X 轴使用时间维度，Y 轴使用数值指标。
 
 格式：
 
-\`\`\`json
 {"event":"table","data":{
   "title":"销售明细",
   "columns":["产品","数量","销售额"],
@@ -674,11 +657,10 @@ X 轴使用时间维度，Y 轴使用数值指标。
     {"产品":"A","数量":100,"销售额":12000}
   ]
 }}
-\`\`\`
 
 要求：
 
-* \`columns\` 必须与每条 \`data\` 记录的字段完全一致。
+* columns 必须与每条 data 记录的字段完全一致。
 * 不得增加未声明字段。
 * 数据必须来自输入数据。
 * 不得虚构记录。
@@ -690,23 +672,21 @@ X 轴使用时间维度，Y 轴使用数值指标。
 
 用于输出最终分析报告。
 
-每个 \`report\` 事件只能包含一个章节。
+每个 report 事件只能包含一个章节。
 
 格式：
 
-\`\`\`json
 {"event":"report","data":{
   "title":"销售趋势分析",
   "content":"## 销售趋势\n\n本期销售额整体呈增长趋势。"
 }}
-\`\`\`
 
 要求：
 
-* \`title\` 为章节标题。
-* \`content\` 为 Markdown 字符串。
-* Markdown 只能出现在 \`report.data.content\` 中。
-* JSON 字符串中的换行必须使用 \`\\n\` 转义。
+* title 为章节标题。
+* content 为 Markdown 字符串。
+* Markdown 只能出现在 report.data.content 中。
+* JSON 字符串中的换行必须使用 \\n 转义。
 * 不要把完整报告放入单个 report 事件。
 * 每个 report 事件只描述一个章节。
 
@@ -714,13 +694,11 @@ X 轴使用时间维度，Y 轴使用数值指标。
 
 最终输出必须满足：
 
-\`\`\`text
-summary
-→ insights
-→ chart（可选）
-→ table（可选）
-→ report
-\`\`\`
+- summary
+- insights
+- chart（可选）
+- table（可选）
+- report
 
 除上述 JSONL 事件外，不得输出任何其他内容。
 `;
