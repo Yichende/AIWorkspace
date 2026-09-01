@@ -16,7 +16,9 @@
   justify-content: center;
   background: transparent;
   border: none;
-  transition: transform $transition-fast, opacity $transition-fast;
+  transition:
+    transform $transition-fast,
+    opacity $transition-fast;
 
   &:active {
     transform: scale(0.92);
@@ -28,13 +30,13 @@
 .decorate-area {
   margin: 0 32rpx 32rpx;
   border-radius: $radius-medium;
-  overflow: hidden;           // 保证图片圆角
-  background: #f5f5f5;        // 未提供图片时的背景色
+  overflow: hidden; // 保证图片圆角
+  background: #f5f5f5; // 未提供图片时的背景色
 }
 
 .decorate-image {
   width: 100%;
-  height: 200rpx;             // 根据设计调整高度
+  height: 200rpx; // 根据设计调整高度
   display: block;
 }
 
@@ -53,7 +55,9 @@
   border: 2rpx solid $border-light;
   box-shadow: $shadow-card;
   backdrop-filter: blur(12rpx);
-  transition: transform $transition-fast, box-shadow $transition-fast;
+  transition:
+    transform $transition-fast,
+    box-shadow $transition-fast;
 
   &:active {
     transform: scale(0.98);
@@ -71,7 +75,7 @@
 }
 
 .card-text {
-  margin-left: 20rpx;         // 图标与文字间距
+  margin-left: 20rpx; // 图标与文字间距
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -103,7 +107,9 @@
   border: 2rpx solid $border-light;
   box-shadow: $shadow-card;
   backdrop-filter: blur(12rpx);
-  transition: transform $transition-fast, box-shadow $transition-fast;
+  transition:
+    transform $transition-fast,
+    box-shadow $transition-fast;
 
   &:active {
     transform: scale(0.99);
@@ -116,7 +122,96 @@
   font-weight: 600;
 }
 
-// 测试入口（与内容块保持同一左右边距）
-.home-page__test-btn {
-  margin: 0 32rpx;
+// 最近分析卡片区
+.recent-section {
+  margin: 0 32rpx 32rpx;
+  padding: 28rpx;
+  background: $bg-card;
+  border-radius: $radius-medium;
+  border: 2rpx solid $border-light;
+  box-shadow: $shadow-card;
+  backdrop-filter: blur(12rpx);
+}
+
+.recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.recent-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: $text-primary;
+  line-height: 1.4;
+}
+
+.recent-header-link {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: $text-secondary;
+
+  &:active {
+    opacity: 0.7;
+  }
+}
+
+.recent-loading,
+.recent-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx 0;
+}
+
+.recent-loading-text,
+.recent-empty-text {
+  font-size: 24rpx;
+  color: $text-secondary;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 8rpx;
+  transition: opacity $transition-fast;
+
+  &:active {
+    opacity: 0.7;
+  }
+}
+
+.recent-item + .recent-item {
+  border-top: 2rpx solid $border-light;
+}
+
+.recent-item-main {
+  flex: 1;
+  min-width: 0; // 标题过长时允许省略
+  margin-left: 20rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.recent-item-title {
+  font-size: 28rpx;
+  color: $text-primary;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-item-date {
+  font-size: 22rpx;
+  color: $text-secondary;
+  margin-top: 4rpx;
+}
+
+.recent-item-status {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  font-size: 24rpx;
 }

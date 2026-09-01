@@ -148,7 +148,7 @@ export default function LoginPage() {
         <LogoAnimation />
 
         <View className={`app-title ${showLogin ? 'title-show' : ''}`}>
-          <Text className='main-title'>一叶</Text>
+          <Text className='main-title'>知数</Text>
         </View>
       </View>
 

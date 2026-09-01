@@ -290,7 +290,7 @@ export default function UserPage() {
           <View className='setting-row'>
             <Text className='setting-row__label'>版本</Text>
             <View className='setting-row__right'>
-              <Text className='setting-row__value'>一叶 {APP_VERSION}</Text>
+              <Text className='setting-row__value'>知数 {APP_VERSION}</Text>
             </View>
           </View>
           <View className='setting-row' onClick={handleAgreement}>

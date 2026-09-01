@@ -147,7 +147,7 @@ export default function ChatMenu({
         <View className='menu-feature'>
           {/* 第一行：App 名称 + 搜索 */}
           <View className='menu-header'>
-            <Text className='menu-app-name'>一叶</Text>
+            <Text className='menu-app-name'>知数</Text>
 
             <View className='menu-search-btn' onClick={handleSearch}>
               <Icon name='sousuo' size={40} color={IconColors.secondary} />

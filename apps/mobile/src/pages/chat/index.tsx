@@ -270,7 +270,7 @@ export default function ChatPage() {
     <>
       <View className='chat-page'>
         <AppHeader
-          title='一叶'
+          title='知数'
           onBack={onBack}
           leftActions={
             <View className='chat-page__menu-btn' onClick={onMenu}>

@@ -1,11 +1,82 @@
 import { View, Text, Image } from '@tarojs/components'
-import { IconColors } from '@/styles/theme'
 import { AppHeader, Icon } from '@my/ui'
-
-import Taro from '@tarojs/taro'
+import { IconColors } from '@/styles/theme'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useCallback, useEffect, useState } from 'react'
+import { analysisApi } from '@/services/analysis.api'
+import { useUserStore } from '@/stores/user.store'
+import type { AnalysisListItem } from '@repo/types'
 import './index.scss'
 
+/** 数据标题可能含换行符（小程序 text 组件会把 \n 渲染成换行），折叠为单行 */
+const normalizeTitle = (title: string) => title.replace(/\s+/g, ' ')
+
+const statusLabel = (status: string) => {
+  switch (status) {
+    case 'PENDING':
+      return '等待中'
+    case 'ANALYZING':
+      return '分析中'
+    case 'COMPLETED':
+      return '已完成'
+    case 'FAILED':
+      return '失败'
+    default:
+      return status
+  }
+}
+
+const statusColor = (status: string) => {
+  switch (status) {
+    case 'COMPLETED':
+      return '#117C0D'
+    case 'ANALYZING':
+      return '#FAC75E'
+    case 'FAILED':
+      return '#E74C3C'
+    default:
+      return '#9B9B9B'
+  }
+}
+
+/** 服务端返回 ISO 时间串，格式化为本地 YYYY-MM-DD HH:mm */
+const formatTime = (iso: string) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function HomePage() {
+  const authReady = useUserStore((state) => state.authReady)
+  const [recentItems, setRecentItems] = useState<AnalysisListItem[]>([])
+  const [recentLoading, setRecentLoading] = useState(false)
+
+  // 最近三条分析：挂载时 + 每次回到首页时刷新
+  const fetchRecentAnalyses = useCallback(async () => {
+    try {
+      setRecentLoading(true)
+      const res = await analysisApi.listAnalyses(1, 3)
+      setRecentItems(res.items)
+    } catch {
+      // 保留上次数据
+    } finally {
+      setRecentLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (authReady) {
+      fetchRecentAnalyses()
+    }
+  }, [authReady, fetchRecentAnalyses])
+
+  useDidShow(() => {
+    if (authReady) {
+      fetchRecentAnalyses()
+    }
+  })
 
   const go2User = () => {
     Taro.navigateTo({
@@ -31,16 +102,16 @@ export default function HomePage() {
     })
   }
 
-  const go2Test = () => {
+  const gotoAnalysisDetail = (id: string) => {
     Taro.navigateTo({
-      url: '/pages/myTest/index',
+      url: `/pages/analysis/detail?id=${id}`,
     })
   }
 
   return (
     <View className='home-page'>
       <AppHeader
-        title='一叶'
+        title='知数'
         showBack={false}
         leftActions={
           <View className='home-page__user-btn' onClick={go2User}>
@@ -53,7 +124,7 @@ export default function HomePage() {
       <View className='decorate-area'>
         <Image
           className='decorate-image'
-          src='' // 替换为实际装饰图
+          src='/images/decorateImage.png'
           mode='aspectFill'
         />
       </View>
@@ -104,7 +175,47 @@ export default function HomePage() {
         </View>
         <Icon name='qianjin' size={28} color={IconColors.secondary} />
       </View>
-      <button className='home-page__test-btn' onClick={go2Test}>Test Page</button>
+      {/* 最近分析 - 最近三条分析入口 */}
+      <View className='recent-section'>
+        <View className='recent-header'>
+          <Text className='recent-title'>最近分析</Text>
+        </View>
+
+        {recentLoading ? (
+          <View className='recent-loading'>
+            <Text className='recent-loading-text'>加载中…</Text>
+          </View>
+        ) : recentItems.length === 0 ? (
+          <View className='recent-empty' onClick={gotoAnalysis}>
+            <Text className='recent-empty-text'>暂无分析记录，去创建</Text>
+          </View>
+        ) : (
+          <View className='recent-list'>
+            {recentItems.map((item) => (
+              <View
+                key={item.id}
+                className='recent-item'
+                onClick={() => gotoAnalysisDetail(item.id)}
+              >
+                <View className='recent-item-main'>
+                  <Text className='recent-item-title'>
+                    {normalizeTitle(item.title)}
+                  </Text>
+                  <Text className='recent-item-date'>
+                    {formatTime(item.createdAt)}
+                  </Text>
+                </View>
+                <Text
+                  className='recent-item-status'
+                  style={{ color: statusColor(item.status) }}
+                >
+                  {statusLabel(item.status)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
     </View>
   )
 }
