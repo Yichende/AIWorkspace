@@ -109,7 +109,7 @@
 
   margin-bottom: 16rpx;
 
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--bg-card);
 
   border-radius: 16rpx;
 
@@ -171,7 +171,7 @@
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background: rgba(17, 124, 13, 0.4);
+  background: var(--tint-green-40);
   animation: search-dot-bounce 1.2s ease-in-out infinite;
 
   &:nth-child(2) {

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
 import type { ReactNode } from 'react'
+import { useSettingsStore } from '@/stores/settings.store'
 import './index.scss'
 
 interface SearchScreenProps<T> {
@@ -41,6 +42,7 @@ function SearchScreen<T>({
   itemKey,
   onBack,
 }: SearchScreenProps<T>) {
+  const theme = useSettingsStore((s) => s.theme)
   const [keyword, setKeyword] = useState('')
   const [items, setItems] = useState<T[]>([])
   const [page, setPage] = useState(1)
@@ -157,7 +159,7 @@ function SearchScreen<T>({
   }
 
   return (
-    <View className='search-screen'>
+    <View className={`search-screen page-root theme-${theme}`}>
       {/* 搜索栏 */}
       <View className='search-bar'>
         <View className='search-back' onClick={onBack}>

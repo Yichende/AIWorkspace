@@ -25,7 +25,7 @@
   transition: background $transition-fast;
 
   &:active {
-    background: rgba(17, 124, 13, 0.04);
+    background: var(--tint-green-04);
   }
 }
 
@@ -59,7 +59,7 @@
   height: 64rpx;
   border-radius: 50%;
   overflow: hidden;
-  background: rgba(17, 124, 13, 0.08);
+  background: var(--tint-green-08);
 }
 
 .profile-row__avatar--empty {
@@ -86,7 +86,7 @@
 .profile-modal {
   width: 560rpx;
   max-height: 80vh;
-  background: #FFFFFF;
+  background: var(--bg-solid);
   border-radius: $radius-medium;
   padding: 40rpx 32rpx 32rpx;
   box-sizing: border-box;
@@ -108,7 +108,7 @@
   margin: 0 auto 24rpx;
   border-radius: 50%;
   overflow: hidden;
-  background: rgba(17, 124, 13, 0.08);
+  background: var(--tint-green-08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -138,7 +138,7 @@
 
 .profile-modal__input {
   height: 80rpx;
-  background: #F7F5F0;
+  background: var(--bg-input);
   border-radius: $radius-small;
   padding: 0 24rpx;
   font-size: 28rpx;

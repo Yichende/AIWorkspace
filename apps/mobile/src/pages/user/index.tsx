@@ -28,8 +28,10 @@ export default function UserPage() {
   const setUserInfo = useUserStore((s) => s.setUserInfo)
   const defaultModel = useSettingsStore((s) => s.defaultModel)
   const showThinking = useSettingsStore((s) => s.showThinking)
+  const theme = useSettingsStore((s) => s.theme)
   const setDefaultModel = useSettingsStore((s) => s.setDefaultModel)
   const setShowThinking = useSettingsStore((s) => s.setShowThinking)
+  const setTheme = useSettingsStore((s) => s.setTheme)
 
   const [pickerVisible, setPickerVisible] = useState(false)
 
@@ -113,10 +115,6 @@ export default function UserPage() {
     setShowThinking(e.detail.value)
   }
 
-  const handleTheme = () => {
-    // TODO: 主题切换（跟随系统 / 浅色 / 深色），接入 CSS 变量体系
-  }
-
   const handleLanguage = () => {
     // TODO: 语言切换（简体中文 / English）
   }
@@ -183,7 +181,7 @@ export default function UserPage() {
   }
 
   return (
-    <View className='user-page'>
+    <View className={`user-page page-root theme-${theme}`}>
       <AppHeader title='用户设置' onBack={onBack} />
 
       {/* 个人资料 */}
@@ -242,7 +240,7 @@ export default function UserPage() {
               <Switch
                 checked={showThinking}
                 onChange={handleThinkingChange}
-                color='#117C0D'
+                color={theme === 'dark' ? '#3E8E3A' : '#117C0D'}
               />
             </View>
           </View>
@@ -253,11 +251,25 @@ export default function UserPage() {
       <View className='setting-section'>
         <Text className='setting-section__label'>应用设置</Text>
         <View className='setting-card'>
-          <View className='setting-row' onClick={handleTheme}>
+          <View className='setting-row'>
             <Text className='setting-row__label'>主题</Text>
             <View className='setting-row__right'>
-              <Text className='setting-row__value'>跟随系统</Text>
-              <Icon name='qianjin' size={28} color={IconColors.secondary} />
+              <View className='theme-switch'>
+                <View
+                  className={`theme-switch__item${theme === 'light' ? ' theme-switch__item--active' : ''}`}
+                  onClick={() => setTheme('light')}
+                >
+                  <Icon name='taiyang' size={28} color='currentColor' />
+                  <Text>浅色模式</Text>
+                </View>
+                <View
+                  className={`theme-switch__item${theme === 'dark' ? ' theme-switch__item--active' : ''}`}
+                  onClick={() => setTheme('dark')}
+                >
+                  <Icon name='yueliang' size={28} color='currentColor' />
+                  <Text>暗夜模式</Text>
+                </View>
+              </View>
             </View>
           </View>
           <View className='setting-row' onClick={handleLanguage}>

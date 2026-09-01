@@ -17,6 +17,7 @@ import './index.scss'
 type ModelTab = 'chat' | 'analysis'
 
 export default function ModelPage() {
+  const theme = useSettingsStore((s) => s.theme)
   // 当前 Tab（对话 / 分析）— 页内 UI 状态
   const [tab, setTab] = useState<ModelTab>('chat')
 
@@ -104,7 +105,7 @@ export default function ModelPage() {
   }
 
   return (
-    <View className='model-page'>
+    <View className={`model-page page-root theme-${theme}`}>
       <AppHeader title='模型管理' onBack={onBack} />
 
       <View className='model-page__content'>

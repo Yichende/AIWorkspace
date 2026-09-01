@@ -10,7 +10,7 @@
   display: block;
   font-size: 44rpx;
   font-weight: 700;
-  color: #1B1B1B;
+  color: var(--text-primary);
 }
 
 /* ── Progress Bar ─────────────────────────────────────── */
@@ -21,7 +21,7 @@
 
 .progress-step__bar-track {
   height: 12rpx;
-  background: #E8E8E8;
+  background: var(--border-table);
   border-radius: 6rpx;
   overflow: hidden;
   margin-bottom: 12rpx;
@@ -29,7 +29,7 @@
 
 .progress-step__bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #117C0D, #28A745);
+  background: linear-gradient(90deg, #117c0d, #28a745);
   border-radius: 6rpx;
   transition: width 0.4s ease;
   min-width: 2%;
@@ -40,13 +40,13 @@
 .progress-step__bar-label {
   display: block;
   font-size: 26rpx;
-  color: #117C0D;
+  color: var(--color-secondary);
 }
 
 /* ── Thinking Area（包裹 chat 的 ThinkingBlock 组件）── */
 
 .progress-step__thinking {
-  background: #F5F0E8;  // 暖米色实色，与正文白色区域明确区分
+  background: var(--bg-page-top); // 暖米色实色，与正文白色区域明确区分
   border-radius: 16rpx;
   margin-bottom: 24rpx;
   overflow: hidden;
@@ -57,9 +57,9 @@
 
 .progress-step__stream {
   border-radius: 16rpx;
-  background: #FFFFFF;  // 纯白实色
+  background: var(--bg-solid); // 纯白实色
   overflow: hidden;
-  border: 2rpx solid rgba(17, 124, 13, 0.12);
+  border: 2rpx solid var(--tint-green-12);
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
@@ -76,7 +76,7 @@
   justify-content: center;
   padding: 12rpx 0 16rpx;
   gap: 2rpx;
-  background: rgba(17, 124, 13, 0.04);
+  background: var(--tint-green-04);
 
   &:active {
     opacity: 0.6;
@@ -85,16 +85,23 @@
 
 .progress-step__scroll-arrow-icon {
   font-size: 22rpx;
-  color: #117C0D;
+  color: var(--color-secondary);
   animation: arrowBounce 1.4s ease-in-out infinite;
 }
 
 .progress-step__scroll-arrow-label {
   font-size: 20rpx;
-  color: #117C0D;
+  color: var(--color-secondary);
 }
 
 @keyframes arrowBounce {
-  0%, 100% { transform: translateY(0); opacity: 0.5; }
-  50%      { transform: translateY(6rpx); opacity: 1; }
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(6rpx);
+    opacity: 1;
+  }
 }

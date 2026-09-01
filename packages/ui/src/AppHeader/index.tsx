@@ -4,11 +4,11 @@ import { CSSProperties, useEffect, useState } from 'react'
 import Icon from '../Icon'
 import './index.scss'
 
-/** 默认图标色值，消费端可通过 CSS 变量覆盖 */
+/** 默认图标色值 — 引用全局 CSS 变量（app.scss），随 .theme-dark 自动切换 */
 const ICON_COLORS = {
-  back: '#FAC75E',   // accent
-  secondary: '#117C0D',
-  title: '#1B1B1B',
+  back: 'var(--color-accent)',
+  secondary: 'var(--color-secondary)',
+  title: 'var(--text-primary)',
 } as const
 
 export interface AppHeaderProps {

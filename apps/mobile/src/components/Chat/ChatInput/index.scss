@@ -55,7 +55,7 @@
 
   border-radius: 50%;
 
-  background: rgba(17,124,13,.08);
+  background: var(--tint-green-08);
 
   color: $color-secondary;
 
@@ -155,7 +155,7 @@
  */
 
 .send-btn.disabled {
-  background: rgba(17,124,13,.25);
+  background: var(--tint-green-25);
 
   box-shadow: none;
 }

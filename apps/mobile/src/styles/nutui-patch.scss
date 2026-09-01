@@ -21,7 +21,7 @@
 .nut-popup {
   position: fixed !important;
   z-index: 2100 !important;
-  background-color: #fff !important;
+  background-color: var(--bg-solid) !important;
   overflow: hidden !important;
 }
 
@@ -29,7 +29,7 @@
 .nut-popup-left {
   top: 0 !important;
   left: 0 !important;
-  width: auto !important;  // 由内容撑开（.chat-menu 600rpx）
+  width: auto !important; // 由内容撑开（.chat-menu 600rpx）
   height: 100% !important;
 }
 
@@ -66,12 +66,18 @@
    ========================================== */
 
 @keyframes popup-slide-left-enter {
-  from { transform: translate3d(-100%, 0, 0); }
-  to   { transform: translate3d(0, 0, 0); }
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 @keyframes popup-slide-left-exit {
-  to { transform: translate3d(-100%, 0, 0); }
+  to {
+    transform: translate3d(-100%, 0, 0);
+  }
 }
 
 .nut-popup-slide-left-enter-active,
@@ -108,13 +114,21 @@
    ========================================== */
 
 @keyframes overlay-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes overlay-fade-out {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 .nut-overlay-slide-enter-active,

@@ -10,6 +10,7 @@ import type {
   CreateUserModelRequest,
 } from '@repo/types'
 
+import { useSettingsStore } from '@/stores/settings.store'
 import './index.scss'
 
 const PROTOCOL_OPTIONS: { value: ProtocolType; label: string; desc: string }[] = [
@@ -19,6 +20,7 @@ const PROTOCOL_OPTIONS: { value: ProtocolType; label: string; desc: string }[] =
 ]
 
 export default function AddModelPage() {
+  const theme = useSettingsStore((s) => s.theme)
   // ── Form state ──
   const [protocolType, setProtocolType] = useState<ProtocolType>('openai_compatible')
   const [provider, setProvider] = useState('')
@@ -251,7 +253,7 @@ export default function AddModelPage() {
   }
 
   return (
-    <View className='add-model-page'>
+    <View className={`add-model-page page-root theme-${theme}`}>
       <AppHeader
         title={isBuiltinEdit ? '配置模型' : isEdit ? '编辑模型' : '添加模型'}
         onBack={handleBack}

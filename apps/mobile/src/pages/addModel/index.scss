@@ -94,7 +94,7 @@
 
   &.active {
     border-color: $color-secondary;
-    background: rgba(17, 124, 13, 0.06);
+    background: var(--tint-green-06);
   }
 }
 

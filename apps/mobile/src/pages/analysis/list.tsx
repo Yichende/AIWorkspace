@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { analysisApi } from '@/services/analysis.api'
 import { useUserStore } from '@/stores/user.store'
 import type { AnalysisListItem } from '@repo/types'
+import { useSettingsStore } from '@/stores/settings.store'
 import './list.scss'
 
 /** 弹窗状态：rename = 重命名标题，delete = 确认删除 */
@@ -23,6 +24,7 @@ const SWIPE_THRESHOLD = 30
 const normalizeTitle = (title: string) => title.replace(/\s+/g, ' ')
 
 export default function AnalysisListPage() {
+  const theme = useSettingsStore((s) => s.theme)
   const [items, setItems] = useState<AnalysisListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -194,7 +196,7 @@ export default function AnalysisListPage() {
   }
 
   return (
-    <View className='list-page'>
+    <View className={`list-page page-root theme-${theme}`}>
       <AppHeader
         title='我的分析'
         onBack={handleBack}

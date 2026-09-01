@@ -10,13 +10,13 @@
   display: block;
   font-size: 44rpx;
   font-weight: 700;
-  color: #1B1B1B;
+  color: var(--text-primary);
   margin-bottom: 12rpx;
 }
 
 .prompt-step__subtitle {
   font-size: 26rpx;
-  color: #5F5F5F;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -29,11 +29,11 @@
   width: 100%;
   min-height: 240rpx;
   padding: 28rpx;
-  background: rgba(255, 255, 255, 0.82);
-  border: 2rpx solid rgba(17, 124, 13, 0.16);
+  background: var(--bg-input);
+  border: 2rpx solid var(--tint-green-16);
   border-radius: 16rpx;
   font-size: 28rpx;
-  color: #1B1B1B;
+  color: var(--text-primary);
   line-height: 1.6;
   box-sizing: border-box;
 }
@@ -43,7 +43,7 @@
   right: 20rpx;
   bottom: 16rpx;
   font-size: 22rpx;
-  color: #9B9B9B;
+  color: var(--text-placeholder);
 }
 
 .prompt-step__templates {
@@ -54,7 +54,7 @@
   display: block;
   font-size: 28rpx;
   font-weight: 600;
-  color: #5F5F5F;
+  color: var(--text-secondary);
   margin-bottom: 20rpx;
 }
 
@@ -66,14 +66,14 @@
 
 .prompt-step__template {
   padding: 16rpx 28rpx;
-  background: rgba(17, 124, 13, 0.06);
-  border: 2rpx solid rgba(17, 124, 13, 0.12);
+  background: var(--tint-green-06);
+  border: 2rpx solid var(--tint-green-12);
   border-radius: 12rpx;
   font-size: 26rpx;
-  color: #117C0D;
+  color: var(--color-secondary);
 
   &:active {
-    background: rgba(17, 124, 13, 0.12);
+    background: var(--tint-green-12);
   }
 }
 
@@ -91,7 +91,7 @@
   color: #FFFFFF;
   font-size: 32rpx;
   font-weight: 600;
-  box-shadow: 0 12rpx 32rpx rgba(17, 124, 13, 0.16);
+  box-shadow: 0 12rpx 32rpx var(--tint-green-16);
 
   &:active {
     opacity: 0.85;

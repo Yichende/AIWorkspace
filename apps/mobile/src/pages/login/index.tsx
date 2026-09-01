@@ -3,6 +3,7 @@ import { View, Input, Button, Text } from '@tarojs/components'
 import { loginApi, registerApi, resolveAvatar } from '@/services/user'
 import { setToken, setRefreshToken, getToken } from '@/utils/auth'
 import { useUserStore } from '@/stores/user.store'
+import { useSettingsStore } from '@/stores/settings.store'
 import Taro from '@tarojs/taro'
 import LogoAnimation from '../../components/LogoAnimation'
 import './index.scss'
@@ -10,6 +11,7 @@ import './index.scss'
 type LoginMode = 'wechat' | 'password' | 'register'
 
 export default function LoginPage() {
+  const theme = useSettingsStore((s) => s.theme)
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -139,7 +141,7 @@ export default function LoginPage() {
   }, [])
 
   return (
-    <View className='login-page'>
+    <View className={`login-page page-root theme-${theme}`}>
       {/* 背景光晕 */}
       <View className='bg-light' />
 

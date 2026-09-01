@@ -41,10 +41,10 @@ const statusLabel = (status: string) => {
 
 const statusColor = (status: string) => {
   switch (status) {
-    case 'COMPLETED': return '#117C0D'
-    case 'ANALYZING': return '#FAC75E'
+    case 'COMPLETED': return 'var(--color-secondary)'
+    case 'ANALYZING': return 'var(--color-accent)'
     case 'FAILED': return '#E74C3C'
-    default: return '#9B9B9B'
+    default: return 'var(--text-placeholder)'
   }
 }
 

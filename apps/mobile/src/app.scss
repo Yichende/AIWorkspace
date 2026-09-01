@@ -1,6 +1,20 @@
 @use '@/styles/theme';
 @use '@/styles/nutui-patch';
 
+/* ==========================================
+   全局样式
+   主题变量值定义在 styles/theme.scss（被各页面 @use，随页面 wxss 输出，
+   微信端自定义组件 apply-shared 场景下也能解析）。
+   ========================================== */
+
+/* ── 页面根基类：布局 ── */
+
+.page-root {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
 
 *,
 *::before,
@@ -9,9 +23,14 @@
 }
 
 page {
-  background: #f7f8fa;
+  background: var(--bg-page);
   min-height: 100%;
   box-sizing: border-box;
+}
+
+/* H5 滚动露底 */
+body {
+  background: var(--bg-page);
 }
 
 /* 全局隐藏原生 scroll-view 滚动条（微信小程序 + H5 通用） */

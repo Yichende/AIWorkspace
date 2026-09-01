@@ -1,5 +1,4 @@
 @use '@/styles/theme.scss' as *;
-@use 'sass:color';
 
 .login-page {
   position: relative;
@@ -12,8 +11,8 @@
 
   background: linear-gradient(
     180deg,
-    color.adjust($bg-page, $lightness: 3%) 0%,
-    $bg-page 100%
+    var(--bg-page-top) 0%,
+    var(--bg-page) 100%
   );
 
   display: flex;
@@ -35,7 +34,7 @@
 
   border-radius: 50%;
 
-  background: rgba($color-accent, 0.22);
+  background: var(--color-accent-soft);
 
   filter: blur(100rpx);
 }
@@ -75,8 +74,8 @@
 
   background: linear-gradient(
     135deg,
-    $color-accent,
-    color.adjust($color-accent, $lightness: -8%)
+    var(--color-accent),
+    var(--color-accent-deep)
   );
 
   display: flex;
@@ -91,7 +90,7 @@
 
   font-weight: 700;
 
-  box-shadow: 0 20rpx 60rpx rgba($color-secondary, 0.24);
+  box-shadow: 0 20rpx 60rpx var(--shadow-login-color);
 }
 
 /* 标题 */
@@ -280,8 +279,8 @@
 
   background: linear-gradient(
     135deg,
-    $color-secondary,
-    color.adjust($color-secondary, $lightness: 6%)
+    var(--color-secondary),
+    var(--color-secondary-bright)
   );
 
   color: $text-white;

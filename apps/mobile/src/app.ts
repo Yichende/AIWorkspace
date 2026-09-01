@@ -1,7 +1,9 @@
 import { PropsWithChildren, useEffect } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import { useUserStore } from '@/stores/user.store'
+import { useSettingsStore } from '@/stores/settings.store'
 import { getToken, getRefreshToken } from '@/utils/auth'
+import { syncNativeTheme } from '@/utils/theme-sync'
 import './app.scss'
 
 function App({ children }: PropsWithChildren<any>) {
@@ -29,6 +31,8 @@ function App({ children }: PropsWithChildren<any>) {
   
   useLaunch(() => {
     console.log('App launched.')
+    // 启动即同步原生窗口背景（store 模块加载时已从 storage 读出主题，登录前也生效）
+    syncNativeTheme(useSettingsStore.getState().theme)
   })
 
   // children 是将要会渲染的页面

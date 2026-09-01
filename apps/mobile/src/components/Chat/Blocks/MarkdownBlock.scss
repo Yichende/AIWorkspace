@@ -6,7 +6,7 @@
   word-break: break-word;
   line-height: 1.75;
   font-size: 28rpx;
-  color: #1a1a1a;
+  color: var(--text-primary);
 
   // ── Headings ────────────────────────────────────────────────
   .md-heading {
@@ -14,12 +14,25 @@
     margin: 32rpx 0 16rpx 0;
     line-height: 1.4;
   }
-  .md-h1 { font-size: 44rpx; }
-  .md-h2 { font-size: 40rpx; }
-  .md-h3 { font-size: 36rpx; }
-  .md-h4 { font-size: 32rpx; }
-  .md-h5 { font-size: 30rpx; }
-  .md-h6 { font-size: 28rpx; color: #666; }
+  .md-h1 {
+    font-size: 44rpx;
+  }
+  .md-h2 {
+    font-size: 40rpx;
+  }
+  .md-h3 {
+    font-size: 36rpx;
+  }
+  .md-h4 {
+    font-size: 32rpx;
+  }
+  .md-h5 {
+    font-size: 30rpx;
+  }
+  .md-h6 {
+    font-size: 28rpx;
+    color: var(--text-secondary);
+  }
 
   // ── Paragraph ───────────────────────────────────────────────
   .md-paragraph {
@@ -27,12 +40,19 @@
   }
 
   // ── Inline formatting ───────────────────────────────────────
-  .md-strong { font-weight: 700; }
-  .md-em { font-style: italic; }
-  .md-s { text-decoration: line-through; color: #999; }
+  .md-strong {
+    font-weight: 700;
+  }
+  .md-em {
+    font-style: italic;
+  }
+  .md-s {
+    text-decoration: line-through;
+    color: var(--text-placeholder);
+  }
 
   .md-code-inline {
-    background: #f0f0f0;
+    background: var(--bg-table-odd);
     border-radius: 6rpx;
     padding: 4rpx 12rpx;
     font-family: 'Courier New', Courier, monospace;
@@ -46,7 +66,7 @@
     border-bottom: 2rpx solid #1890ff;
   }
   .md-link-url {
-    color: #999;
+    color: var(--text-placeholder);
     font-size: 22rpx;
     margin-left: 6rpx;
   }
@@ -68,7 +88,7 @@
 
     .md-code-lang {
       display: block;
-      color: #999;
+      color: var(--text-placeholder);
       font-size: 20rpx;
       margin-bottom: 10rpx;
       text-transform: uppercase;
@@ -87,11 +107,11 @@
 
   // ── Blockquote ──────────────────────────────────────────────
   .md-blockquote {
-    border-left: 6rpx solid #ddd;
+    border-left: 6rpx solid var(--border-normal);
     margin: 24rpx 0;
     padding: 16rpx 28rpx;
-    color: #666;
-    background: #fafafa;
+    color: var(--text-secondary);
+    background: var(--bg-table-even);
     border-radius: 0 8rpx 8rpx 0;
   }
 
@@ -110,7 +130,7 @@
 
   .md-list-marker {
     min-width: 56rpx;
-    color: #333;
+    color: var(--text-primary);
     font-weight: 600;
     font-size: 28rpx;
     line-height: 1.75;
@@ -123,14 +143,14 @@
   // ── Horizontal rule ─────────────────────────────────────────
   .md-hr {
     height: 2rpx;
-    background: #eee;
+    background: var(--border-table);
     margin: 32rpx 0;
   }
 
   // ── Table (horizontal-scroll via ScrollView) ────────────────
   .md-table {
     margin: 24rpx 0;
-    border: 2rpx solid #e8e8e8;
+    border: 2rpx solid var(--border-table);
     border-radius: 8rpx;
     overflow: hidden;
   }
@@ -150,7 +170,7 @@
     flex-direction: row;
     flex-wrap: nowrap;
     box-sizing: border-box;
-    border-bottom: 2rpx solid #e8e8e8;
+    border-bottom: 2rpx solid var(--border-table);
 
     &:last-child {
       border-bottom: none;
@@ -163,21 +183,22 @@
   }
 
   .md-tr-even {
-    background: #fff;
+    background: var(--bg-table-even);
   }
 
   .md-tr-odd {
-    background: #f7f8fa;
+    background: var(--bg-table-odd);
   }
 
   // ── Cells ──
-  .md-th, .md-td {
+  .md-th,
+  .md-td {
     box-sizing: border-box;
     // width / flex / min-width / max-width set via inline style quad-lock
     padding: 16rpx 20rpx;
     font-size: 24rpx;
     line-height: 1.6;
-    border-right: 2rpx solid #f0f0f0;
+    border-right: 2rpx solid var(--border-table);
 
     &:last-child {
       border-right: none;
@@ -185,9 +206,9 @@
   }
 
   .md-th {
-    background: #eef1f6;
+    background: var(--bg-table-header);
     font-weight: 700;
-    color: #333;
+    color: var(--text-primary);
   }
 
   .md-td {

@@ -18,6 +18,7 @@ import type { ModelListItem } from '@repo/types'
 import './index.scss'
 
 export default function ChatPage() {
+  const theme = useSettingsStore((s) => s.theme)
   const [input, setInput] = useState('')
   const [menuVisible, setMenuVisible] = useState(false)
   const [sending, setSending] = useState(false)
@@ -268,7 +269,7 @@ export default function ChatPage() {
 
   return (
     <>
-      <View className='chat-page'>
+      <View className={`chat-page page-root theme-${theme}`}>
         <AppHeader
           title='知数'
           onBack={onBack}

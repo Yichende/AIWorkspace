@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import Taro from '@tarojs/taro'
 import { DEFAULT_MODEL } from '@repo/constants'
+import { syncNativeTheme } from '@/utils/theme-sync'
 
 // ── Storage keys ────────────────────────────────────────────
 // settings_ 前缀不在 utils/cache.ts 的清理白名单（tmp_/img_/draft_）内，
@@ -9,7 +10,14 @@ import { DEFAULT_MODEL } from '@repo/constants'
 const KEYS = {
   DEFAULT_MODEL: 'settings_default_model',
   SHOW_THINKING: 'settings_show_thinking',
+  THEME: 'settings_theme',
 } as const
+
+export type ThemeMode = 'light' | 'dark'
+
+function isThemeMode(value: unknown): value is ThemeMode {
+  return value === 'light' || value === 'dark'
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -40,8 +48,12 @@ interface SettingsState {
   defaultModel: string
   /** 是否显示思考过程（聊天与分析页的 thinking 块） */
   showThinking: boolean
+  /** 主题模式：浅色 / 暗夜 */
+  theme: ThemeMode
   setDefaultModel: (model: string) => void
   setShowThinking: (show: boolean) => void
+  /** 切换主题并同步原生窗口背景（storage + 内存 + 原生三处一致） */
+  setTheme: (theme: ThemeMode) => void
   /** 校验 defaultModel 是否仍在模型列表中；不在则回退系统默认并更新 storage */
   ensureDefaultModelValid: (models: { id: string }[]) => void
 }
@@ -49,10 +61,12 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set, get) => {
   const storedModel = readStorage<string>(KEYS.DEFAULT_MODEL, '')
   const storedThinking = readStorage<boolean>(KEYS.SHOW_THINKING, true)
+  const storedTheme = readStorage<unknown>(KEYS.THEME, 'light')
 
   return {
     defaultModel: storedModel && storedModel.trim() ? storedModel : DEFAULT_MODEL,
     showThinking: typeof storedThinking === 'boolean' ? storedThinking : true,
+    theme: isThemeMode(storedTheme) ? storedTheme : 'light',
 
     setDefaultModel: (model) => {
       const valid = model && model.trim() ? model.trim() : DEFAULT_MODEL
@@ -63,6 +77,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     setShowThinking: (show) => {
       writeStorage(KEYS.SHOW_THINKING, show)
       set({ showThinking: show })
+    },
+
+    setTheme: (theme) => {
+      writeStorage(KEYS.THEME, theme)
+      set({ theme })
+      // 同步小程序原生窗口背景 / H5 html class（滚动回弹露底不穿帮）
+      syncNativeTheme(theme)
     },
 
     ensureDefaultModelValid: (models) => {

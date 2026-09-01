@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Popup } from '@nutui/nutui-react-taro'
 import { Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
+import { useSettingsStore } from '@/stores/settings.store'
 import type { ModelListItem } from '@repo/types'
 
 import './index.scss'
@@ -28,6 +29,9 @@ export default function ModelPickerPopup({
   onCancel,
   onConfirm,
 }: Props) {
+  // 弹层内容在 NutUI Popup（小程序端自定义组件）内，需在根节点挂主题类
+  // 让随页面 wxss 输出的 .theme-* 变量规则在组件内匹配（变量不跨组件边界）
+  const theme = useSettingsStore((s) => s.theme)
   const [draftModel, setDraftModel] = useState(currentModel)
 
   // 每次打开时把草稿重置为当前默认模型
@@ -45,7 +49,7 @@ export default function ModelPickerPopup({
       closeOnOverlayClick
       zIndex={2000}
     >
-      <View className='model-picker'>
+      <View className={`model-picker theme-${theme}`}>
         <Text className='model-picker__title'>选择默认模型</Text>
 
         {/* 列表超高时上下滚动（约 7 行内不滚） */}

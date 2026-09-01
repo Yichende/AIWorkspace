@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { analysisApi } from '@/services/analysis.api'
 import { useUserStore } from '@/stores/user.store'
 import type { AnalysisListItem } from '@repo/types'
+import { useSettingsStore } from '@/stores/settings.store'
 import './index.scss'
 
 /** 数据标题可能含换行符（小程序 text 组件会把 \n 渲染成换行），折叠为单行 */
@@ -49,6 +50,7 @@ const formatTime = (iso: string) => {
 }
 
 export default function HomePage() {
+  const theme = useSettingsStore((s) => s.theme)
   const authReady = useUserStore((state) => state.authReady)
   const [recentItems, setRecentItems] = useState<AnalysisListItem[]>([])
   const [recentLoading, setRecentLoading] = useState(false)
@@ -109,7 +111,7 @@ export default function HomePage() {
   }
 
   return (
-    <View className='home-page'>
+    <View className={`home-page page-root theme-${theme}`}>
       <AppHeader
         title='知数'
         showBack={false}

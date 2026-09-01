@@ -5,9 +5,11 @@ import { useState, useEffect } from 'react'
 import { analysisApi } from '@/services/analysis.api'
 import AnalysisResult from '@/components/Analysis/AnalysisResult'
 import type { AnalysisDetail } from '@repo/types'
+import { useSettingsStore } from '@/stores/settings.store'
 import './detail.scss'
 
 export default function AnalysisDetailPage() {
+  const theme = useSettingsStore((s) => s.theme)
   const router = useRouter()
   const { id } = router.params
   const [detail, setDetail] = useState<AnalysisDetail | null>(null)
@@ -21,7 +23,7 @@ export default function AnalysisDetailPage() {
   if (!detail?.result) return null
 
   return (
-    <View className='detail-page'>
+    <View className={`detail-page page-root theme-${theme}`}>
       <AppHeader
         title='分析结果'
         onBack={() => Taro.navigateBack({ delta: 1 })}

@@ -6,7 +6,7 @@
   display: block;
   font-size: 28rpx;
   font-weight: 600;
-  color: #5F5F5F;
+  color: var(--text-secondary);
   margin-bottom: 16rpx;
 }
 
@@ -33,7 +33,7 @@
 
 .analysis-insights__text {
   font-size: 28rpx;
-  color: #1B1B1B;
+  color: var(--text-primary);
   line-height: 1.5;
   flex: 1;
 }

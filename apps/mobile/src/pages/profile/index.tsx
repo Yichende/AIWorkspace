@@ -11,12 +11,14 @@ import {
   resolveAvatar,
 } from '@/services/user'
 import { clearAllAuth } from '@/utils/auth'
+import { useSettingsStore } from '@/stores/settings.store'
 import './index.scss'
 
 /** 弹窗状态：avatar = 更换头像，username = 用户名，password = 修改密码 */
 type ModalType = 'avatar' | 'username' | 'password' | null
 
 export default function ProfilePage() {
+  const theme = useSettingsStore((s) => s.theme)
   const userInfo = useUserStore((s) => s.userInfo)
   const setUserInfo = useUserStore((s) => s.setUserInfo)
 
@@ -165,7 +167,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <View className='profile-page'>
+    <View className={`profile-page page-root theme-${theme}`}>
       <AppHeader title='个人信息' onBack={onBack} />
 
       <View className='profile-card'>

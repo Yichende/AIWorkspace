@@ -4,6 +4,7 @@ import { Popup } from '@nutui/nutui-react-taro'
 import { Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
 import { useUserStore } from '@/stores/user.store'
+import { useSettingsStore } from '@/stores/settings.store'
 import type { ChatHistoryGroup } from '@/stores/chat.store'
 import type { ModelListItem } from '@repo/types'
 
@@ -56,6 +57,9 @@ export default function ChatMenu({
   onLoadMoreSessions,
   onBatchDelete,
 }: Props) {
+  // 弹层内容在 NutUI Popup（小程序端自定义组件）内，app.wxss 的变量不跨组件边界，
+  // 需在组件根节点挂主题类，让随页面 wxss 输出的 .theme-* 变量规则在组件内匹配
+  const theme = useSettingsStore((s) => s.theme)
   const userInfo = useUserStore((state) => state.userInfo)
 
   // ── Batch management ──
@@ -142,7 +146,7 @@ export default function ChatMenu({
       closeOnOverlayClick
       zIndex={2000}
     >
-      <View className={`chat-menu ${batchMode ? 'batch-mode' : ''}`}>
+      <View className={`chat-menu theme-${theme} ${batchMode ? 'batch-mode' : ''}`}>
         {/* ========== 功能区 ========== */}
         <View className='menu-feature'>
           {/* 第一行：App 名称 + 搜索 */}

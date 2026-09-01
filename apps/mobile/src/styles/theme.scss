@@ -2,20 +2,29 @@
  * =========================
  * 基础配色
  * =========================
+ *
+ * 颜色类 token 均为 CSS 变量映射 + 变量值定义（本文件末尾）。
+ *
+ * 变量值规则放在本文件（而非 app.scss）的原因（微信小程序端）：
+ *   - 小程序里 NutUI Popup 等组件编译为自定义组件（styleIsolation: apply-shared），
+ *     app.wxss 的规则与 CSS 变量都无法跨组件边界生效；
+ *   - 本文件被所有页面 scss @use，变量规则随「页面 wxss」输出，apply-shared
+ *     允许页面样式进入组件 → 弹层组件根节点挂 theme-${theme} 类即可在组件内生效。
+ *
+ * 运行时可随 .theme-light / .theme-dark 类整体切换，消费方 scss 无需改动。
  */
 
 /* 主色调（60%） */
-$color-primary: #F1ECE0;
+$color-primary: var(--color-primary);
 
 /* 辅助色（30%） */
-$color-secondary: #117C0D;
+$color-secondary: var(--color-secondary);
 
 /* 点缀色（10%） */
-$color-accent: #FAC75E;
+$color-accent: var(--color-accent);
 
-/* 微信品牌色 */
+/* 微信品牌色（两种主题下固定，保持字面） */
 $color-wechat: #07c160;
-
 
 /**
  * =========================
@@ -23,14 +32,13 @@ $color-wechat: #07c160;
  * =========================
  */
 
-$bg-page: #F1ECE0;
+$bg-page: var(--bg-page);
 
-$bg-card: rgba(255,255,255,.72);
+$bg-card: var(--bg-card);
 
-$bg-glass: rgba(255,255,255,.55);
+$bg-glass: var(--bg-glass);
 
-$bg-input: rgba(255,255,255,.82);
-
+$bg-input: var(--bg-input);
 
 /**
  * =========================
@@ -38,14 +46,13 @@ $bg-input: rgba(255,255,255,.82);
  * =========================
  */
 
-$text-primary: #1B1B1B;
+$text-primary: var(--text-primary);
 
-$text-secondary: #5F5F5F;
+$text-secondary: var(--text-secondary);
 
-$text-placeholder: #9B9B9B;
+$text-placeholder: var(--text-placeholder);
 
-$text-white: #FFFFFF;
-
+$text-white: var(--text-white);
 
 /**
  * =========================
@@ -53,31 +60,21 @@ $text-white: #FFFFFF;
  * =========================
  */
 
-$border-light:
-  rgba(17,124,13,.08);
+$border-light: var(--border-light);
 
-$border-normal:
-  rgba(17,124,13,.16);
-
+$border-normal: var(--border-normal);
 
 /**
  * =========================
- * 阴影
+ * 阴影（颜色分量拆为独立变量）
  * =========================
  */
 
-$shadow-card:
-  0 12rpx 40rpx
-  rgba(17,124,13,.08);
+$shadow-card: 0 12rpx 40rpx var(--shadow-card-color);
 
-$shadow-button:
-  0 12rpx 32rpx
-  rgba(17,124,13,.16);
+$shadow-button: 0 12rpx 32rpx var(--shadow-button-color);
 
-$shadow-accent:
-  0 8rpx 24rpx
-  rgba(250,199,94,.28);
-
+$shadow-accent: 0 8rpx 24rpx var(--shadow-accent-color);
 
 /**
  * =========================
@@ -91,18 +88,249 @@ $radius-medium: 24rpx;
 
 $radius-large: 32rpx;
 
-
 /**
  * =========================
  * Transition
  * =========================
  */
 
-$transition-fast:
-  .2s ease;
+$transition-fast: 0.2s ease;
 
-$transition-normal:
-  .35s ease;
+$transition-normal: 0.35s ease;
 
-$transition-slow:
-  .6s ease;
+$transition-slow: 0.6s ease;
+
+/* ==========================================================
+   变量值定义（浅色默认 / 暗夜覆盖）
+   选择器拆开写：微信 WXSS 不支持 :root 伪类，若写 `page, :root`
+   整条规则会被丢弃；拆开后 page 规则在微信端保留，:root 供 H5 使用。
+   ========================================================== */
+
+page {
+  /* 品牌色 */
+  --color-primary: #f1ece0;
+  --color-secondary: #117c0d;
+  --color-accent: #fac75e;
+
+  /* 背景 */
+  --bg-page: #f1ece0;
+  --bg-card: rgba(255, 255, 255, 0.72);
+  --bg-glass: rgba(255, 255, 255, 0.55);
+  --bg-input: rgba(255, 255, 255, 0.82);
+
+  /* 文字 */
+  --text-primary: #1b1b1b;
+  --text-secondary: #5f5f5f;
+  --text-placeholder: #9b9b9b;
+  --text-white: #ffffff;
+
+  /* Border */
+  --border-light: rgba(17, 124, 13, 0.08);
+  --border-normal: rgba(17, 124, 13, 0.16);
+
+  /* 阴影颜色分量 */
+  --shadow-card-color: rgba(17, 124, 13, 0.08);
+  --shadow-button-color: rgba(17, 124, 13, 0.16);
+  --shadow-accent-color: rgba(250, 199, 94, 0.28);
+
+  /* 语义面 */
+  --bg-solid: #ffffff;
+  --bg-panel: #f1ece0;
+  --bg-bubble: #f2f2f2;
+  --bg-table-even: #ffffff;
+  --bg-table-odd: #f7f8fa;
+  --bg-table-header: #eef1f6;
+  --border-table: #f0f0f0;
+
+  /* 图表（预留：echarts option 按 theme 生成时二期启用，本期不应用） */
+  --chart-bg: #ffffff;
+  --chart-text: #1b1b1b;
+  --chart-axis: #5f5f5f;
+  --chart-grid: rgba(17, 124, 13, 0.08);
+
+  /* login 渐变/光晕 */
+  --bg-page-top: #f4f0e6;
+  --color-accent-soft: rgba(250, 199, 94, 0.22);
+  --color-accent-deep: #f2bb43;
+  --color-secondary-bright: #16971b;
+  --shadow-login-color: rgba(17, 124, 13, 0.24);
+
+  /* 绿色 wash（档位以实际使用为准） */
+  --tint-green-04: rgba(17, 124, 13, 0.04);
+  --tint-green-05: rgba(17, 124, 13, 0.05);
+  --tint-green-06: rgba(17, 124, 13, 0.06);
+  --tint-green-08: rgba(17, 124, 13, 0.08);
+  --tint-green-10: rgba(17, 124, 13, 0.1);
+  --tint-green-12: rgba(17, 124, 13, 0.12);
+  --tint-green-16: rgba(17, 124, 13, 0.16);
+  --tint-green-20: rgba(17, 124, 13, 0.2);
+  --tint-green-25: rgba(17, 124, 13, 0.25);
+  --tint-green-40: rgba(17, 124, 13, 0.4);
+}
+
+/* H5 兜底（微信端 :root 不存在，规则自然不匹配，无副作用） */
+:root {
+  --color-primary: #f1ece0;
+  --color-secondary: #117c0d;
+  --color-accent: #fac75e;
+
+  --bg-page: #f1ece0;
+  --bg-card: rgba(255, 255, 255, 0.72);
+  --bg-glass: rgba(255, 255, 255, 0.55);
+  --bg-input: rgba(255, 255, 255, 0.82);
+
+  --text-primary: #1b1b1b;
+  --text-secondary: #5f5f5f;
+  --text-placeholder: #9b9b9b;
+  --text-white: #ffffff;
+
+  --border-light: rgba(17, 124, 13, 0.08);
+  --border-normal: rgba(17, 124, 13, 0.16);
+
+  --shadow-card-color: rgba(17, 124, 13, 0.08);
+  --shadow-button-color: rgba(17, 124, 13, 0.16);
+  --shadow-accent-color: rgba(250, 199, 94, 0.28);
+
+  --bg-solid: #ffffff;
+  --bg-panel: #f1ece0;
+  --bg-bubble: #f2f2f2;
+  --bg-table-even: #ffffff;
+  --bg-table-odd: #f7f8fa;
+  --bg-table-header: #eef1f6;
+  --border-table: #f0f0f0;
+
+  --chart-bg: #ffffff;
+  --chart-text: #1b1b1b;
+  --chart-axis: #5f5f5f;
+  --chart-grid: rgba(17, 124, 13, 0.08);
+
+  --bg-page-top: #f4f0e6;
+  --color-accent-soft: rgba(250, 199, 94, 0.22);
+  --color-accent-deep: #f2bb43;
+  --color-secondary-bright: #16971b;
+  --shadow-login-color: rgba(17, 124, 13, 0.24);
+
+  --tint-green-04: rgba(17, 124, 13, 0.04);
+  --tint-green-05: rgba(17, 124, 13, 0.05);
+  --tint-green-06: rgba(17, 124, 13, 0.06);
+  --tint-green-08: rgba(17, 124, 13, 0.08);
+  --tint-green-10: rgba(17, 124, 13, 0.1);
+  --tint-green-12: rgba(17, 124, 13, 0.12);
+  --tint-green-16: rgba(17, 124, 13, 0.16);
+  --tint-green-20: rgba(17, 124, 13, 0.2);
+  --tint-green-25: rgba(17, 124, 13, 0.25);
+  --tint-green-40: rgba(17, 124, 13, 0.4);
+}
+
+.theme-light {
+  /* 与 page/:root 默认一致，显式声明保证主题作用域完整 */
+  --color-primary: #f1ece0;
+  --color-secondary: #117c0d;
+  --color-accent: #fac75e;
+
+  --bg-page: #f1ece0;
+  --bg-card: rgba(255, 255, 255, 0.72);
+  --bg-glass: rgba(255, 255, 255, 0.55);
+  --bg-input: rgba(255, 255, 255, 0.82);
+
+  --text-primary: #1b1b1b;
+  --text-secondary: #5f5f5f;
+  --text-placeholder: #9b9b9b;
+  --text-white: #ffffff;
+
+  --border-light: rgba(17, 124, 13, 0.08);
+  --border-normal: rgba(17, 124, 13, 0.16);
+
+  --shadow-card-color: rgba(17, 124, 13, 0.08);
+  --shadow-button-color: rgba(17, 124, 13, 0.16);
+  --shadow-accent-color: rgba(250, 199, 94, 0.28);
+
+  --bg-solid: #ffffff;
+  --bg-panel: #f1ece0;
+  --bg-bubble: #f2f2f2;
+  --bg-table-even: #ffffff;
+  --bg-table-odd: #f7f8fa;
+  --bg-table-header: #eef1f6;
+  --border-table: #f0f0f0;
+
+  --chart-bg: #ffffff;
+  --chart-text: #1b1b1b;
+  --chart-axis: #5f5f5f;
+  --chart-grid: rgba(17, 124, 13, 0.08);
+
+  --bg-page-top: #f4f0e6;
+  --color-accent-soft: rgba(250, 199, 94, 0.22);
+  --color-accent-deep: #f2bb43;
+  --color-secondary-bright: #16971b;
+  --shadow-login-color: rgba(17, 124, 13, 0.24);
+
+  --tint-green-04: rgba(17, 124, 13, 0.04);
+  --tint-green-05: rgba(17, 124, 13, 0.05);
+  --tint-green-06: rgba(17, 124, 13, 0.06);
+  --tint-green-08: rgba(17, 124, 13, 0.08);
+  --tint-green-10: rgba(17, 124, 13, 0.1);
+  --tint-green-12: rgba(17, 124, 13, 0.12);
+  --tint-green-16: rgba(17, 124, 13, 0.16);
+  --tint-green-20: rgba(17, 124, 13, 0.2);
+  --tint-green-25: rgba(17, 124, 13, 0.25);
+  --tint-green-40: rgba(17, 124, 13, 0.4);
+}
+
+/* ── 暗夜模式（暖色系深色，呼应品牌米色+绿） ────────────── */
+
+.theme-dark {
+  /* 品牌米色保持（仅作图标色消费，浅色在暗底成立） */
+  --color-primary: #f1ece0;
+  --color-secondary: #3e8e3a;
+  --color-accent: #fac75e;
+
+  --bg-page: #1c1712;
+  --bg-card: rgba(255, 255, 255, 0.06);
+  --bg-glass: rgba(255, 255, 255, 0.04);
+  --bg-input: rgba(255, 255, 255, 0.08);
+
+  --text-primary: #f2ede4;
+  --text-secondary: #b5aa9c;
+  --text-placeholder: #8a7f72;
+  --text-white: #ffffff;
+
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-normal: rgba(255, 255, 255, 0.14);
+
+  --shadow-card-color: rgba(0, 0, 0, 0.28);
+  --shadow-button-color: rgba(0, 0, 0, 0.35);
+  --shadow-accent-color: rgba(250, 199, 94, 0.15);
+
+  /* 语义面 */
+  --bg-solid: #2b2520;
+  /* 抽屉/浮层面板 — 暗色下明显亮于页面背景，保证与页面区分（如 ChatMenu） */
+  --bg-panel: #383026;
+  --bg-bubble: #2b2520;
+  --bg-table-even: #2b2520;
+  --bg-table-odd: #241f19;
+  --bg-table-header: #2e2a23;
+  --border-table: rgba(255, 255, 255, 0.08);
+
+  /* 预留 token：暗色值已定义，应用待 echarts 二期 */
+  --chart-bg: #2b2520;
+  --chart-text: #f2ede4;
+  --chart-axis: #b5aa9c;
+  --chart-grid: rgba(255, 255, 255, 0.12);
+
+  --bg-page-top: #241e17;
+  --color-accent-soft: rgba(250, 199, 94, 0.12);
+  --color-accent-deep: #dba63a;
+  --color-secondary-bright: #7ed46f;
+  --shadow-login-color: rgba(0, 0, 0, 0.4);
+
+  --tint-green-04: rgba(107, 194, 94, 0.04);
+  --tint-green-05: rgba(107, 194, 94, 0.05);
+  --tint-green-06: rgba(107, 194, 94, 0.06);
+  --tint-green-08: rgba(107, 194, 94, 0.08);
+  --tint-green-10: rgba(107, 194, 94, 0.1);
+  --tint-green-12: rgba(107, 194, 94, 0.12);
+  --tint-green-16: rgba(107, 194, 94, 0.16);
+  --tint-green-20: rgba(107, 194, 94, 0.2);
+  --tint-green-25: rgba(107, 194, 94, 0.25);
+  --tint-green-40: rgba(107, 194, 94, 0.4);
+}
