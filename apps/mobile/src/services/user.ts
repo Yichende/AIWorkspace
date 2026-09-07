@@ -27,16 +27,33 @@ interface RegisterParams {
   password: string;
 }
 
+/** 服务端 user 统一结构（登录/注册/微信登录/档案），不含 openid */
+interface AuthUser {
+  id: number;
+  username: string;
+  email: string | null;
+  avatar?: string | null;
+  /** 微信是否已绑定（服务端判定） */
+  wechat_bound: boolean;
+  /** 是否已设置密码（false = 微信账号，可用「设置密码」补齐） */
+  has_password: boolean;
+}
+
 interface LoginResult {
   access_token: string;
   refresh_token: string;
-  user: {
-    id: number;
-    username: string;
-    email: string;
-    avatar?: string | null;
-  };
+  user: AuthUser;
 }
+
+/** 服务端 user/profile → store UserInfo（avatar 相对路径转完整 URL） */
+export const profileToUserInfo = (p: AuthUser) => ({
+  id: p.id,
+  username: p.username,
+  email: p.email,
+  avatar: resolveAvatar(p.avatar),
+  wechatBound: p.wechat_bound,
+  hasPassword: p.has_password,
+});
 
 export interface RefreshResult {
   access_token: string;
@@ -74,6 +91,24 @@ export const registerApi = (data: RegisterParams) => {
   });
 };
 
+/** 微信一键登录（小程序 code；H5 请用「请在微信小程序中使用」拦截） */
+export const wechatLoginApi = (data: { code: string }) => {
+  return request<LoginResult>({
+    url: "/auth/wechat/login",
+    method: "POST",
+    data,
+  });
+};
+
+/** 绑定微信到当前登录账号 */
+export const wechatBindApi = (data: { code: string }) => {
+  return request<{ success: boolean; wechat_bound: boolean }>({
+    url: "/auth/wechat/bind",
+    method: "POST",
+    data,
+  });
+};
+
 /** 获取活跃设备列表 */
 export const getSessionsApi = (deviceId?: string) => {
   return request<SessionItem[]>({
@@ -82,12 +117,7 @@ export const getSessionsApi = (deviceId?: string) => {
   });
 };
 
-export interface ProfileResult {
-  id: number;
-  username: string;
-  email: string;
-  avatar?: string | null;
-}
+export interface ProfileResult extends AuthUser {}
 
 /** 获取当前用户资料（GET /user/profile, Bearer） */
 export const getProfileApi = () => {
@@ -116,6 +146,15 @@ export const changePasswordApi = (data: {
 }) => {
   return request<{ success: boolean }>({
     url: "/auth/change-password",
+    method: "POST",
+    data,
+  });
+};
+
+/** 设置密码（仅无密码的微信账号可用，成功后保持登录不重登） */
+export const setPasswordApi = (data: { newPassword: string }) => {
+  return request<{ success: boolean }>({
+    url: "/auth/set-password",
     method: "POST",
     data,
   });

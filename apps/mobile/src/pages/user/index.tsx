@@ -8,10 +8,11 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { useChatStore } from '@/stores/chat.store'
 import { useAnalysisStore } from '@/stores/analysis.store'
 import { chatStorage } from '@/stores/storage/chat'
-import { getProfileApi, resolveAvatar } from '@/services/user'
+import { getProfileApi, profileToUserInfo } from '@/services/user'
 import { modelApi } from '@/services/model.api'
 import { clearLocalCache } from '@/utils/cache'
 import { clearAllAuth } from '@/utils/auth'
+import { bindWechatAndRefresh } from '@/utils/wechat'
 import {
   stopActiveStream,
   useChatController,
@@ -76,12 +77,7 @@ export default function UserPage() {
   const loadProfile = useCallback(async () => {
     try {
       const profile = await getProfileApi()
-      setUserInfo({
-        id: profile.id,
-        username: profile.username,
-        email: profile.email,
-        avatar: resolveAvatar(profile.avatar),
-      })
+      setUserInfo(profileToUserInfo(profile))
     } catch {
       // 静默失败 — 保留 store 中的已有数据
     }
@@ -290,6 +286,19 @@ export default function UserPage() {
             <Text className='setting-row__label'>清除缓存</Text>
             <View className='setting-row__right'>
               <Icon name='qianjin' size={28} color={IconColors.secondary} />
+            </View>
+          </View>
+          <View
+            className='setting-row'
+            onClick={() => {
+              void bindWechatAndRefresh()
+            }}
+          >
+            <Text className='setting-row__label'>微信</Text>
+            <View className='setting-row__right'>
+              <Text className='setting-row__value'>
+                {userInfo?.wechatBound ? '已绑定' : '前往绑定→'}
+              </Text>
             </View>
           </View>
         </View>

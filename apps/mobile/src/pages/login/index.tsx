@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { View, Input, Button, Text } from '@tarojs/components'
-import { loginApi, registerApi, resolveAvatar } from '@/services/user'
+import {
+  loginApi,
+  registerApi,
+  wechatLoginApi,
+  profileToUserInfo,
+} from '@/services/user'
+import { requestWechatCode } from '@/utils/wechat'
 import { setToken, setRefreshToken, getToken } from '@/utils/auth'
 import { useUserStore } from '@/stores/user.store'
 import { useSettingsStore } from '@/stores/settings.store'
@@ -54,12 +60,7 @@ export default function LoginPage() {
       console.log('[Login] 登录成功:', res)
 
       await saveTokens(res.access_token, res.refresh_token)
-      useUserStore.getState().setUserInfo({
-        id: res.user.id,
-        username: res.user.username,
-        email: res.user.email,
-        avatar: resolveAvatar(res.user.avatar),
-      })
+      useUserStore.getState().setUserInfo(profileToUserInfo(res.user))
 
       // 跳转首页
       Taro.reLaunch({
@@ -78,12 +79,32 @@ export default function LoginPage() {
     }
   }
 
-  // 微信登录
-  const handleWechatLogin = () => {
-    Taro.showToast({
-      title: '微信登录开发中',
-      icon: 'none',
-    })
+  // 微信一键登录（仅微信小程序可用；H5 由 requestWechatCode 拦截提示）
+  const handleWechatLogin = async () => {
+    try {
+      const code = await requestWechatCode()
+      console.log('[Login] 发送微信登录请求')
+      const res = await wechatLoginApi({ code })
+      console.log('[Login] 微信登录成功:', res)
+
+      await saveTokens(res.access_token, res.refresh_token)
+      // 绑定状态由后端 wechat_bound 驱动，前端不硬编码
+      useUserStore.getState().setUserInfo(profileToUserInfo(res.user))
+
+      Taro.reLaunch({
+        url: '/pages/home/index',
+      })
+    } catch (error: any) {
+      console.error('[Login] 微信登录失败:', error)
+      const errMsg = typeof error === 'string'
+        ? error
+        : error?.message || error?.errMsg || JSON.stringify(error)
+      Taro.showToast({
+        title: errMsg.length > 30 ? errMsg.slice(0, 30) + '...' : errMsg,
+        icon: 'none',
+        duration: 3000,
+      })
+    }
   }
 
   // 注册
@@ -104,12 +125,7 @@ export default function LoginPage() {
       })
 
       await saveTokens(res.access_token, res.refresh_token)
-      useUserStore.getState().setUserInfo({
-        id: res.user.id,
-        username: res.user.username,
-        email: res.user.email,
-        avatar: resolveAvatar(res.user.avatar),
-      })
+      useUserStore.getState().setUserInfo(profileToUserInfo(res.user))
 
       Taro.showToast({
         title: '注册成功',

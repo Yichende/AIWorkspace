@@ -4,8 +4,13 @@ interface UserInfo {
   /** 与后端保持一致：Sequelize 自增主键为 number */
   id: number;
   username: string;
-  email?: string;
+  /** 微信一键注册的账号无邮箱（null）；展示处需兜底 */
+  email?: string | null;
   avatar?: string;
+  /** 微信是否已绑定（由后端 wechat_bound 映射，未拉取过为 undefined） */
+  wechatBound?: boolean;
+  /** 是否已设置密码（false = 微信账号，可用「设置密码」补齐） */
+  hasPassword?: boolean;
 }
 
 interface UserState {

@@ -20,6 +20,8 @@ export class UserService {
       username: user.username,
       email: user.email,
       avatar: user.avatar ?? null,
+      wechat_bound: !!user.openid,
+      has_password: !!user.password,
     };
   }
 

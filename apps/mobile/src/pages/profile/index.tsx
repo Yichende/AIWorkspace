@@ -7,9 +7,11 @@ import { useUserStore } from '@/stores/user.store'
 import {
   updateProfileApi,
   changePasswordApi,
+  setPasswordApi,
   uploadAvatarApi,
-  resolveAvatar,
+  profileToUserInfo,
 } from '@/services/user'
+import { bindWechatAndRefresh } from '@/utils/wechat'
 import { clearAllAuth } from '@/utils/auth'
 import { useSettingsStore } from '@/stores/settings.store'
 import './index.scss'
@@ -24,6 +26,10 @@ export default function ProfilePage() {
 
   const [modal, setModal] = useState<ModalType>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // 是否有密码：false（微信账号）→ 密码行/弹窗走「设置密码」（免旧密码）
+  // 兜底 true：避免 userInfo 未拉取（undefined）时误显设置密码入口
+  const hasPassword = userInfo?.hasPassword ?? true
 
   // ── 头像 ──
   const [avatarTempPath, setAvatarTempPath] = useState('')
@@ -73,12 +79,7 @@ export default function ProfilePage() {
       // 1. 上传新头像 → 2. PATCH 资料（服务端在 DB 更新成功后删除旧头像文件）
       const { url } = await uploadAvatarApi(avatarTempPath)
       const profile = await updateProfileApi({ avatar: url })
-      setUserInfo({
-        id: profile.id,
-        username: profile.username,
-        email: profile.email,
-        avatar: resolveAvatar(profile.avatar),
-      })
+      setUserInfo(profileToUserInfo(profile))
       closeModal()
       Taro.showToast({ title: '头像已更新', icon: 'success' })
     } catch (err: any) {
@@ -105,12 +106,7 @@ export default function ProfilePage() {
     setSubmitting(true)
     try {
       const profile = await updateProfileApi({ username })
-      setUserInfo({
-        id: profile.id,
-        username: profile.username,
-        email: profile.email,
-        avatar: resolveAvatar(profile.avatar),
-      })
+      setUserInfo(profileToUserInfo(profile))
       setModal(null)
       Taro.showToast({ title: '用户名已更新', icon: 'success' })
     } catch (err: any) {
@@ -130,7 +126,8 @@ export default function ProfilePage() {
   }
 
   const confirmPasswordChange = async () => {
-    if (!oldPassword) {
+    if (submitting) return
+    if (hasPassword && !oldPassword) {
       Taro.showToast({ title: '请输入旧密码', icon: 'none' })
       return
     }
@@ -142,28 +139,41 @@ export default function ProfilePage() {
       Taro.showToast({ title: '两次输入的新密码不一致', icon: 'none' })
       return
     }
-    if (submitting) return
     setSubmitting(true)
     try {
-      await changePasswordApi({ oldPassword, newPassword })
-      // 服务端已撤销全部 refresh token —— 清除本地登录态并重新登录
-      await clearAllAuth()
-      useUserStore.getState().logout()
-      Taro.showToast({ title: '密码已修改', icon: 'success' })
-      setTimeout(() => {
-        Taro.reLaunch({ url: '/pages/login/index' })
-      }, 800)
+      if (hasPassword) {
+        await changePasswordApi({ oldPassword, newPassword })
+        // 服务端已撤销全部 refresh token —— 清除本地登录态并重新登录
+        await clearAllAuth()
+        useUserStore.getState().logout()
+        Taro.showToast({ title: '密码已修改', icon: 'success' })
+        setTimeout(() => {
+          Taro.reLaunch({ url: '/pages/login/index' })
+        }, 800)
+      } else {
+        // 微信账号：设置密码成功后保持登录（服务端保留当前会话）
+        await setPasswordApi({ newPassword })
+        const cur = useUserStore.getState().userInfo
+        if (cur) {
+          useUserStore.getState().setUserInfo({ ...cur, hasPassword: true })
+        }
+        setModal(null)
+        Taro.showToast({ title: '密码已设置', icon: 'success' })
+      }
     } catch (err: any) {
-      Taro.showToast({ title: err.message || '修改失败', icon: 'none' })
+      Taro.showToast({
+        title: err.message || (hasPassword ? '修改失败' : '设置失败'),
+        icon: 'none',
+      })
     } finally {
       setSubmitting(false)
     }
   }
 
-  // ── 微信绑定（TODO）─────────────────────────────────────
+  // ── 微信绑定 ─────────────────────────────────────────────
 
   const handleWechatBinding = () => {
-    Taro.showToast({ title: '微信绑定开发中', icon: 'none' })
+    void bindWechatAndRefresh()
   }
 
   return (
@@ -201,19 +211,23 @@ export default function ProfilePage() {
           </View>
         </View>
 
-        {/* 修改密码 */}
+        {/* 修改密码 / 设置密码（无密码账号走设置密码） */}
         <View className='profile-row' onClick={openPasswordModal}>
-          <Text className='profile-row__label'>修改密码</Text>
+          <Text className='profile-row__label'>
+            {hasPassword ? '修改密码' : '设置密码'}
+          </Text>
           <View className='profile-row__right'>
             <Icon name='qianjin' size={28} color={IconColors.secondary} />
           </View>
         </View>
 
-        {/* 微信绑定（TODO） */}
+        {/* 微信绑定（已绑定/前往绑定，两页共用 bindWechatAndRefresh） */}
         <View className='profile-row' onClick={handleWechatBinding}>
           <Text className='profile-row__label'>微信绑定</Text>
           <View className='profile-row__right'>
-            <Text className='profile-row__value'>未绑定</Text>
+            <Text className='profile-row__value'>
+              {userInfo?.wechatBound ? '已绑定' : '前往绑定→'}
+            </Text>
             <Icon name='qianjin' size={28} color={IconColors.secondary} />
           </View>
         </View>
@@ -300,14 +314,18 @@ export default function ProfilePage() {
 
             {modal === 'password' && (
               <>
-                <Text className='profile-modal__title'>修改密码</Text>
-                <Input
-                  className='profile-modal__input'
-                  password
-                  value={oldPassword}
-                  onInput={(e) => setOldPassword(e.detail.value)}
-                  placeholder='旧密码'
-                />
+                <Text className='profile-modal__title'>
+                  {hasPassword ? '修改密码' : '设置密码'}
+                </Text>
+                {hasPassword && (
+                  <Input
+                    className='profile-modal__input'
+                    password
+                    value={oldPassword}
+                    onInput={(e) => setOldPassword(e.detail.value)}
+                    placeholder='旧密码'
+                  />
+                )}
                 <Input
                   className='profile-modal__input'
                   password
@@ -322,9 +340,11 @@ export default function ProfilePage() {
                   onInput={(e) => setConfirmPassword(e.detail.value)}
                   placeholder='确认新密码'
                 />
-                <Text className='profile-modal__hint'>
-                  修改成功后需重新登录
-                </Text>
+                {hasPassword && (
+                  <Text className='profile-modal__hint'>
+                    修改成功后需重新登录
+                  </Text>
+                )}
                 <View className='profile-modal__actions'>
                   <View className='profile-modal__btn' onClick={closeModal}>
                     <Text>取消</Text>
@@ -333,7 +353,7 @@ export default function ProfilePage() {
                     className='profile-modal__btn profile-modal__btn--primary'
                     onClick={confirmPasswordChange}
                   >
-                    <Text>确定</Text>
+                    <Text>{submitting ? '提交中...' : '确定'}</Text>
                   </View>
                 </View>
               </>

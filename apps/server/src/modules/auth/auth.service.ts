@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
@@ -8,12 +10,14 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
-import { Op } from 'sequelize';
+import { Op, UniqueConstraintError } from 'sequelize';
 import { User } from '../user/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectModel(User)
     private userModel: typeof User,
@@ -62,12 +66,7 @@ export class AuthService {
     );
 
     return {
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar ?? null,
-      },
+      user: this.serializeUser(user),
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
     };
@@ -88,7 +87,14 @@ export class AuthService {
       throw new BadRequestException('用户不存在');
     }
 
-    const isMatch = await bcrypt.compare(data.password, user.password);
+    const pwd = user.password;
+
+    if (!pwd) {
+      // 微信一键注册的账号无密码，请走微信登录（或用设置密码补齐）
+      throw new BadRequestException('该账号未设置密码，请使用微信登录');
+    }
+
+    const isMatch = await bcrypt.compare(data.password, pwd);
 
     if (!isMatch) {
       throw new BadRequestException('密码错误');
@@ -106,15 +112,97 @@ export class AuthService {
     );
 
     return {
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar ?? null,
-      },
+      user: this.serializeUser(user),
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
     };
+  }
+
+  // ── 微信登录 / 绑定 ─────────────────────────────────────────
+
+  /**
+   * 微信一键登录：code2session 换 openid。已存在 → 直接登录；
+   * 不存在 → 自动建号（无邮箱/密码，可在个人页用「设置密码」补齐）。
+   */
+  async wechatLogin(data: {
+    code: string;
+    device_type?: string;
+    device_name?: string;
+    device_id?: string;
+  }) {
+    const { openid } = await this.code2session(data.code);
+
+    let user = await this.userModel.findOne({ where: { openid } });
+
+    if (!user) {
+      // username 无唯一约束，随机生成即可（无需重试）
+      const username = `微信用户${Math.floor(100000 + Math.random() * 900000)}`;
+      try {
+        user = await this.userModel.create({
+          username,
+          email: null,
+          password: null,
+          openid,
+        });
+      } catch (err) {
+        // 仅 openid 唯一冲突（并发首次登录撞号）才回退复用已建账号；
+        // email 等其他唯一冲突/未知错误原样抛出，绝不误判
+        if (!this.isOpenidUniqueViolation(err)) {
+          throw err;
+        }
+        user = await this.userModel.findOne({ where: { openid } });
+        if (!user) {
+          throw err;
+        }
+      }
+    }
+
+    const device_id = data.device_id || crypto.randomUUID();
+    const tokens = this.generateTokens(user.id, device_id);
+
+    await this.upsertRefreshToken(
+      user.id,
+      tokens.refresh_token,
+      device_id,
+      data.device_type,
+      data.device_name,
+    );
+
+    return {
+      user: this.serializeUser(user),
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+    };
+  }
+
+  /** 绑定微信：为当前账号写入 openid；该 openid 已被其他账号占用则拒绝 */
+  async wechatBind(user: User, code: string) {
+    const { openid } = await this.code2session(code);
+
+    // 幂等：已绑定同一微信
+    if (user.openid === openid) {
+      return { success: true, wechat_bound: true };
+    }
+    if (user.openid) {
+      throw new BadRequestException('当前账号已绑定其他微信账号');
+    }
+
+    const occupied = await this.userModel.findOne({ where: { openid } });
+    if (occupied) {
+      throw new BadRequestException('该微信已绑定其他账号');
+    }
+
+    try {
+      await user.update({ openid });
+    } catch (err) {
+      // 并发兜底：两账号同时绑同一微信 → unique 冲突
+      if (this.isOpenidUniqueViolation(err)) {
+        throw new BadRequestException('该微信已绑定其他账号');
+      }
+      throw err;
+    }
+
+    return { success: true, wechat_bound: true };
   }
 
   async refreshToken(rawRefreshToken: string) {
@@ -187,8 +275,8 @@ export class AuthService {
   }
 
   /**
-   * 修改密码：校验旧密码、禁止新旧相同，更新后撤销全部 refresh token
-   * （客户端需清除本地登录态并重新登录）。
+   * 修改密码：仅对已有密码的账号可用（校验旧密码、禁止新旧相同），
+   * 更新后撤销全部 refresh token（客户端需清除本地登录态并重新登录）。
    */
   async changePassword(
     userId: number,
@@ -200,12 +288,17 @@ export class AuthService {
       throw new BadRequestException('用户不存在');
     }
 
-    const isOldMatch = await bcrypt.compare(oldPassword, user.password);
+    const pwd = user.password;
+    if (!pwd) {
+      throw new BadRequestException('该账号未设置密码，请使用设置密码');
+    }
+
+    const isOldMatch = await bcrypt.compare(oldPassword, pwd);
     if (!isOldMatch) {
       throw new BadRequestException('旧密码错误');
     }
 
-    const isSameAsOld = await bcrypt.compare(newPassword, user.password);
+    const isSameAsOld = await bcrypt.compare(newPassword, pwd);
     if (isSameAsOld) {
       throw new BadRequestException('新密码不能与旧密码相同');
     }
@@ -215,6 +308,26 @@ export class AuthService {
 
     // 撤销全部设备的 refresh token，强制重新登录
     await this.revokeAllSessions(userId);
+
+    return { success: true };
+  }
+
+  /**
+   * 设置密码：仅对尚无密码的账号（如微信一键注册）可用，不校验旧密码。
+   * 成功后保留当前会话（用户正以微信登录态操作，无需强制重登）。
+   */
+  async setPassword(userId: number, newPassword: string) {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) {
+      throw new BadRequestException('用户不存在');
+    }
+
+    if (user.password) {
+      throw new BadRequestException('该账号已设置密码，请使用修改密码');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await user.update({ password: hashedPassword });
 
     return { success: true };
   }
@@ -242,6 +355,74 @@ export class AuthService {
   }
 
   // ── Private helpers ──────────────────────────────────────────
+
+  /** 用户序列化：登录/注册/档案统一对外结构（不暴露 openid） */
+  private serializeUser(user: User) {
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar ?? null,
+      wechat_bound: !!user.openid,
+      has_password: !!user.password,
+    };
+  }
+
+  /** 仅当唯一约束失败指向 openid 列时才返回 true（email 等其他冲突不误判） */
+  private isOpenidUniqueViolation(err: unknown): boolean {
+    if (!(err instanceof UniqueConstraintError)) return false;
+
+    const item = err.errors?.[0] as { path?: string } | undefined;
+    const fieldKey = err.fields ? Object.keys(err.fields)[0] : undefined;
+    if (item?.path === 'openid' || fieldKey === 'openid') return true;
+
+    // 兜底：原生 MySQL 错误消息含 openid 索引名（uni_users_openid / users_openid）
+    const sqlMessage = (err as any).original?.sqlMessage ?? '';
+    return /openid/i.test(sqlMessage);
+  }
+
+  /**
+   * 微信 code2session：错误细节只写服务端日志（[wechat] 前缀），
+   * 对外统一中文文案，不把 errcode/errmsg 原文暴露给客户端。
+   */
+  private async code2session(code: string): Promise<{ openid: string }> {
+    const appid = this.configService.get<string>('WECHAT_APPID');
+    const secret = this.configService.get<string>('WECHAT_SECRET');
+
+    if (!appid || !secret) {
+      this.logger.error(
+        '[wechat] code2session 未配置: 缺少 WECHAT_APPID/WECHAT_SECRET',
+      );
+      throw new ServiceUnavailableException('微信登录暂不可用，请稍后重试');
+    }
+
+    const url = new URL('https://api.weixin.qq.com/sns/jscode2session');
+    url.searchParams.set('appid', appid);
+    url.searchParams.set('secret', secret);
+    url.searchParams.set('js_code', code);
+    url.searchParams.set('grant_type', 'authorization_code');
+
+    let data: any;
+    try {
+      data = await (await fetch(url.toString())).json();
+    } catch (err) {
+      this.logger.error('[wechat] code2session 请求/解析异常', err);
+      throw new ServiceUnavailableException('微信登录暂不可用，请稍后重试');
+    }
+
+    if (data.errcode) {
+      this.logger.error(
+        `[wechat] code2session 失败: errcode=${data.errcode} errmsg=${data.errmsg}`,
+      );
+      throw new BadRequestException('微信登录失败，请稍后重试');
+    }
+    if (!data.openid) {
+      this.logger.error('[wechat] code2session 响应缺少 openid');
+      throw new ServiceUnavailableException('微信登录暂不可用，请稍后重试');
+    }
+
+    return { openid: data.openid as string };
+  }
 
   private generateTokens(userId: number, device_id: string) {
     const accessPayload = { id: userId, type: 'access' };

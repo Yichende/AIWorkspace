@@ -30,4 +30,14 @@ module.exports = {
     'prettier/prettier': 'warn',
     '@typescript-eslint/no-explicit-any': 'off',
   },
+
+  overrides: [
+    {
+      // sequelize-cli 运行时文件（config / migrations）为 CommonJS，须使用 require
+      files: ['database/**/*.js'],
+      rules: {
+        '@typescript-eslint/no-var-requires': 'off',
+      },
+    },
+  ],
 }

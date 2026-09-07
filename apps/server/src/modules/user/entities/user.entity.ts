@@ -21,18 +21,18 @@ export class User extends Model {
   @Column({
     type: DataType.STRING,
 
-    allowNull: false,
+    allowNull: true,
 
     unique: true,
   })
-  declare email: string;
+  declare email: string | null;
 
   @Column({
     type: DataType.STRING,
 
-    allowNull: false,
+    allowNull: true,
   })
-  declare password: string;
+  declare password: string | null;
 
   /** 头像相对路径（如 /uploads/avatar/xxx.jpg），无头像为 null */
   @Column({
@@ -41,6 +41,16 @@ export class User extends Model {
     allowNull: true,
   })
   declare avatar: string | null;
+
+  /** 微信 openid（由迁移 20260907000000 落地），微信登录/绑定后写入 */
+  @Column({
+    type: DataType.STRING(64),
+
+    allowNull: true,
+
+    unique: true,
+  })
+  declare openid: string | null;
 
   @HasMany(() => RefreshToken)
   declare refresh_tokens: RefreshToken[];

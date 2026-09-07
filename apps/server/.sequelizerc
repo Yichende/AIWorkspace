@@ -1,0 +1,6 @@
+// sequelize-cli 配置（Model - Migration - Database）：
+// config 与 migrations 放在 src 之外，避免干扰 nest build / nodemon watch。
+module.exports = {
+  config: './database/config.js',
+  'migrations-path': './database/migrations',
+};
