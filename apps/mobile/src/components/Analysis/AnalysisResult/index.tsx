@@ -28,7 +28,7 @@ export default function AnalysisResult({ charts, tables, result }: Props) {
       {/* Markdown 正文 */}
       {hasContent && (
         <View className='result-step__content'>
-          <Text className='result-step__section-title'>📝 分析报告</Text>
+          <Text className='result-step__section-title'>分析报告</Text>
           <View className='result-step__markdown'>
             <MarkdownBlock content={result.content} />
           </View>

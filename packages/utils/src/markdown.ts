@@ -13,21 +13,6 @@ const md = new MarkdownIt({
 })
 
 /**
- * Render Markdown text to an HTML string.
- *
- * Use on the **server** (e.g. include in API responses) or on
- * **H5** (pass to `dangerouslySetInnerHTML` / Taro `RichText`
- * with `type="html"`).
- *
- * ⚠ On WeChat Mini Programs the native `<rich-text>` component
- * only accepts a nodes array — prefer {@link parseMarkdownTokens}
- * and render with native Taro components there.
- */
-export function renderMarkdown(text: string): string {
-  return md.render(text)
-}
-
-/**
  * Parse Markdown text into a Token AST.
  *
  * Each token describes a block or inline element (heading,

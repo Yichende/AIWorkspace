@@ -3,6 +3,8 @@ import type { CreateSessionParams, CreateMessageParams, UpdateMessageParams, Upd
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
 import { getToken, getRefreshToken, setToken, setRefreshToken } from '@/utils/auth'
 import { isTokenExpiringSoon } from '@/utils/token-check'
+import { SseFrameReader } from '@/utils/sse'
+import type { SseFrame } from '@/utils/sse'
 import { useUserStore } from '@/stores/user.store'
 import request from './request'
 
@@ -152,7 +154,10 @@ export const chatApi = {
       }
     }
 
-    let buffer = ''
+    // 共享收流骨架：增量 UTF-8 解码（跨 chunk 字节残留）+ \n\n 拆帧留尾 + 分发完整帧
+    const reader = new SseFrameReader((frame) => {
+      chatApi._dispatchFrame(frame, callbacks)
+    })
 
     const requestTask = Taro.request({
       url: reqUrl,
@@ -167,10 +172,8 @@ export const chatApi = {
       responseType: 'arraybuffer',
       enableHttp2: false,
       success: () => {
-        // Stream complete — process any remaining buffer
-        if (buffer.trim()) {
-          chatApi._processBuffer(buffer, callbacks)
-        }
+        // Stream complete — flush decode tail + any unterminated final frame
+        reader.end()
       },
       fail: (err) => {
         callbacks.onError?.(err.errMsg || 'Stream request failed')
@@ -179,18 +182,7 @@ export const chatApi = {
 
     // WeChat Mini Program chunk listener
     ;(requestTask as any).onChunkReceived?.((res: { data: ArrayBuffer }) => {
-      const text = chatApi._arrayBufferToString(res.data)
-      buffer += text
-
-      // Split on double newline (SSE message boundary)
-      const parts = buffer.split('\n\n')
-      // Last part may be incomplete — keep in buffer
-      buffer = parts.pop() || ''
-
-      for (const part of parts) {
-        if (!part.trim()) continue
-        chatApi._processSSEMessage(part, callbacks)
-      }
+      reader.feed(res.data)
     })
 
     // 同步把 RequestTask 交给调用方（用于 abort 中断）
@@ -202,80 +194,24 @@ export const chatApi = {
 
   // ── Internal helpers ─────────────────────────────────────
 
-  /** Process a single SSE message (event + data lines) */
-  _processSSEMessage(raw: string, cb: StreamCallbacks): void {
-    let eventType = ''
-    let data = ''
-
-    const lines = raw.split('\n')
-    for (const line of lines) {
-      if (line.startsWith('event: ')) {
-        eventType = line.slice(7).trim()
-      } else if (line.startsWith('data: ')) {
-        // Preserve newlines between consecutive data lines
-        if (data) data += '\n'
-        data += line.slice(6)
-      }
-    }
-
-    switch (eventType) {
+  /** SSE 帧分发（业务事件表；未知事件兜底为 content）—— 解码/拆帧在 utils/sse.ts */
+  _dispatchFrame(frame: SseFrame, cb: StreamCallbacks): void {
+    switch (frame.event) {
       case 'thinking':
-        cb.onThinking?.(data)
+        cb.onThinking?.(frame.data)
         break
       case 'content':
-        cb.onContent?.(data)
+        cb.onContent?.(frame.data)
         break
       case 'done':
-        cb.onDone?.(data)
+        cb.onDone?.(frame.data)
         break
       case 'error':
-        cb.onError?.(data)
+        cb.onError?.(frame.data)
         break
       default:
-        // Unknown event — treat as content
-        if (data) cb.onContent?.(data)
+        // Unknown event (or event-less frame) — treat as content
+        if (frame.data) cb.onContent?.(frame.data)
     }
-  },
-
-  /** Process remaining buffer after stream ends */
-  _processBuffer(raw: string, cb: StreamCallbacks): void {
-    chatApi._processSSEMessage(raw, cb)
-  },
-
-  /** Convert ArrayBuffer to UTF-8 string (no TextDecoder in WeChat) */
-  _arrayBufferToString(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer)
-    let result = ''
-    let i = 0
-    while (i < bytes.length) {
-      const byte = bytes[i++]
-      if (byte < 0x80) {
-        result += String.fromCharCode(byte)
-      } else if (byte >= 0xC0 && byte < 0xE0) {
-        const byte2 = bytes[i++]
-        result += String.fromCharCode(((byte & 0x1F) << 6) | (byte2 & 0x3F))
-      } else if (byte >= 0xE0 && byte < 0xF0) {
-        const byte2 = bytes[i++]
-        const byte3 = bytes[i++]
-        result += String.fromCharCode(
-          ((byte & 0x0F) << 12) | ((byte2 & 0x3F) << 6) | (byte3 & 0x3F),
-        )
-      } else if (byte >= 0xF0) {
-        // 4-byte UTF-8 (surrogate pair)
-        const byte2 = bytes[i++]
-        const byte3 = bytes[i++]
-        const byte4 = bytes[i++]
-        const cp =
-          ((byte & 0x07) << 18) |
-          ((byte2 & 0x3F) << 12) |
-          ((byte3 & 0x3F) << 6) |
-          (byte4 & 0x3F)
-        result += String.fromCharCode(
-          0xD800 + ((cp - 0x10000) >> 10),
-          0xDC00 + ((cp - 0x10000) & 0x3FF),
-        )
-      }
-    }
-    return result
   },
 }

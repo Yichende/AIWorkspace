@@ -12,6 +12,8 @@ import type {
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
 import { getToken, getRefreshToken, setToken, setRefreshToken } from '@/utils/auth'
 import { isTokenExpiringSoon } from '@/utils/token-check'
+import { SseFrameReader } from '@/utils/sse'
+import type { SseFrame } from '@/utils/sse'
 import { useUserStore } from '@/stores/user.store'
 import request from './request'
 
@@ -163,7 +165,10 @@ export const analysisApi = {
       }
     }
 
-    let buffer = ''
+    // 共享收流骨架：增量 UTF-8 解码（跨 chunk 字节残留）+ \n\n 拆帧留尾 + 分发完整帧
+    const reader = new SseFrameReader((frame) => {
+      analysisApi._dispatchFrame(frame, callbacks)
+    })
 
     const requestTask = Taro.request({
       url: reqUrl,
@@ -176,9 +181,8 @@ export const analysisApi = {
       responseType: 'arraybuffer',
       enableHttp2: false,
       success: () => {
-        if (buffer.trim()) {
-          analysisApi._processBuffer(buffer, callbacks)
-        }
+        // Stream complete — flush decode tail + any unterminated final frame
+        reader.end()
       },
       fail: (err) => {
         callbacks.onError?.(err.errMsg || 'Stream request failed')
@@ -187,16 +191,7 @@ export const analysisApi = {
 
     // WeChat Mini Program chunk listener
     ;(requestTask as any).onChunkReceived?.((res: { data: ArrayBuffer }) => {
-      const text = analysisApi._arrayBufferToString(res.data)
-      buffer += text
-
-      const parts = buffer.split('\n\n')
-      buffer = parts.pop() || ''
-
-      for (const part of parts) {
-        if (!part.trim()) continue
-        analysisApi._processSSEMessage(part, callbacks)
-      }
+      reader.feed(res.data)
     })
 
     return Promise.resolve(requestTask)
@@ -252,44 +247,32 @@ export const analysisApi = {
     })
   },
 
-  // ── Internal SSE helpers (same as chat.api.ts) ──────────────
+  // ── Internal helper ───────────────────────────────────────
 
-  _processSSEMessage(raw: string, cb: AnalysisStreamCallbacks): void {
-    let eventType = ''
-    let data = ''
-
-    const lines = raw.split('\n')
-    for (const line of lines) {
-      if (line.startsWith('event: ')) {
-        eventType = line.slice(7).trim()
-      } else if (line.startsWith('data: ')) {
-        if (data) data += '\n'
-        data += line.slice(6)
-      }
-    }
-
-    switch (eventType) {
+  /** SSE 帧分发（业务事件表；JSON 事件容错解析）—— 解码/拆帧在 utils/sse.ts */
+  _dispatchFrame(frame: SseFrame, cb: AnalysisStreamCallbacks): void {
+    switch (frame.event) {
       case 'thinking':
-        cb.onThinking?.(data)
+        cb.onThinking?.(frame.data)
         break
       // 规范化四事件：summary / insights / report / chart
       case 'summary':
-        cb.onSummary?.(data)
+        cb.onSummary?.(frame.data)
         break
       case 'insights':
         try {
-          const parsed = JSON.parse(data)
+          const parsed = JSON.parse(frame.data)
           cb.onInsights?.(parsed.items ?? [])
         } catch {
           // ignore
         }
         break
       case 'report':
-        cb.onReport?.(data)
+        cb.onReport?.(frame.data)
         break
       case 'chart':
         try {
-          const parsed = JSON.parse(data)
+          const parsed = JSON.parse(frame.data)
           if (parsed.chart) cb.onChart?.(parsed.chart)
         } catch {
           // ignore
@@ -297,7 +280,7 @@ export const analysisApi = {
         break
       case 'table':
         try {
-          const parsed = JSON.parse(data)
+          const parsed = JSON.parse(frame.data)
           if (parsed.table) cb.onTable?.(parsed.table)
         } catch {
           // ignore
@@ -305,7 +288,7 @@ export const analysisApi = {
         break
       case 'progress': {
         try {
-          const parsed = JSON.parse(data)
+          const parsed = JSON.parse(frame.data)
           cb.onProgress?.(parsed.stage ?? '', parsed.percent ?? 0)
         } catch {
           // ignore
@@ -314,54 +297,15 @@ export const analysisApi = {
       }
       case 'complete':
         try {
-          const result = JSON.parse(data) as AnalysisResult
+          const result = JSON.parse(frame.data) as AnalysisResult
           cb.onComplete?.(result)
         } catch {
-          cb.onComplete?.({ summary: '', content: data, charts: [], tables: [], insights: [] })
+          cb.onComplete?.({ summary: '', content: frame.data, charts: [], tables: [], insights: [] })
         }
         break
       case 'error':
-        cb.onError?.(data)
+        cb.onError?.(frame.data)
         break
     }
-  },
-
-  _processBuffer(raw: string, cb: AnalysisStreamCallbacks): void {
-    analysisApi._processSSEMessage(raw, cb)
-  },
-
-  _arrayBufferToString(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer)
-    let result = ''
-    let i = 0
-    while (i < bytes.length) {
-      const byte = bytes[i++]
-      if (byte < 0x80) {
-        result += String.fromCharCode(byte)
-      } else if (byte >= 0xc0 && byte < 0xe0) {
-        const byte2 = bytes[i++]
-        result += String.fromCharCode(((byte & 0x1f) << 6) | (byte2 & 0x3f))
-      } else if (byte >= 0xe0 && byte < 0xf0) {
-        const byte2 = bytes[i++]
-        const byte3 = bytes[i++]
-        result += String.fromCharCode(
-          ((byte & 0x0f) << 12) | ((byte2 & 0x3f) << 6) | (byte3 & 0x3f),
-        )
-      } else if (byte >= 0xf0) {
-        const byte2 = bytes[i++]
-        const byte3 = bytes[i++]
-        const byte4 = bytes[i++]
-        const cp =
-          ((byte & 0x07) << 18) |
-          ((byte2 & 0x3f) << 12) |
-          ((byte3 & 0x3f) << 6) |
-          (byte4 & 0x3f)
-        result += String.fromCharCode(
-          0xd800 + ((cp - 0x10000) >> 10),
-          0xdc00 + ((cp - 0x10000) & 0x3ff),
-        )
-      }
-    }
-    return result
   },
 }

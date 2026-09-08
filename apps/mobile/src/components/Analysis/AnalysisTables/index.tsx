@@ -27,7 +27,7 @@ export default function AnalysisTables({ tables }: Props) {
   if (!tables || tables.length === 0) return null
   return (
     <View className='analysis-tables'>
-      <Text className='analysis-tables__section-title'>📋 数据表格</Text>
+      <Text className='analysis-tables__section-title'>数据表格</Text>
       {tables.map((table) => (
         <View key={table.id} className='analysis-tables__wrap'>
           <TableBlock config={table} />

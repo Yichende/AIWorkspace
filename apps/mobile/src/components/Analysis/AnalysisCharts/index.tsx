@@ -25,7 +25,7 @@ export default function AnalysisCharts({ charts }: Props) {
   if (!charts || charts.length === 0) return null
   return (
     <View className='analysis-charts'>
-      <Text className='analysis-charts__title'>📊 分析图表</Text>
+      <Text className='analysis-charts__title'>分析图表</Text>
       {charts.map((chart) => (
         <View key={chart.id} className='analysis-charts__wrap'>
           <ChartBlock config={chart} />

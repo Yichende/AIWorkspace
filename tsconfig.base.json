@@ -17,12 +17,8 @@
       "@repo/types/*": ["packages/types/src/*"],
       "@repo/utils": ["packages/utils/src"],
       "@repo/utils/*": ["packages/utils/src/*"],
-      "@repo/ai": ["packages/ai/src"],
-      "@repo/ai/*": ["packages/ai/src/*"],
       "@repo/analysis-parser": ["packages/analysis-parser/src"],
-      "@repo/analysis-parser/*": ["packages/analysis-parser/src/*"],
-      "@repo/charts": ["packages/charts/src"],
-      "@repo/charts/*": ["packages/charts/src/*"]
+      "@repo/analysis-parser/*": ["packages/analysis-parser/src/*"]
     }
   }
 }
