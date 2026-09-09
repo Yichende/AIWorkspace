@@ -4,4 +4,8 @@ export class UpdateSessionDto {
   @IsString()
   @IsOptional()
   title?: string;
+
+  @IsString()
+  @IsOptional()
+  model?: string;
 }

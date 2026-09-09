@@ -100,8 +100,19 @@ async function syncSessionsFromAPI(): Promise<void> {
   const store = useChatStore.getState()
   try {
     const { items, total } = await chatApi.listSessions(1, DEFAULT_PAGE_SIZE)
-    store.setSessionsIndex(items, 1, items.length < total)
-    chatStorage.setSessionsIndex(items)
+    // 合并而非整表覆盖：本地索引是每次变更即时持久化的（含会话中途切换的
+    // 模型），以本地为准，避免服务端旧快照（创建时模型）把历史模型覆盖回
+    // 旧值；服务端条目用于字段补全与远端新建会话的补充。
+    const localById = new Map(store.sessionsIndex.map((s) => [s.id, s]))
+    const serverIds = new Set(items.map((s) => s.id))
+    const merged = [
+      ...items.map((item) =>
+        localById.has(item.id) ? { ...item, ...localById.get(item.id) } : item,
+      ),
+      ...store.sessionsIndex.filter((s) => !serverIds.has(s.id)),
+    ].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+    store.setSessionsIndex(merged, 1, merged.length < total)
+    chatStorage.setSessionsIndex(merged)
   } catch {
     // Silently fail — local cache is already displayed
   }
@@ -211,10 +222,17 @@ export function useChatController() {
         s.id === state.currentSessionId ? { ...s, model } : s,
       )
       chatStorage.setSessionsIndex(updatedIndex)
-      // Async sync to server
+      // Async sync to server：model 一并同步（服务端会话 model 默认冻结在
+      // 创建时，不同步的话重启后 syncSessionsFromAPI 会把历史里的模型
+      // 覆盖回旧值）
       chatApi
-        .updateSession(state.currentSessionId, { title: state.currentSessionMeta.title })
-        .catch((err) => console.warn('[chat] Failed to sync model switch:', err))
+        .updateSession(state.currentSessionId, {
+          title: state.currentSessionMeta.title,
+          model,
+        })
+        .catch((err) =>
+          console.warn('[chat] Failed to sync model switch:', err),
+        )
     } else {
       // No current session — create one
       newChat(model)
@@ -811,9 +829,11 @@ export function useChatController() {
     // 5. 异步 API 删除（静默失败）
     Promise.all(
       ids.map((id) =>
-        chatApi.deleteSession(id).catch((err) =>
-          console.warn('[chat] Failed to batch sync delete:', id, err),
-        ),
+        chatApi
+          .deleteSession(id)
+          .catch((err) =>
+            console.warn('[chat] Failed to batch sync delete:', id, err),
+          ),
       ),
     )
   }

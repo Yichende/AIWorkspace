@@ -238,6 +238,10 @@ export default function ChatPage() {
     (m) => m.status === 'streaming' || m.status === 'sending',
   )
 
+  // 当前会话实际使用的模型展示名（输入框提示行、自定义模型显示中文名等）
+  const currentModelName =
+    models.find((m) => m.id === currentModel)?.displayName || currentModel
+
   // Dynamic scrollTop: increment tick on content growth during streaming
   const prevFingerprintRef = useRef(contentFingerprint)
   const lastScrollTickRef = useRef(Date.now())
@@ -324,6 +328,7 @@ export default function ChatPage() {
           onSend={handleSend}
           streaming={isStreaming}
           onStop={handleStop}
+          modelName={currentModelName}
         />
       </View>
 

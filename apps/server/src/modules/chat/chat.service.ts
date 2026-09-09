@@ -123,7 +123,7 @@ export class ChatService {
   async updateSession(
     userId: number,
     sessionId: string,
-    dto: { title?: string },
+    dto: { title?: string; model?: string },
   ) {
     const session = await this.sessionModel.findByPk(sessionId);
     if (!session) {
@@ -135,6 +135,9 @@ export class ChatService {
 
     const updateData: any = {};
     if (dto.title !== undefined) updateData.title = dto.title;
+    // 会话中途切换模型时同步到服务端，避免重启后服务端索引
+    // （仍为创建时模型）覆盖本地已切换的模型
+    if (dto.model !== undefined) updateData.model = dto.model;
 
     await session.update(updateData);
     return session;

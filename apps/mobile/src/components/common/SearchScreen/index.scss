@@ -9,7 +9,7 @@
   background: $bg-page;
 }
 
-/* 搜索栏 */
+/* 搜索输入栏（位于 AppHeader 导航栏下方，与胶囊区域无交集） */
 .search-bar {
   flex-shrink: 0;
 
@@ -17,22 +17,9 @@
   align-items: center;
   gap: 20rpx;
 
-  padding: 0 32rpx;
-  padding-top: calc(90rpx + env(safe-area-inset-top));
-  padding-bottom: 20rpx;
+  padding: 0 32rpx 20rpx;
 
   background: $bg-page;
-}
-
-.search-back {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  width: 72rpx;
-  height: 72rpx;
-
-  flex-shrink: 0;
 }
 
 .search-input-wrapper {
@@ -183,7 +170,9 @@
 }
 
 @keyframes search-dot-bounce {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: scale(0.6);
   }
   40% {

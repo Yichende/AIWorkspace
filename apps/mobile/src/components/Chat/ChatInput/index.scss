@@ -6,10 +6,7 @@
  */
 
 .chat-input-container {
-  padding:
-    16rpx
-    32rpx
-    calc(env(safe-area-inset-bottom) + 16rpx);
+  padding: 16rpx 32rpx calc(env(safe-area-inset-bottom) + 16rpx);
 
   background: $bg-page;
 }
@@ -65,7 +62,7 @@
   transition: $transition-fast;
 
   &:active {
-    transform: scale(.95);
+    transform: scale(0.95);
   }
 }
 
@@ -118,7 +115,7 @@
   transition: $transition-fast;
 
   &:active {
-    transform: scale(.95);
+    transform: scale(0.95);
   }
 }
 
@@ -158,4 +155,21 @@
   background: var(--tint-green-25);
 
   box-shadow: none;
+}
+
+/* =========================
+ * 输入框下方模型提示行
+ * =========================
+ */
+
+.chat-input__model-hint {
+  margin-top: 10rpx;
+
+  text-align: center;
+
+  font-size: 22rpx;
+
+  color: $text-secondary;
+
+  opacity: 0.85;
 }

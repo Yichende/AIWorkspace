@@ -99,7 +99,7 @@ export default function AnalysisPreview({
       {/* 操作按钮 */}
       <View className='preview-step__actions'>
         <View className='preview-step__btn' onClick={onContinue}>
-          <Text>继续分析 →</Text>
+          <Text>继续分析</Text>
         </View>
       </View>
     </View>

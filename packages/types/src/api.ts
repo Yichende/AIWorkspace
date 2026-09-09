@@ -55,6 +55,8 @@ export interface QueryMessagesParams {
 
 export interface UpdateSessionParams {
   title?: string
+  /** 会话中途切换模型时同步（服务端会话 model 默认冻结在创建时） */
+  model?: string
 }
 
 // ── Custom User Model types ───────────────────────────────────

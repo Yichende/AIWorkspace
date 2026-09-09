@@ -1,6 +1,6 @@
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Icon } from '@my/ui'
+import { AppHeader, Icon } from '@my/ui'
 import { IconColors } from '@/styles/theme'
 import type { ReactNode } from 'react'
 import { useSettingsStore } from '@/stores/settings.store'
@@ -160,12 +160,11 @@ function SearchScreen<T>({
 
   return (
     <View className={`search-screen page-root theme-${theme}`}>
-      {/* 搜索栏 */}
-      <View className='search-bar'>
-        <View className='search-back' onClick={onBack}>
-          <Icon name='fanhui' size={44} color={IconColors.accent} />
-        </View>
+      {/* 顶部导航（与全站 AppHeader 一致：返回键命中可靠，标题行位于胶囊下方） */}
+      <AppHeader title='搜索' onBack={onBack} />
 
+      {/* 搜索输入栏（位于导航栏下方，完全避开右上角胶囊区域） */}
+      <View className='search-bar'>
         <View className='search-input-wrapper'>
           <Icon name='sousuo' size={34} color={IconColors.secondary} />
           <Input
