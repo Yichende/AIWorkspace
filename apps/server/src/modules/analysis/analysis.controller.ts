@@ -55,10 +55,19 @@ export class AnalysisController {
   async uploadFile(
     @CurrentUser() user: User,
     @UploadedFile() file: UploadedFile,
+    @Body('originalName') originalName?: string,
   ) {
     if (!file) {
       throw new Error('请选择文件');
     }
+
+    // 原始文件名：小程序 uploadFile 的 multipart filename 是临时路径 basename
+    // （内容哈希命名），真名由客户端经 formData.originalName 显式携带；
+    // 缺省回退 multipart 的 originalname，并统一做安全清洗。
+    const rawName = (originalName || file.originalname || '').trim();
+    const displayName = this.sanitizeFileName(rawName);
+    const fallbackName =
+      displayName || this.sanitizeFileName(file.originalname) || '未命名文件';
 
     // 验证文件类型
     const ext = path.extname(file.originalname).toLowerCase();
@@ -76,20 +85,20 @@ export class AnalysisController {
     }
 
     try {
-      // SheetJS 解析
+      // SheetJS 解析：格式识别用真实上传文件名（保证扩展名正确）
       const dataset = this.parseFile(file.path, file.originalname);
 
       // 保存文件记录（临时，24h 过期）
       const fileRecord = await this.analysisService.saveFileRecord(
         null, // 暂不关联 session（create 时再关联）
-        file.originalname,
+        fallbackName,
         file.path,
         file.size,
       );
 
       return {
         fileId: String(fileRecord.id),
-        fileName: file.originalname.slice(0, 255),
+        fileName: fallbackName,
         dataset,
       };
     } catch (err: any) {
@@ -252,6 +261,18 @@ export class AnalysisController {
   }
 
   // ── Private Helpers ─────────────────────────────────────────
+
+  /**
+   * 文件名清洗：去路径分隔符/控制字符、折叠空白、截断 255（DB 列宽）。
+   * 展示名可能来自客户端表单（formData.originalName），必须防御路径穿越。
+   */
+  private sanitizeFileName(name: string): string {
+    return name
+      .replace(/[\\/:*?"<>|\r\n\t]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 255);
+  }
 
   private parseFile(filePath: string, fileName: string): DatasetSummary {
     const ext = path.extname(fileName).toLowerCase();

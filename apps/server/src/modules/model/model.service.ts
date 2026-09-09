@@ -238,17 +238,31 @@ export class UserModelService {
   // ── Model Testing ───────────────────────────────────────────
 
   /** Test a model connection by sending a minimal chat request */
-  async testModel(
-    _userId: number,
-    dto: TestModelDto,
-  ): Promise<ModelTestResult> {
+  async testModel(userId: number, dto: TestModelDto): Promise<ModelTestResult> {
     const startTime = Date.now();
+
+    // 编辑态测试：表单未填 key 且携带 modelId → 回退使用该模型存库的解密 key。
+    // 服务端按设计不回传 key（编辑页无法预填），若留空直接测试将发出无鉴权
+    // 请求导致必然失败（如 DeepSeek 401 Authentication Fails）。
+    // 其余场景（新建未保存/已填 key/自定义临时配置）不受影响。
+    let apiKey = dto.apiKey;
+    if (!apiKey && dto.modelId) {
+      const stored = await this.findById(userId, dto.modelId);
+      apiKey = this.decrypt(stored.encryptedApiKey);
+      if (!apiKey) {
+        return {
+          available: false,
+          latency: Date.now() - startTime,
+          error: '该模型未保存有效 API Key，请在 API Key 输入框中填写后再测试',
+        };
+      }
+    }
 
     try {
       const provider = this.providerFactory.getProvider(dto.protocolType);
       const generator = provider.streamChat([{ role: 'user', content: 'Hi' }], {
         apiModelName: dto.apiModelName,
-        apiKey: dto.apiKey,
+        apiKey,
         apiBaseUrl: dto.apiBaseUrl,
       });
 
@@ -349,6 +363,8 @@ export class UserModelService {
       notes: model.notes ?? undefined,
       isActive: model.isActive,
       createdAt: model.created_at?.getTime?.() ?? Date.now(),
+      // 仅告知是否存在 key（用于编辑页占位提示），绝不回传 key 本身
+      hasApiKey: !!model.encryptedApiKey,
     };
   }
 

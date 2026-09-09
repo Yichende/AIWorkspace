@@ -330,10 +330,19 @@ export class AnalysisQueueService {
           yield { type: 'insights', items: event.items };
           break;
         case 'report':
-        case 'text': // 兼容旧协议：text 归入报告正文
-          state.cleanContent += event.content;
-          yield { type: 'report', delta: event.content };
+        case 'text': {
+          // 兼容旧协议：text 归入报告正文。章节间确保以空行分隔——
+          // 模型各章节 content 常以 \n 结尾或首尾不带空行，粘连会破坏
+          // Markdown "## 标题" 渲染。流式 delta 与持久化正文用同一拼接
+          // 结果，保证两种视图文本一致。
+          const section = this.withSectionBreak(
+            state.cleanContent,
+            event.content,
+          );
+          state.cleanContent += section;
+          yield { type: 'report', delta: section };
           break;
+        }
         case 'chart': {
           // 解析器产出的 payload 不保证带 id（模型通常不输出），补唯一 id：
           // 保证流式渲染 React key 唯一，且 setComplete mergeById 能正确去重，
@@ -359,6 +368,15 @@ export class AnalysisQueueService {
         }
       }
     }
+  }
+
+  /**
+   * 章节正文拼接：前文非空且未以换行结尾时补 '\n\n' 空行，
+   * 保证各 report 章节在 Markdown 中被正确分隔（"## 标题" 可渲染）。
+   */
+  private withSectionBreak(prev: string, content: string): string {
+    if (prev && !/(\n\s*)$/.test(prev)) return `\n\n${content}`;
+    return content;
   }
 
   // ── Data Profiler ─────────────────────────────────────────

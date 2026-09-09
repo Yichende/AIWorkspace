@@ -1,4 +1,10 @@
-import type { ChatMessage, MessageBlock, MessageRole, MessageStatus, SessionIndexItem } from './chat'
+import type {
+  ChatMessage,
+  MessageBlock,
+  MessageRole,
+  MessageStatus,
+  SessionIndexItem,
+} from './chat'
 import type { ProtocolType, ModelListItem } from './model'
 
 // ── Response types ────────────────────────────────────────────
@@ -75,6 +81,8 @@ export interface UserModelResponse {
   notes?: string
   isActive: boolean
   createdAt: number
+  /** 是否已保存 API Key（仅布尔，绝不回传 key 本身） */
+  hasApiKey?: boolean
 }
 
 export interface UpdateUserModelRequest {
@@ -92,6 +100,8 @@ export interface ModelTestRequest {
   apiModelName: string
   apiKey?: string
   apiBaseUrl?: string
+  /** 编辑态测试：留空 apiKey 时携带 modelId，服务端回退使用存库 key */
+  modelId?: string
 }
 
 export interface ModelTestResult {

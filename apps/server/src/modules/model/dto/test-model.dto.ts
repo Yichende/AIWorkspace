@@ -16,4 +16,8 @@ export class TestModelDto implements ModelTestRequest {
   @IsString()
   @IsOptional()
   apiBaseUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  modelId?: string;
 }

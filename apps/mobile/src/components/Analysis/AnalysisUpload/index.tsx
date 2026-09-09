@@ -6,6 +6,7 @@ import { IconColors } from '@/styles/theme'
 import { analysisApi } from '@/services/analysis.api'
 import { modelApi } from '@/services/model.api'
 import { useUserStore } from '@/stores/user.store'
+import { useSettingsStore } from '@/stores/settings.store'
 import ModelSwitcher from '@/components/common/ModelSwitcher'
 import { AI_MODELS } from '@repo/types'
 import type { DatasetSummary, ModelListItem } from '@repo/types'
@@ -24,7 +25,11 @@ interface Props {
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_EXTS = ['.xlsx', '.xls', '.csv']
 
-export default function AnalysisUpload({ model, onModelChange, onUploaded }: Props) {
+export default function AnalysisUpload({
+  model,
+  onModelChange,
+  onUploaded,
+}: Props) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
@@ -49,12 +54,20 @@ export default function AnalysisUpload({ model, onModelChange, onUploaded }: Pro
       const res = await modelApi.listModels()
       if (res.models?.length > 0) {
         setModels(res.models)
+        // 对齐 ModelPage/UserPage/ChatPage：默认模型失效（如换号后残留上一账号
+        // 的自定义模型 ID）则回退系统默认并更新 storage
+        useSettingsStore.getState().ensureDefaultModelValid(res.models)
+        // 当前分析流程选中的模型不在列表中（模型被删/属于上一账号）→
+        // 回退到已校正的默认模型，避免「切换模型」显示裸 ID、直接分析报模型不存在
+        if (!res.models.some((m) => m.id === model)) {
+          onModelChange(useSettingsStore.getState().defaultModel)
+        }
       }
     } catch (err) {
       // Keep current models (builtin fallback) on error
       console.warn('[AnalysisUpload] Failed to fetch models:', err)
     }
-  }, [])
+  }, [model, onModelChange])
 
   useEffect(() => {
     if (authReady) {
@@ -120,7 +133,9 @@ export default function AnalysisUpload({ model, onModelChange, onUploaded }: Pro
       // 上传
       setUploading(true)
       try {
-        const result = await analysisApi.upload(file.path, file.name)
+        // file.name 为 chooseMessageFile 返回的原始文件名（哈希串仅存在于
+        // 临时路径），显式传给服务端用于落库/展示
+        const result = await analysisApi.upload(file.path, file.name, file.name)
         onUploaded(
           { name: file.name, size: file.size },
           result.fileId,
@@ -173,7 +188,9 @@ export default function AnalysisUpload({ model, onModelChange, onUploaded }: Pro
               className='upload-step__icon'
             />
             <Text className='upload-step__cta'>点击选择文件</Text>
-            <Text className='upload-step__hint'>从聊天记录中选择 Excel 或 CSV 文件</Text>
+            <Text className='upload-step__hint'>
+              从聊天记录中选择 Excel 或 CSV 文件
+            </Text>
           </>
         )}
       </View>

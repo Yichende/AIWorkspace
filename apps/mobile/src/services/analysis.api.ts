@@ -10,7 +10,12 @@ import type {
   TableConfig,
 } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
-import { getToken, getRefreshToken, setToken, setRefreshToken } from '@/utils/auth'
+import {
+  getToken,
+  getRefreshToken,
+  setToken,
+  setRefreshToken,
+} from '@/utils/auth'
 import { isTokenExpiringSoon } from '@/utils/token-check'
 import { SseFrameReader } from '@/utils/sse'
 import type { SseFrame } from '@/utils/sse'
@@ -43,10 +48,14 @@ export interface AnalysisStreamCallbacks {
 export const analysisApi = {
   /**
    * 上传文件 → 服务端解析 → 返回 DatasetSummary
+   * @param originalName 原始文件名：小程序 uploadFile 的 multipart filename 是
+   * 临时路径 basename（内容哈希命名），真名需经 formData 显式携带，
+   * 否则服务端落库/展示的都是哈希串。
    */
   async upload(
     filePath: string,
     fileName: string,
+    originalName?: string,
   ): Promise<UploadFileResponse> {
     let token: string | null =
       useUserStore.getState().token || (await getToken())
@@ -66,10 +75,7 @@ export const analysisApi = {
             header: { 'Content-Type': 'application/json' },
           })
 
-          if (
-            refreshRes.statusCode >= 200 &&
-            refreshRes.statusCode < 300
-          ) {
+          if (refreshRes.statusCode >= 200 && refreshRes.statusCode < 300) {
             const { access_token, refresh_token } = refreshRes.data
             await setToken(access_token)
             await setRefreshToken(refresh_token)
@@ -88,6 +94,8 @@ export const analysisApi = {
         url: `${BASE_URL}/analysis/upload`,
         filePath,
         name: 'file',
+        // 显式携带原始文件名（微信 multipart 的 filename 无法自定义）
+        ...(originalName ? { formData: { originalName } } : {}),
         header: {
           Authorization: token ? `Bearer ${token}` : '',
         },
@@ -148,10 +156,7 @@ export const analysisApi = {
             header: { 'Content-Type': 'application/json' },
           })
 
-          if (
-            refreshRes.statusCode >= 200 &&
-            refreshRes.statusCode < 300
-          ) {
+          if (refreshRes.statusCode >= 200 && refreshRes.statusCode < 300) {
             const { access_token, refresh_token } = refreshRes.data
             await setToken(access_token)
             await setRefreshToken(refresh_token)
@@ -300,7 +305,13 @@ export const analysisApi = {
           const result = JSON.parse(frame.data) as AnalysisResult
           cb.onComplete?.(result)
         } catch {
-          cb.onComplete?.({ summary: '', content: frame.data, charts: [], tables: [], insights: [] })
+          cb.onComplete?.({
+            summary: '',
+            content: frame.data,
+            charts: [],
+            tables: [],
+            insights: [],
+          })
         }
         break
       case 'error':

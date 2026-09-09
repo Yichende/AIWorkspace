@@ -5,24 +5,27 @@ import { AppHeader } from '@my/ui'
 import { modelApi } from '@/services/model.api'
 import { useUserStore } from '@/stores/user.store'
 import { getModelById } from '@repo/types'
-import type {
-  ProtocolType,
-  CreateUserModelRequest,
-} from '@repo/types'
+import type { ProtocolType, CreateUserModelRequest } from '@repo/types'
 
 import { useSettingsStore } from '@/stores/settings.store'
 import './index.scss'
 
-const PROTOCOL_OPTIONS: { value: ProtocolType; label: string; desc: string }[] = [
-  { value: 'openai_compatible', label: 'OpenAI Compatible', desc: 'DeepSeek、Qwen、Groq 等' },
-  { value: 'ollama', label: 'Ollama', desc: '本地 Ollama 或兼容端点' },
-  { value: 'anthropic', label: 'Anthropic', desc: 'Anthropic Claude 系列' },
-]
+const PROTOCOL_OPTIONS: { value: ProtocolType; label: string; desc: string }[] =
+  [
+    {
+      value: 'openai_compatible',
+      label: 'OpenAI Compatible',
+      desc: 'DeepSeek、Qwen、Groq 等',
+    },
+    { value: 'ollama', label: 'Ollama', desc: '本地 Ollama 或兼容端点' },
+    { value: 'anthropic', label: 'Anthropic', desc: 'Anthropic Claude 系列' },
+  ]
 
 export default function AddModelPage() {
   const theme = useSettingsStore((s) => s.theme)
   // ── Form state ──
-  const [protocolType, setProtocolType] = useState<ProtocolType>('openai_compatible')
+  const [protocolType, setProtocolType] =
+    useState<ProtocolType>('openai_compatible')
   const [provider, setProvider] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [apiModelName, setApiModelName] = useState('')
@@ -33,6 +36,8 @@ export default function AddModelPage() {
 
   // ── UI state ──
   const [showApiKey, setShowApiKey] = useState(false)
+  /** 编辑态：存库模型是否已有 API Key（服务端只回传布尔，不回传 key） */
+  const [hasStoredKey, setHasStoredKey] = useState(false)
   const [testing, setTesting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testResult, setTestResult] = useState<{
@@ -43,7 +48,9 @@ export default function AddModelPage() {
 
   // ── Edit mode ──
   const [editModelId, setEditModelId] = useState<string | null>(null)
-  const [editSource, setEditSource] = useState<'builtin' | 'custom' | null>(null)
+  const [editSource, setEditSource] = useState<'builtin' | 'custom' | null>(
+    null,
+  )
 
   const isEdit = !!editModelId
   const isBuiltinEdit = editSource === 'builtin'
@@ -51,7 +58,10 @@ export default function AddModelPage() {
   useEffect(() => {
     const instance = Taro.getCurrentInstance()
     const modelId = instance.router?.params?.modelId
-    const source = instance.router?.params?.source as 'builtin' | 'custom' | undefined
+    const source = instance.router?.params?.source as
+      | 'builtin'
+      | 'custom'
+      | undefined
     if (modelId) {
       setEditModelId(modelId)
       setEditSource(source || 'custom')
@@ -71,6 +81,7 @@ export default function AddModelPage() {
         setProvider('')
         setApiBaseUrl('')
         setNotes('')
+        setHasStoredKey(false)
         return
       }
       Taro.showToast({ title: '未找到内置模型信息', icon: 'none' })
@@ -86,6 +97,7 @@ export default function AddModelPage() {
       setApiBaseUrl(model.apiBaseUrl ?? '')
       setSupportsThinking(model.supportsThinking)
       setNotes(model.notes ?? '')
+      setHasStoredKey(!!model.hasApiKey)
     } catch {
       Taro.showToast({ title: '加载模型信息失败', icon: 'none' })
     }
@@ -107,6 +119,25 @@ export default function AddModelPage() {
     return null
   }
 
+  /**
+   * 组装测试连接请求体。
+   * 编辑态留空 API Key 时携带 modelId——服务端回退使用该模型存库的解密 key
+   * （服务端不回传 key，编辑页无法预填，留空直测曾必然 401）。
+   */
+  const buildTestPayload = () => {
+    const keyInput = apiKey.trim()
+    return {
+      protocolType,
+      apiModelName: apiModelName.trim(),
+      apiKey: keyInput || undefined,
+      apiBaseUrl: apiBaseUrl.trim() || undefined,
+      modelId:
+        isEdit && !isBuiltinEdit && !keyInput && editModelId
+          ? editModelId
+          : undefined,
+    }
+  }
+
   const handleTest = useCallback(async () => {
     const error = validate()
     if (error) {
@@ -118,16 +149,14 @@ export default function AddModelPage() {
     setTestResult(null)
 
     try {
-      const result = await modelApi.testModel({
-        protocolType,
-        apiModelName: apiModelName.trim(),
-        apiKey: apiKey.trim() || undefined,
-        apiBaseUrl: apiBaseUrl.trim() || undefined,
-      })
+      const result = await modelApi.testModel(buildTestPayload())
       setTestResult(result)
 
       if (result.available) {
-        Taro.showToast({ title: `连接成功 (${result.latency}ms)`, icon: 'success' })
+        Taro.showToast({
+          title: `连接成功 (${result.latency}ms)`,
+          icon: 'success',
+        })
       } else {
         Taro.showToast({ title: result.error || '连接失败', icon: 'none' })
       }
@@ -151,12 +180,7 @@ export default function AddModelPage() {
     if (!testResult) {
       setTesting(true)
       try {
-        const result = await modelApi.testModel({
-          protocolType,
-          apiModelName: apiModelName.trim(),
-          apiKey: apiKey.trim() || undefined,
-          apiBaseUrl: apiBaseUrl.trim() || undefined,
-        })
+        const result = await modelApi.testModel(buildTestPayload())
         setTestResult(result)
 
         if (!result.available) {
@@ -237,18 +261,31 @@ export default function AddModelPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    displayName, protocolType, provider, apiModelName, apiKey,
-    apiBaseUrl, supportsThinking, notes, testResult, isEdit, editModelId,
+    displayName,
+    protocolType,
+    provider,
+    apiModelName,
+    apiKey,
+    apiBaseUrl,
+    supportsThinking,
+    notes,
+    testResult,
+    isEdit,
+    editModelId,
     isBuiltinEdit,
   ])
 
   // ── Auto-fill base URL placeholder on protocol change ──
   const getBaseUrlPlaceholder = () => {
     switch (protocolType) {
-      case 'ollama': return 'http://localhost:11434'
-      case 'openai_compatible': return 'https://api.openai.com/v1'
-      case 'anthropic': return 'https://api.anthropic.com'
-      default: return ''
+      case 'ollama':
+        return 'http://localhost:11434'
+      case 'openai_compatible':
+        return 'https://api.openai.com/v1'
+      case 'anthropic':
+        return 'https://api.anthropic.com'
+      default:
+        return ''
     }
   }
 
@@ -298,7 +335,9 @@ export default function AddModelPage() {
           <View className='form-label-row'>
             <Text className='form-label'>模型名称</Text>
             {testResult?.available && (
-              <Text className='test-badge success'>✅ 可用 ({testResult.latency}ms)</Text>
+              <Text className='test-badge success'>
+                ✅ 可用 ({testResult.latency}ms)
+              </Text>
             )}
             {testResult && !testResult.available && (
               <Text className='test-badge fail'>❌ 不可用</Text>
@@ -337,7 +376,9 @@ export default function AddModelPage() {
                 isBuiltinEdit
                   ? '输入 API Key 以激活此模型'
                   : isEdit
-                    ? '••••••••（不修改则留空）'
+                    ? hasStoredKey
+                      ? '已保存 Key（留空不修改，测试将自动使用）'
+                      : '未保存 Key，请填写后测试'
                     : '输入 API Key（选填）'
               }
               placeholderClass='form-placeholder'
@@ -346,8 +387,13 @@ export default function AddModelPage() {
               onInput={(e) => setApiKey(e.detail.value)}
               maxlength={255}
             />
-            <View className='form-input-suffix' onClick={() => setShowApiKey(!showApiKey)}>
-              <Text className='toggle-text'>{showApiKey ? '隐藏' : '显示'}</Text>
+            <View
+              className='form-input-suffix'
+              onClick={() => setShowApiKey(!showApiKey)}
+            >
+              <Text className='toggle-text'>
+                {showApiKey ? '隐藏' : '显示'}
+              </Text>
             </View>
           </View>
         </View>
@@ -369,7 +415,9 @@ export default function AddModelPage() {
         <View className='form-section form-section-row'>
           <View className='form-label-group'>
             <Text className='form-label'>支持思考</Text>
-            <Text className='form-label-hint'>开启后 AI 回复会显示思考过程</Text>
+            <Text className='form-label-hint'>
+              开启后 AI 回复会显示思考过程
+            </Text>
           </View>
           <Switch
             checked={supportsThinking}
@@ -410,7 +458,11 @@ export default function AddModelPage() {
           onClick={handleSave}
         >
           <Text className='action-btn-text'>
-            {saving ? '保存中...' : (isEdit && !isBuiltinEdit ? '更新模型' : '保 存')}
+            {saving
+              ? '保存中...'
+              : isEdit && !isBuiltinEdit
+                ? '更新模型'
+                : '保 存'}
           </Text>
         </View>
       </View>

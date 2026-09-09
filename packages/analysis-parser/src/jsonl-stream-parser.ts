@@ -351,7 +351,7 @@ function validateEvent(
   switch (eventType) {
     case 'text':
     case 'report': {
-      const d = obj.content ?? obj.delta ?? obj.data ?? obj.description
+      const { content: d, title } = resolveTextContent(obj)
       // 内容字段兼容：字符串直接用；对象/数组（模型自创 data 结构）转文本
       const text = valueToText(d)
       if (!text) {
@@ -366,11 +366,16 @@ function validateEvent(
         onDebug?.(`[validate] ${eventType}: ${schemaErr}`)
         return null
       }
-      return { type: eventType, content: text }
+      // 标题兜底：模板式 {title, content} 拆包后正文缺 Markdown 标题时，
+      // 把 title 补为 "## 章节标题" 前缀，避免章节标题信息随拆包丢弃
+      const content =
+        title && !/^#{1,6}\s+/.test(text) ? `## ${title}\n\n${text}` : text
+      return { type: eventType, content }
     }
 
     case 'summary': {
-      const d = obj.content ?? obj.delta ?? obj.data ?? obj.description
+      // summary 不消费 title：摘要卡片是短文本，无需补 Markdown 标题
+      const { content: d } = resolveTextContent(obj)
       const text = valueToText(d)
       if (!text) {
         onDebug?.(
@@ -530,6 +535,50 @@ function validateEvent(
       )
       return null
     }
+  }
+}
+
+// ── 文本类事件正文解析 helpers ───────────────────────────────────
+
+/**
+ * 解析 summary/text/report 事件的正文内容字段。
+ *
+ * 兼容模型按协议模板输出的 data 承载对象形状（{"data":{"title":…,"content":…}}）：
+ * data 为非数组对象且含正文字段（content/text/description/正文）时，优先取该
+ * 字段作为正文——避免整对象走 valueToText 产出 "title:…, content:…" 字面残留；
+ * 同时带回 title（report/text 用于 "## 标题" 兜底）。
+ * 其余形状（顶层 content/delta、data 字符串/数组、无正文字段的对象）沿用原
+ * 内容链，行为不变（无正文字段的对象仍整体转文本，保留旧兼容输出）。
+ */
+function resolveTextContent(obj: Record<string, any>): {
+  content: unknown
+  title: string | null
+} {
+  // 1) 顶层字符串正文字段语义最明确，优先采用
+  for (const key of ['content', 'delta', 'description']) {
+    const v = obj[key]
+    if (typeof v === 'string' && v.trim()) {
+      return { content: v, title: null }
+    }
+  }
+  // 2) data 为非数组对象 → 模板式 {title, content} 拆包
+  const data = obj.data
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    for (const key of ['content', 'text', 'description', '正文']) {
+      const v = data[key]
+      if (typeof v === 'string' && v.trim()) {
+        const title =
+          typeof data.title === 'string' && data.title.trim()
+            ? data.title.trim()
+            : null
+        return { content: v, title }
+      }
+    }
+  }
+  // 3) 其余原样（字符串/数组/无正文字段的对象），沿用旧内容链
+  return {
+    content: obj.content ?? obj.delta ?? obj.data ?? obj.description,
+    title: null,
   }
 }
 
