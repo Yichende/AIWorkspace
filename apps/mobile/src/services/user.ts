@@ -1,7 +1,5 @@
 import Taro from "@tarojs/taro";
-import { getToken, getRefreshToken, setToken, setRefreshToken } from "@/utils/auth";
-import { isTokenExpiringSoon } from "@/utils/token-check";
-import { useUserStore } from "@/stores/user.store";
+import { getValidAccessToken } from "./token-refresh";
 import request from "./request";
 
 const BASE_URL = "http://localhost:3000";
@@ -54,11 +52,6 @@ export const profileToUserInfo = (p: AuthUser) => ({
   wechatBound: p.wechat_bound,
   hasPassword: p.has_password,
 });
-
-export interface RefreshResult {
-  access_token: string;
-  refresh_token: string;
-}
 
 export interface SessionItem {
   id: number;
@@ -161,43 +154,14 @@ export const setPasswordApi = (data: { newPassword: string }) => {
 };
 
 /** 上传头像（返回相对 URL /uploads/avatar/xxx.jpg） */
-export const uploadAvatarApi = (filePath: string): Promise<{ url: string }> => {
-  return new Promise(async (resolve, reject) => {
-    let token: string | null =
-      useUserStore.getState().token || (await getToken());
+export const uploadAvatarApi = async (
+  filePath: string
+): Promise<{ url: string }> => {
+  // 临期则先刷新（单飞）。必须在构造 Promise 之前 await —— 写在 executor
+  // 内部的话，抛出的错误会让外层 Promise 永久 pending。
+  const token = await getValidAccessToken();
 
-    // Pre-check: refresh token if expiring soon
-    if (token && isTokenExpiringSoon(token, 30000)) {
-      try {
-        const refreshToken = await getRefreshToken();
-        if (refreshToken) {
-          const refreshRes = await Taro.request<{
-            access_token: string;
-            refresh_token: string;
-          }>({
-            url: `${BASE_URL}/auth/refresh`,
-            method: "POST",
-            data: { refresh_token: refreshToken },
-            header: { "Content-Type": "application/json" },
-          });
-
-          if (
-            refreshRes.statusCode >= 200 &&
-            refreshRes.statusCode < 300
-          ) {
-            const { access_token, refresh_token } = refreshRes.data;
-            await setToken(access_token);
-            await setRefreshToken(refresh_token);
-            useUserStore.getState().setToken(access_token);
-            useUserStore.getState().setRefreshToken(refresh_token);
-            token = access_token;
-          }
-        }
-      } catch {
-        // Refresh failed — proceed with existing token (will 401 if expired)
-      }
-    }
-
+  return new Promise((resolve, reject) => {
     Taro.uploadFile({
       url: `${BASE_URL}/upload/avatar`,
       filePath,
@@ -238,23 +202,4 @@ export const revokeAllSessionsApi = (exceptCurrent?: boolean) => {
     url: `/auth/sessions${exceptCurrent ? "?except=current" : ""}`,
     method: "DELETE",
   });
-};
-
-// ── Refresh token API — MUST bypass request() to avoid 401 loop ─
-
-export const refreshTokenApi = async (
-  refreshToken: string
-): Promise<RefreshResult> => {
-  const res = await Taro.request<RefreshResult>({
-    url: `${BASE_URL}/auth/refresh`,
-    method: "POST",
-    data: { refresh_token: refreshToken },
-    header: { "Content-Type": "application/json" },
-  });
-
-  if (res.statusCode < 200 || res.statusCode >= 300) {
-    throw new Error("刷新失败");
-  }
-
-  return res.data;
 };

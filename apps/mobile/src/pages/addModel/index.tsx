@@ -198,6 +198,14 @@ export default function AddModelPage() {
             return
           }
         }
+      } catch (err: any) {
+        // 测试请求失败（含 401 刷新失败）：提示并中止保存，
+        // 避免继续走到 createModel / updateModel
+        Taro.showToast({
+          title: err?.message || '连接测试失败',
+          icon: 'none',
+        })
+        return
       } finally {
         setTesting(false)
       }

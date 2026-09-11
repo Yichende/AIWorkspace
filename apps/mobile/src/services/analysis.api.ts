@@ -10,16 +10,9 @@ import type {
   TableConfig,
 } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
-import {
-  getToken,
-  getRefreshToken,
-  setToken,
-  setRefreshToken,
-} from '@/utils/auth'
-import { isTokenExpiringSoon } from '@/utils/token-check'
 import { SseFrameReader } from '@/utils/sse'
 import type { SseFrame } from '@/utils/sse'
-import { useUserStore } from '@/stores/user.store'
+import { getValidAccessToken } from './token-refresh'
 import request from './request'
 
 const BASE_URL = 'http://localhost:3000'
@@ -57,37 +50,8 @@ export const analysisApi = {
     fileName: string,
     originalName?: string,
   ): Promise<UploadFileResponse> {
-    let token: string | null =
-      useUserStore.getState().token || (await getToken())
-
-    // Pre-check: refresh token if expiring soon
-    if (token && isTokenExpiringSoon(token, 30000)) {
-      try {
-        const refreshToken = await getRefreshToken()
-        if (refreshToken) {
-          const refreshRes = await Taro.request<{
-            access_token: string
-            refresh_token: string
-          }>({
-            url: `${BASE_URL}/auth/refresh`,
-            method: 'POST',
-            data: { refresh_token: refreshToken },
-            header: { 'Content-Type': 'application/json' },
-          })
-
-          if (refreshRes.statusCode >= 200 && refreshRes.statusCode < 300) {
-            const { access_token, refresh_token } = refreshRes.data
-            await setToken(access_token)
-            await setRefreshToken(refresh_token)
-            useUserStore.getState().setToken(access_token)
-            useUserStore.getState().setRefreshToken(refresh_token)
-            token = access_token
-          }
-        }
-      } catch {
-        // proceed with existing token
-      }
-    }
+    // 临期则先刷新（单飞，与其他请求共享同一次刷新）
+    const token = await getValidAccessToken()
 
     return new Promise((resolve, reject) => {
       Taro.uploadFile({
@@ -139,36 +103,8 @@ export const analysisApi = {
     callbacks: AnalysisStreamCallbacks,
   ): Promise<Taro.RequestTask<any>> {
     const reqUrl = `${BASE_URL}/analysis/${id}/stream`
-    let token = await getToken()
-
-    // Pre-check: refresh token if expiring soon
-    if (token && isTokenExpiringSoon(token, 30000)) {
-      try {
-        const refreshToken = await getRefreshToken()
-        if (refreshToken) {
-          const refreshRes = await Taro.request<{
-            access_token: string
-            refresh_token: string
-          }>({
-            url: `${BASE_URL}/auth/refresh`,
-            method: 'POST',
-            data: { refresh_token: refreshToken },
-            header: { 'Content-Type': 'application/json' },
-          })
-
-          if (refreshRes.statusCode >= 200 && refreshRes.statusCode < 300) {
-            const { access_token, refresh_token } = refreshRes.data
-            await setToken(access_token)
-            await setRefreshToken(refresh_token)
-            useUserStore.getState().setToken(access_token)
-            useUserStore.getState().setRefreshToken(refresh_token)
-            token = access_token
-          }
-        }
-      } catch {
-        // proceed with existing token
-      }
-    }
+    // 临期则先刷新（单飞，与其他请求共享同一次刷新）
+    const token = await getValidAccessToken()
 
     // 共享收流骨架：增量 UTF-8 解码（跨 chunk 字节残留）+ \n\n 拆帧留尾 + 分发完整帧
     const reader = new SseFrameReader((frame) => {

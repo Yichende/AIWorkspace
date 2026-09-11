@@ -1,17 +1,7 @@
 import Taro from "@tarojs/taro";
-import {
-  getToken,
-  getRefreshToken,
-  setToken,
-  setRefreshToken,
-  clearAllAuth,
-} from "@/utils/auth";
+import { getToken, clearAllAuth } from "@/utils/auth";
 import { useUserStore } from "@/stores/user.store";
-
-interface RefreshResult {
-  access_token: string;
-  refresh_token: string;
-}
+import { refreshAccessToken } from "./token-refresh";
 
 const BASE_URL = "http://localhost:3000";
 
@@ -22,45 +12,29 @@ interface RequestOptions {
   header?: Record<string, string>;
 }
 
-// ── Refresh lock to prevent concurrent refresh attempts ────────
+// ── Force logout (idempotent) ─────────────────────────────────
+// 多个并发请求可能同时刷新失败，共享同一个在途 Promise 会让它们在
+// 同一批微任务里一起 reject。用单飞槽位把并发的登出收敛成一次，
+// 避免连续多次 Taro.reLaunch。
 
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let logoutPromise: Promise<void> | null = null;
 
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
-}
-
-function addRefreshSubscriber(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
-}
-
-// ── Raw refresh call — bypasses request() to avoid infinite loop ─
-
-async function doRefreshToken(
-  refreshToken: string
-): Promise<RefreshResult> {
-  const res = await Taro.request<RefreshResult>({
-    url: `${BASE_URL}/auth/refresh`,
-    method: "POST",
-    data: { refresh_token: refreshToken },
-    header: { "Content-Type": "application/json" },
-  });
-
-  if (res.statusCode < 200 || res.statusCode >= 300) {
-    throw new Error("刷新失败");
+function forceLogout(): Promise<void> {
+  if (!logoutPromise) {
+    logoutPromise = Promise.resolve()
+      .then(async () => {
+        await clearAllAuth();
+        useUserStore.getState().logout();
+        Taro.reLaunch({ url: "/pages/login/index" });
+      })
+      .catch(() => {
+        // Taro.reLaunch 在导航失败时会 reject，登出本身已完成，忽略即可
+      })
+      .finally(() => {
+        logoutPromise = null;
+      });
   }
-
-  return res.data;
-}
-
-// ── Force logout ──────────────────────────────────────────────
-
-async function forceLogout() {
-  await clearAllAuth();
-  useUserStore.getState().logout();
-  Taro.reLaunch({ url: "/pages/login/index" });
+  return logoutPromise;
 }
 
 // ── Main request function ─────────────────────────────────────
@@ -87,58 +61,21 @@ const request = async <T>(options: RequestOptions): Promise<T> => {
 
     // ── 401: attempt silent refresh ──────────────────────────
     if (res.statusCode === 401) {
-      const refreshToken =
-        useUserStore.getState().refreshToken || (await getRefreshToken());
-
-      if (!refreshToken) {
-        await forceLogout();
-        return Promise.reject("登录失效");
-      }
-
-      // Another request is already refreshing — queue this one
-      if (isRefreshing) {
-        return new Promise<T>((resolve) => {
-          addRefreshSubscriber(async (newToken: string) => {
-            const retryRes = await doRequest(newToken);
-            if (
-              retryRes.statusCode < 200 ||
-              retryRes.statusCode >= 300
-            ) {
-              return Promise.reject(retryRes.data);
-            }
-            resolve(retryRes.data as T);
-          });
-        });
-      }
-
-      // This request performs the refresh
-      isRefreshing = true;
+      let newToken: string;
 
       try {
-        const refreshRes = await doRefreshToken(refreshToken);
-        const { access_token, refresh_token } = refreshRes;
-
-        await setToken(access_token);
-        await setRefreshToken(refresh_token);
-        useUserStore.getState().setToken(access_token);
-        useUserStore.getState().setRefreshToken(refresh_token);
-
-        // Notify queued requests
-        onRefreshed(access_token);
-        isRefreshing = false;
-
-        // Retry the original request with the new token
-        const retryRes = await doRequest(access_token);
-        if (retryRes.statusCode < 200 || retryRes.statusCode >= 300) {
-          return Promise.reject(retryRes.data);
-        }
-        return retryRes.data as T;
+        // 单飞：并发的 401 共享同一次刷新；失败时所有等待者一起 reject
+        newToken = await refreshAccessToken();
       } catch {
-        isRefreshing = false;
-        refreshSubscribers = [];
         await forceLogout();
         return Promise.reject("登录失效");
       }
+
+      const retryRes = await doRequest(newToken);
+      if (retryRes.statusCode < 200 || retryRes.statusCode >= 300) {
+        return Promise.reject(retryRes.data);
+      }
+      return retryRes.data as T;
     }
 
     // ── Non-2xx → reject ─────────────────────────────────────

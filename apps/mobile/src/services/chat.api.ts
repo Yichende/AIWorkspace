@@ -1,11 +1,9 @@
 import Taro from '@tarojs/taro'
 import type { CreateSessionParams, CreateMessageParams, UpdateMessageParams, UpdateSessionParams, PaginatedSessions, MessageListResponse } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
-import { getToken, getRefreshToken, setToken, setRefreshToken } from '@/utils/auth'
-import { isTokenExpiringSoon } from '@/utils/token-check'
 import { SseFrameReader } from '@/utils/sse'
 import type { SseFrame } from '@/utils/sse'
-import { useUserStore } from '@/stores/user.store'
+import { getValidAccessToken } from './token-refresh'
 import request from './request'
 
 // Re-export for backward compatibility
@@ -120,39 +118,8 @@ export const chatApi = {
     callbacks: StreamCallbacks,
   ): Promise<void> {
     const reqUrl = `${BASE_URL}/chat/completions`
-    let token = await getToken()
-
-    // ── Pre-check: refresh token if expiring soon (avoids mid-stream 401) ──
-    if (token && isTokenExpiringSoon(token, 30000)) {
-      try {
-        const refreshToken = await getRefreshToken()
-        if (refreshToken) {
-          const refreshRes = await Taro.request<{
-            access_token: string
-            refresh_token: string
-          }>({
-            url: `${BASE_URL}/auth/refresh`,
-            method: 'POST',
-            data: { refresh_token: refreshToken },
-            header: { 'Content-Type': 'application/json' },
-          })
-
-          if (
-            refreshRes.statusCode >= 200 &&
-            refreshRes.statusCode < 300
-          ) {
-            const { access_token, refresh_token } = refreshRes.data
-            await setToken(access_token)
-            await setRefreshToken(refresh_token)
-            useUserStore.getState().setToken(access_token)
-            useUserStore.getState().setRefreshToken(refresh_token)
-            token = access_token
-          }
-        }
-      } catch {
-        // Refresh failed — proceed with existing token (will 401 if expired)
-      }
-    }
+    // 临期则先刷新（单飞，避免流式请求中途 401）
+    const token = await getValidAccessToken()
 
     // 共享收流骨架：增量 UTF-8 解码（跨 chunk 字节残留）+ \n\n 拆帧留尾 + 分发完整帧
     const reader = new SseFrameReader((frame) => {
