@@ -64,10 +64,23 @@ export interface AnalysisProgressEvent {
   percent: number
 }
 
+/**
+ * 进程内管道事件：`analysis-queue.service` 生成 → `analysis.controller` 消费。
+ *
+ * 注意：**这不是 SSE 线上负载** —— 控制器会把 `.payload` 解包成裸
+ * `AnalysisCompletePayload` 再写进 `complete` 帧（与其余事件帧的裸负载一致）。
+ */
 export interface AnalysisCompleteEvent {
   type: 'complete'
   payload: AnalysisResult
 }
+
+/**
+ * SSE 线上 `complete` 帧的 data 负载：裸 `AnalysisResult`，无 `payload` 包裹。
+ *
+ * 客户端对 `complete` 帧做 `JSON.parse(frame.data)` 得到的就是这个类型。
+ */
+export type AnalysisCompletePayload = AnalysisResult
 
 export interface AnalysisErrorEvent {
   type: 'error'
@@ -77,6 +90,8 @@ export interface AnalysisErrorEvent {
 /**
  * 规范化 SSE 事件协议：
  *   chart / table / report / insights / summary 分别对应分析图表、分析表格、分析报告、关键发现、分析摘要
+ *
+ * 描述的是**进程内**事件（含 complete 的 payload 包裹），非线上帧格式。
  */
 export type AnalysisEvent =
   | AnalysisThinkingEvent

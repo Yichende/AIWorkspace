@@ -37,10 +37,14 @@ export default function AnalysisContainer() {
     parsedAny,
     status,
     fileId,
+    prompt,
+    stopped,
+    errorMessage,
     setModel,
+    reset,
   } = useAnalysisStore()
 
-  const { startAnalysis } = useAnalysisStream()
+  const { startAnalysis, stopAnalysis, retryAnalysis } = useAnalysisStream()
 
   // ── Upload → Preview ───────────────────────────────────────
 
@@ -104,6 +108,12 @@ export default function AnalysisContainer() {
           progressPercent={progressPercent}
           charts={charts}
           tables={tables}
+          stopped={stopped}
+          errorMessage={errorMessage}
+          onStop={stopAnalysis}
+          // 重试要重新 create，缺 fileId/prompt 根本发不出去 → 只给「重新上传」
+          onRetry={fileId && prompt ? retryAnalysis : undefined}
+          onReupload={reset}
         />
       )}
 

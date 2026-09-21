@@ -1,5 +1,13 @@
 import { Logger } from '@nestjs/common';
-import type { IAIProvider, ProviderConfig, StreamChunk } from '@repo/types';
+import type { ProviderConfig, StreamChunk } from '@repo/types';
+import {
+  createStreamAbort,
+  disposeReader,
+  isStreamAborted,
+  isStreamTimeout,
+  type IAbortableProvider,
+  type StreamChatOptions,
+} from './stream-abort';
 
 /**
  * OpenAI-compatible SSE streaming provider.
@@ -12,7 +20,7 @@ import type { IAIProvider, ProviderConfig, StreamChunk } from '@repo/types';
  *   - DeepSeek:     delta.content + delta.reasoning_content
  *   - Qwen:         delta.content + delta.reasoning_content
  */
-export class OpenAICompatibleProvider implements IAIProvider {
+export class OpenAICompatibleProvider implements IAbortableProvider {
   readonly protocol = 'openai_compatible';
   private readonly logger = new Logger(OpenAICompatibleProvider.name);
 
@@ -21,11 +29,12 @@ export class OpenAICompatibleProvider implements IAIProvider {
   async *streamChat(
     messages: Array<{ role: string; content: string }>,
     config: ProviderConfig,
+    options?: StreamChatOptions,
   ): AsyncGenerator<StreamChunk> {
     const endpoint = this.buildEndpoint(
       config.apiBaseUrl ?? 'https://api.openai.com/v1',
     );
-    const aborter = new AbortController();
+    const abort = createStreamAbort(options?.signal, options?.timeouts);
 
     this.logger.log(`Streaming to ${endpoint} (model=${config.apiModelName})`);
 
@@ -49,9 +58,11 @@ export class OpenAICompatibleProvider implements IAIProvider {
             ? { response_format: { type: 'json_object' } }
             : {}),
         }),
-        signal: aborter.signal,
+        signal: abort.signal,
       });
     } catch (err: any) {
+      // 中止 / 超时是带语义的错误，包装成普通 Error 会丢掉 code，上层无法分流
+      if (isStreamAborted(err) || isStreamTimeout(err)) throw err;
       const message =
         err?.cause?.code === 'ECONNREFUSED'
           ? `无法连接到 ${endpoint} (连接被拒绝)`
@@ -60,52 +71,60 @@ export class OpenAICompatibleProvider implements IAIProvider {
       throw new Error(message);
     }
 
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      const message = `API 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
-      this.logger.error(`HTTP ${response.status}: ${body.slice(0, 200)}`);
-      throw new Error(message);
-    }
-
-    if (!response.body) {
-      throw new Error('无响应流');
-    }
-
-    const reader = (response.body as any).getReader();
-    if (!reader) {
-      throw new Error('无法读取响应流');
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        const message = `API 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
+        this.logger.error(`HTTP ${response.status}: ${body.slice(0, 200)}`);
+        throw new Error(message);
+      }
 
-        buffer += decoder.decode(value, { stream: true });
+      if (!response.body) {
+        throw new Error('无响应流');
+      }
 
-        // Split on double newline (SSE message boundary)
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
+      const reader = (response.body as any).getReader();
+      if (!reader) {
+        throw new Error('无法读取响应流');
+      }
 
-        for (const part of parts) {
-          for (const chunk of this.parseSSELines(part)) {
+      // 响应头已到：清 TTFB 计时器、武装 idle 计时器
+      abort.headersReceived();
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          abort.bumpIdle();
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Split on double newline (SSE message boundary)
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || '';
+
+          for (const part of parts) {
+            for (const chunk of this.parseSSELines(part)) {
+              yield chunk;
+            }
+          }
+        }
+
+        // Flush remaining buffer
+        if (buffer.trim()) {
+          for (const chunk of this.parseSSELines(buffer)) {
             yield chunk;
           }
         }
-      }
-
-      // Flush remaining buffer
-      if (buffer.trim()) {
-        for (const chunk of this.parseSSELines(buffer)) {
-          yield chunk;
-        }
+      } finally {
+        // 先 cancel 再 abort：只 releaseLock 会让连接与剩余响应一直挂着
+        await disposeReader(reader);
       }
     } finally {
-      reader.releaseLock?.();
-      aborter.abort();
+      abort.dispose();
     }
   }
 

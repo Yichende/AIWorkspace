@@ -5,6 +5,7 @@ import type {
   UploadFileResponse,
   PaginatedAnalyses,
   AnalysisDetail,
+  AnalysisCompletePayload,
   AnalysisResult,
   ChartConfig,
   TableConfig,
@@ -34,6 +35,24 @@ export interface AnalysisStreamCallbacks {
   onProgress?: (stage: string, percent: number) => void
   onComplete?: (result: AnalysisResult) => void
   onError?: (err: string) => void
+  /** 同步交付 RequestTask 句柄 —— 供调用方 abort() 停止分析 */
+  onTaskReady?: (task: Taro.RequestTask<any>) => void
+}
+
+/**
+ * 把线上 `complete` 帧的裸负载归一为 AnalysisResult。
+ *
+ * 服务端历史上可能在缺结果时下发 `{}`，且客户端此前是盲 cast，
+ * 逐字段兜底可保证 `result.summary` 之类的读取不会拿到 undefined。
+ */
+function normalizeAnalysisResult(raw: any): AnalysisResult {
+  return {
+    summary: typeof raw?.summary === 'string' ? raw.summary : '',
+    content: typeof raw?.content === 'string' ? raw.content : '',
+    charts: Array.isArray(raw?.charts) ? raw.charts : [],
+    tables: Array.isArray(raw?.tables) ? raw.tables : [],
+    insights: Array.isArray(raw?.insights) ? raw.insights : [],
+  }
 }
 
 // ── API ────────────────────────────────────────────────────
@@ -101,7 +120,7 @@ export const analysisApi = {
   async stream(
     id: string,
     callbacks: AnalysisStreamCallbacks,
-  ): Promise<Taro.RequestTask<any>> {
+  ): Promise<void> {
     const reqUrl = `${BASE_URL}/analysis/${id}/stream`
     // 临期则先刷新（单飞，与其他请求共享同一次刷新）
     const token = await getValidAccessToken()
@@ -135,7 +154,12 @@ export const analysisApi = {
       reader.feed(res.data)
     })
 
-    return Promise.resolve(requestTask)
+    // 同步把 RequestTask 交给调用方（用于 abort 中断）
+    callbacks.onTaskReady?.(requestTask)
+
+    // RequestTask 是 thenable：Promise.resolve 会采纳它，settle 时机即请求结束。
+    // 因此本 promise 不能用来拿句柄（句柄走 onTaskReady），只能做流程控制。
+    return Promise.resolve(requestTask) as unknown as Promise<void>
   },
 
   /**
@@ -238,16 +262,12 @@ export const analysisApi = {
       }
       case 'complete':
         try {
-          const result = JSON.parse(frame.data) as AnalysisResult
-          cb.onComplete?.(result)
+          // 线上 complete 帧的 data 是裸 AnalysisResult（无 payload 包裹）
+          const payload = JSON.parse(frame.data) as AnalysisCompletePayload
+          cb.onComplete?.(normalizeAnalysisResult(payload))
         } catch {
-          cb.onComplete?.({
-            summary: '',
-            content: frame.data,
-            charts: [],
-            tables: [],
-            insights: [],
-          })
+          // 解析不出来就是真失败，不能把裸 JSON 当正文塞进结果页
+          cb.onError?.('分析结果解析失败')
         }
         break
       case 'error':

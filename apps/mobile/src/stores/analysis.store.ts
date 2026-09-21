@@ -48,6 +48,10 @@ interface AnalysisState {
   progressStage: ProgressStage | null;
   /** 进度百分比 */
   progressPercent: number;
+  /** 是否由用户主动停止（区分「停止」与「失败」的文案） */
+  stopped: boolean;
+  /** 失败原因（stop 时为空）；独立于 thinkingText，思考面板关闭时也要能显示 */
+  errorMessage: string;
 
   // ── 结果阶段 ──
   result: AnalysisResult | null;
@@ -105,6 +109,12 @@ interface AnalysisActions {
   /** 分析失败 */
   setFailed: (error: string) => void;
 
+  /** 用户主动停止分析 */
+  setStopped: () => void;
+
+  /** 清空流式缓存（重试/重新分析前调用；不改 status 与 step） */
+  resetStreamingState: () => void;
+
   /** 加载已保存的分析详情 */
   hydrate: (data: {
     sessionId: string;
@@ -138,6 +148,8 @@ const initialState: AnalysisState = {
   parsedAny: false,
   progressStage: null,
   progressPercent: 0,
+  stopped: false,
+  errorMessage: '',
   result: null,
 };
 
@@ -223,6 +235,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           streamingText: '',      // 正文已存入 result.content，清空流式缓存
           streamingSummary: '',   // 摘要已存入 result.summary
           streamingInsights: [],  // 发现已存入 result.insights
+          stopped: false,
+          errorMessage: '',
           charts: mergeById(state.charts, result.charts ?? []),
           tables: mergeById(state.tables, result.tables ?? []),
         };
@@ -231,9 +245,35 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     setFailed: (error) =>
       set((state) => ({
         status: 'FAILED',
+        stopped: false,
+        errorMessage: error,
         thinkingText:
           state.thinkingText + `\n❌ ${error}`,
       })),
+
+    setStopped: () =>
+      set({
+        status: 'FAILED',
+        stopped: true,
+        errorMessage: '',
+      }),
+
+    resetStreamingState: () =>
+      set({
+        status: null,
+        thinkingText: '',
+        streamingText: '',
+        streamingSummary: '',
+        streamingInsights: [],
+        charts: [],
+        tables: [],
+        parsedAny: false,
+        progressStage: null,
+        progressPercent: 0,
+        stopped: false,
+        errorMessage: '',
+        result: null,
+      }),
 
     hydrate: (data) =>
       set({

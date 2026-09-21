@@ -6,3 +6,25 @@
 .detail-page__body {
   padding: 0 32rpx 60rpx;
 }
+
+/* 无结果 / 加载中：失败与进行中的会话也会进这个页面，不能白屏 */
+
+.detail-page__empty {
+  padding-top: 140rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.detail-page__empty-text {
+  font-size: 30rpx;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 16rpx;
+}
+
+.detail-page__empty-hint {
+  font-size: 26rpx;
+  color: var(--color-secondary);
+  text-align: center;
+}

@@ -1,11 +1,13 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Op } from 'sequelize';
 import { randomUUID } from 'crypto';
+import { resolveUploadPath, safeUnlink } from '../../common/fs.util';
 import { AnalysisSession } from './entities/analysis-session.entity';
 import { AnalysisFile } from './entities/analysis-file.entity';
 import { AnalysisChart } from './entities/analysis-chart.entity';
@@ -17,6 +19,8 @@ const ONE_HOUR = 60 * 60 * 1000;
 
 @Injectable()
 export class AnalysisService {
+  private readonly logger = new Logger(AnalysisService.name);
+
   constructor(
     @InjectModel(AnalysisSession)
     private sessionModel: typeof AnalysisSession,
@@ -68,6 +72,10 @@ export class AnalysisService {
     // 关联文件到 session
     const file = await this.fileModel.findByPk(dto.fileId);
     if (file) {
+      // 过期文件已进入清理队列，此时再关联会被清理掉 → 直接拒绝
+      if (file.expireAt && file.expireAt.getTime() < Date.now()) {
+        throw new NotFoundException('文件已过期，请重新上传');
+      }
       await file.update({ analysisId: session.id });
     }
 
@@ -151,9 +159,17 @@ export class AnalysisService {
 
   // ── Delete / Update ────────────────────────────────────────
 
-  /** 删除分析任务（级联删除文件/图表/结果记录） */
+  /** 删除分析任务（级联删除文件/图表/结果记录，含磁盘上的上传文件） */
   async deleteSession(userId: number, sessionId: string) {
     const session = await this.getSession(userId, sessionId);
+
+    // 先删磁盘再删记录：反过来一旦删除失败，记录没了 → 文件永久泄漏
+    const files = await this.fileModel.findAll({
+      where: { analysisId: sessionId },
+    });
+    for (const f of files) {
+      safeUnlink(resolveUploadPath(f.fileUrl));
+    }
 
     await this.fileModel.destroy({ where: { analysisId: sessionId } });
     await this.chartModel.destroy({ where: { analysisId: sessionId } });
@@ -258,16 +274,87 @@ export class AnalysisService {
 
   // ── Cleanup ─────────────────────────────────────────────────
 
-  /** 清理过期文件（可由定时任务调用） */
+  /**
+   * 清理过期文件：删除磁盘文件 + DB 记录，返回真正清掉的文件数。
+   *
+   * - EXPIRED 判定看 `expire_at`（upload 时写入 = 上传时刻 + 24h）
+   * - 但仍在 PENDING/ANALYZING 的会话所关联的文件不删：文件在 create 时才关联会话，
+   *   分析完全可能在 24h 边缘才开始，删掉会让进行中的任务失去数据源
+   * - 顺序为「先删盘、后删记录」：反过来一旦磁盘删除失败，记录已没了 → 文件永久泄漏；
+   *   先删盘最坏只留下一条指向缺失文件的记录，`execute()` 会报「文件已过期，请重新上传」
+   * - 逐条 try/catch：单条失败不阻断整批
+   */
   async cleanupExpiredFiles(): Promise<number> {
-    const expired = await this.fileModel.findAll({
+    const candidates = await this.fileModel.findAll({
       where: { expireAt: { [Op.lt]: new Date() } },
     });
-    // TODO: 同时删除磁盘上的文件
-    const ids = expired.map((f) => f.id);
-    if (ids.length > 0) {
-      await this.fileModel.destroy({ where: { id: { [Op.in]: ids } } });
+    if (candidates.length === 0) return 0;
+
+    const linkedIds = candidates
+      .map((f) => f.analysisId)
+      .filter((id): id is string => !!id);
+    const activeIds = new Set(
+      linkedIds.length === 0
+        ? []
+        : (
+            await this.sessionModel.findAll({
+              where: {
+                id: { [Op.in]: linkedIds },
+                status: { [Op.in]: ['PENDING', 'ANALYZING'] },
+              },
+              attributes: ['id'],
+            })
+          ).map((s) => s.id),
+    );
+
+    let removed = 0;
+    for (const file of candidates) {
+      if (file.analysisId && activeIds.has(file.analysisId)) continue;
+      safeUnlink(resolveUploadPath(file.fileUrl));
+      try {
+        await file.destroy();
+        removed++;
+      } catch (err: any) {
+        this.logger.error(
+          `删除文件记录失败 id=${file.id}: ${err?.message ?? err}`,
+        );
+      }
     }
-    return ids.length;
+
+    this.logger.log(
+      `[cleanup] 过期文件清理完成 removed=${removed} skipped=${candidates.length - removed}`,
+    );
+    return removed;
+  }
+
+  /**
+   * 把长时间停留在 ANALYZING 的会话置为 FAILED，返回受影响的行数。
+   *
+   * ANALYZING 会「僵死」的两个来源，两者都不会再有人推进状态：
+   *   1. 客户端断开（小程序切后台 / 退出）—— 上游已中止，但按 P0-3 的语义
+   *      刻意不落终态（避免切后台几秒回来就看到「分析失败」）
+   *   2. 服务重启 / 崩溃时正在执行的任务
+   * 不清理就会永久堆在「分析中」，所以用「远超单次分析合理时长」的阈值兜底。
+   *
+   * @param maxAgeMs 距最后一次状态变更超过该时长即判定僵死
+   */
+  async failStaleAnalyzingSessions(maxAgeMs: number): Promise<number> {
+    const cutoff = new Date(Date.now() - maxAgeMs);
+    const [affected] = await this.sessionModel.update(
+      { status: 'FAILED' },
+      {
+        where: {
+          status: 'ANALYZING',
+          updated_at: { [Op.lt]: cutoff },
+        },
+      },
+    );
+
+    if (affected > 0) {
+      this.logger.warn(
+        `[cleanup] ${affected} 个 ANALYZING 会话超过 ${Math.round(maxAgeMs / 60000)} 分钟未完成，已置为 FAILED`,
+      );
+    }
+    return affected;
   }
 }

@@ -278,3 +278,69 @@ describe('SseFrameReader 端到端拆帧', () => {
     expect(frames).toEqual([{ event: 'content', data: 'hi' }])
   })
 })
+
+/**
+ * P0-3 心跳兼容性：服务端每 15s 发一次注释帧 `: ping\n\n`，
+ * 客户端解析器必须把它变成「无事件、无数据」的空帧（两个 dispatcher
+ * 对空 data 都是 no-op），绝不能污染正文。
+ */
+describe('服务端心跳注释帧（: ping）', () => {
+  function collect() {
+    const frames: Array<{ event: string; data: string }> = []
+    const reader = new SseFrameReader((f) => frames.push(f))
+    return { frames, reader }
+  }
+
+  it('注释帧解析为 event/data 皆空，不携带内容', () => {
+    const { frames, reader } = collect()
+    reader.feed(enc.encode(': ping\n\n'))
+    expect(frames).toEqual([{ event: '', data: '' }])
+  })
+
+  it('心跳夹在完整帧之间不影响正文分发', () => {
+    const { frames, reader } = collect()
+    reader.feed(enc.encode('event: content\ndata: 你好\n\n'))
+    reader.feed(enc.encode(': ping\n\n'))
+    reader.feed(enc.encode('event: content\ndata: 世界\n\n'))
+
+    expect(frames).toEqual([
+      { event: 'content', data: '你好' },
+      { event: '', data: '' },
+      { event: 'content', data: '世界' },
+    ])
+    // 心跳之外只应有两个真正带内容的帧
+    expect(frames.filter((f) => f.data)).toHaveLength(2)
+  })
+
+  it('大量心跳不产生带数据的帧', () => {
+    const { frames, reader } = collect()
+    for (let i = 0; i < 50; i++) reader.feed(enc.encode(': ping\n\n'))
+    expect(frames).toHaveLength(50)
+    expect(frames.every((f) => f.data === '' && f.event === '')).toBe(true)
+  })
+
+  it('正文被 TCP 半包切开、心跳在其后到达时正文仍完整', () => {
+    // 真实时序：服务端按序写完整帧，心跳只会落在帧与帧之间。
+    // 这里模拟「数据帧被拆包 → 剩余部分先到 → 心跳再到」。
+    const { frames, reader } = collect()
+    reader.feed(enc.encode('event: report\ndata: 前半'))
+    reader.feed(enc.encode('段\n\n'))
+    reader.feed(enc.encode(': ping\n\n'))
+
+    expect(frames).toEqual([
+      { event: 'report', data: '前半段' },
+      { event: '', data: '' },
+    ])
+  })
+
+  it('注释行落在未结束的帧内会并入上一行（依赖服务端按序写完整帧）', () => {
+    // 记录真实解析行为：注释帧不是「魔法分隔符」，它只是普通的一行，
+    // 会并入尚未收尾的 data 行。服务端因此必须保证一次 res.write 写出
+    // 完整帧（含结尾 \n\n），否则心跳会污染正文。
+    const { frames, reader } = collect()
+    reader.feed(enc.encode('event: content\ndata: 你'))
+    reader.feed(enc.encode(': ping\n\n'))
+
+    expect(frames).toEqual([{ event: 'content', data: '你: ping' }])
+  })
+})

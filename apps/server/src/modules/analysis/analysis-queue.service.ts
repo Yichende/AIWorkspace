@@ -10,6 +10,10 @@ import {
 import type { JsonlParsedEvent } from '@repo/analysis-parser';
 import { ModelResolver, ResolvedModel } from '../chat/model-resolver.service';
 import { ProviderFactory } from '../chat/providers/provider-factory.service';
+import {
+  isStreamAborted,
+  isStreamTimeout,
+} from '../chat/providers/stream-abort';
 import { AnalysisService } from './analysis.service';
 import type {
   ChartConfig,
@@ -41,17 +45,25 @@ export class AnalysisQueueService {
    * 执行分析任务，返回 AsyncGenerator<AnalysisEvent>。
    *
    * 调用方（Controller）遍历 events 并通过 SSE 推送给客户端。
+   *
+   * `signal` 由客户端断连触发：中止上游请求，并且**不把会话标成 FAILED** ——
+   * 微信在小程序切后台时会中断在途请求，若一律落失败，用户切出去几秒回来
+   * 就会看到「分析失败」，比不处理更糟。会话保持 ANALYZING，也仍可被重新订阅执行。
    */
   async *execute(
     userId: number,
     sessionId: string,
     prompt: string,
     model: string,
+    signal?: AbortSignal,
   ): AsyncGenerator<AnalysisEvent> {
-    // ── 1. 状态 → ANALYZING ──────────────────────────────────
-    await this.analysisService.updateStatus(sessionId, 'ANALYZING');
+    // 客户端已走：不做任何状态写入
+    if (signal?.aborted) return;
 
     try {
+      // ── 1. 状态 → ANALYZING ────────────────────────────────
+      await this.analysisService.updateStatus(sessionId, 'ANALYZING');
+
       // ── 2. 读取文件 ────────────────────────────────────────
       yield { type: 'progress', stage: 'upload', percent: 5 };
 
@@ -142,11 +154,13 @@ export class AnalysisQueueService {
       // 注意：不传 jsonMode（response_format: json_object 会强制单一 JSON 对象，
       // 与 JSONL 多事件序列冲突；且 deepseek-reasoner 类模型不支持该参数）。
       // 结构化输出由 System Prompt 的 JSONL 事件模板保证。
-      for await (const chunk of provider.streamChat(messages, {
-        ...resolved.config,
-      })) {
-        // 诊断日志：记录每个 chunk 的类型和内容长度
-        this.logger.log(
+      for await (const chunk of provider.streamChat(
+        messages,
+        { ...resolved.config },
+        { signal },
+      )) {
+        // 诊断日志：逐 chunk 打，正常流程下噪音很大，降为 debug
+        this.logger.debug(
           `[stream] chunk.type="${chunk.type}" contentLen=${chunk.content.length} preview="${chunk.content.slice(0, 80)}"`,
         );
 
@@ -289,11 +303,22 @@ export class AnalysisQueueService {
         },
       };
     } catch (err: any) {
+      // 判定以 signal.aborted 为准，不以错误类为准：provider 正常收尾时也会
+      // abort 自己的内部句柄，单看 STREAM_ABORTED 不足以证明是客户端走了。
+      if (signal?.aborted || isStreamAborted(err)) {
+        this.logger.warn(
+          `[abort] client gone, session ${sessionId} stays ANALYZING`,
+        );
+        return;
+      }
+
       this.logger.error(`Analysis failed for session ${sessionId}:`, err);
       await this.analysisService.updateStatus(sessionId, 'FAILED');
       yield {
         type: 'error',
-        message: err.message || '分析失败，请重试',
+        message: isStreamTimeout(err)
+          ? '上游模型响应超时，请稍后重试'
+          : err.message || '分析失败，请重试',
       };
     }
   }

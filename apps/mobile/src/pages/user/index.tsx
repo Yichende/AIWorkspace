@@ -17,6 +17,7 @@ import {
   stopActiveStream,
   useChatController,
 } from '@/controllers/chat.controller'
+import { stopActiveAnalysisStream } from '@/hooks/useAnalysisStream'
 import ModelPickerPopup from '@/components/common/ModelPickerPopup'
 import { AI_MODELS } from '@repo/types'
 import type { ModelListItem } from '@repo/types'
@@ -157,8 +158,9 @@ export default function UserPage() {
       success: async (res) => {
         if (!res.confirm) return
         try {
-          // 1. 中断进行中的聊天 SSE（防止流回调写回旧数据）
+          // 1. 中断进行中的聊天 / 分析 SSE（防止流回调写回旧数据）
           stopActiveStream()
+          stopActiveAnalysisStream()
           // 2. 删除 Access / Refresh Token
           await clearAllAuth()
           // 3. UserStore 清空

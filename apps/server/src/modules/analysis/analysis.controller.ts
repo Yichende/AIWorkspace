@@ -7,25 +7,31 @@ import {
   Param,
   Query,
   Body,
+  Req,
   Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/entities/user.entity';
 import { AnalysisService } from './analysis.service';
 import { AnalysisQueueService } from './analysis-queue.service';
+import { safeUnlink } from '../../common/fs.util';
+import {
+  StreamAbortedError,
+  isStreamAborted,
+} from '../chat/providers/stream-abort';
 import { CreateAnalysisDto } from './dto/create-analysis.dto';
 import { UpdateAnalysisDto } from './dto/update-analysis.dto';
 import { QueryAnalysisDto } from './dto/query-analysis.dto';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { DatasetSummary } from '@repo/types';
+import type { AnalysisCompletePayload, DatasetSummary } from '@repo/types';
 import { DEFAULT_MODEL } from '@repo/constants';
 
 /** multer v2 不自带类型，内联定义文件类型 */
@@ -72,15 +78,15 @@ export class AnalysisController {
     // 验证文件类型
     const ext = path.extname(file.originalname).toLowerCase();
     if (!['.xlsx', '.xls', '.csv'].includes(ext)) {
-      // 删除临时文件
-      fs.unlinkSync(file.path);
+      // 删除临时文件（safeUnlink：删不掉也不能盖掉真正的校验错误）
+      safeUnlink(file.path);
       throw new Error('仅支持 .xlsx .xls .csv 格式');
     }
 
     // 验证文件大小 (10MB)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      fs.unlinkSync(file.path);
+      safeUnlink(file.path);
       throw new Error('文件大小不能超过 10MB');
     }
 
@@ -102,12 +108,8 @@ export class AnalysisController {
         dataset,
       };
     } catch (err: any) {
-      // 清理文件
-      try {
-        fs.unlinkSync(file.path);
-      } catch {
-        // 清理临时文件失败，忽略
-      }
+      // 清理文件（失败不影响报错语义）
+      safeUnlink(file.path);
       throw new Error(`文件解析失败: ${err.message}`);
     }
   }
@@ -143,39 +145,80 @@ export class AnalysisController {
     @CurrentUser() user: User,
     @Param('id') id: string,
     @Res() res: Response,
+    @Req() req: Request,
   ) {
     // SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    // 立刻提交响应头：否则首字节要等到建连 + 读文件 + 解析 xlsx 之后，
+    // 而小程序的 networkTimeout.request 是按「等响应开始」计的
+    res.flushHeaders();
+
+    const abortCtl = new AbortController();
+    let aborted = false;
+
+    // 断连后所有写入都变 no-op：socket 已经没了，写进去只会抛 ERR_STREAM_WRITE_AFTER_END
+    const safeWrite = (chunk: string) => {
+      if (aborted || res.writableEnded || res.destroyed) return;
+      try {
+        res.write(chunk);
+      } catch {
+        // socket 已断
+      }
+    };
 
     const sseWrite = (event: string, data: string) => {
       const encoded = data.replace(/\n/g, '\ndata: ');
-      res.write(`event: ${event}\ndata: ${encoded}\n\n`);
+      safeWrite(`event: ${event}\ndata: ${encoded}\n\n`);
     };
 
-    // 获取 session 信息
-    const session = await this.analysisService.getSession(user.id, id);
+    // 注释帧心跳（`: ping`）：分析阶段可能几十秒无事件，防小程序/反代判死。
+    // 前提是每次写出的都是完整帧（含结尾 \n\n），心跳才只会落在帧与帧之间 ——
+    // 详见 chat.controller 同处注释与 tests/sse.test.ts 的对应断言。
+    const heartbeat = setInterval(() => safeWrite(': ping\n\n'), 15_000);
 
-    if (session.status === 'COMPLETED' || session.status === 'FAILED') {
-      if (session.status === 'COMPLETED') {
-        const detail = await this.analysisService.getDetail(user.id, id);
-        sseWrite('complete', JSON.stringify(detail.result ?? {}));
-      } else {
-        sseWrite('error', '分析失败');
-      }
-      res.end();
-      return;
-    }
+    req.on('close', () => {
+      if (res.writableEnded) return;
+      aborted = true;
+      abortCtl.abort(new StreamAbortedError('client disconnected'));
+    });
 
-    // 执行分析管道
     try {
+      // 获取 session 信息
+      const session = await this.analysisService.getSession(user.id, id);
+
+      // 终态会话：补发历史结果（非终态在下面走管道）
+      if (session.status === 'COMPLETED' || session.status === 'FAILED') {
+        if (session.status === 'COMPLETED') {
+          const detail = await this.analysisService.getDetail(user.id, id);
+          if (!detail.result) {
+            // COMPLETED 却没有结果行属坏状态，不能把 {} 当结果下发
+            sseWrite('error', '分析结果不存在');
+          } else {
+            const payload: AnalysisCompletePayload = {
+              summary: detail.result.summary,
+              content: detail.result.content,
+              charts: detail.charts ?? [],
+              tables: detail.result.tables ?? [],
+              insights: detail.result.insights ?? [],
+            };
+            sseWrite('complete', JSON.stringify(payload));
+          }
+        } else {
+          sseWrite('error', '分析失败');
+        }
+        return;
+      }
+
+      // 执行分析管道
       for await (const event of this.queueService.execute(
         user.id,
         id,
         session.prompt ?? '',
         session.model,
+        abortCtl.signal,
       )) {
         switch (event.type) {
           case 'thinking':
@@ -206,18 +249,36 @@ export class AnalysisController {
               }),
             );
             break;
-          case 'complete':
-            sseWrite('complete', JSON.stringify(event.payload));
+          case 'complete': {
+            // 线上负载是裸 AnalysisResult（无 payload 包裹），
+            // 显式构造以让编译器校验全部 5 个字段
+            const payload: AnalysisCompletePayload = {
+              summary: event.payload.summary,
+              content: event.payload.content,
+              charts: event.payload.charts,
+              tables: event.payload.tables,
+              insights: event.payload.insights,
+            };
+            sseWrite('complete', JSON.stringify(payload));
             break;
+          }
           case 'error':
             sseWrite('error', event.message);
             break;
         }
       }
-      res.end();
     } catch (err: any) {
-      sseWrite('error', err.message || 'Stream error');
-      res.end();
+      // 客户端已断开时不再尝试写 error 帧（没人听）
+      if (!aborted && !isStreamAborted(err)) {
+        sseWrite('error', err.message || 'Stream error');
+      }
+    } finally {
+      clearInterval(heartbeat);
+      try {
+        res.end();
+      } catch {
+        // 已销毁
+      }
     }
   }
 

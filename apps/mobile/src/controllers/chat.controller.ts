@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { chatStorage } from '@/stores/storage/chat'
 import { chatApi } from '@/services/chat.api'
 import { migrateLegacyData } from '@/utils/migration'
+import { canPromoteToSuccess } from '@/utils/message-status'
 import { truncateTitle } from '@repo/utils'
 import {
   DEFAULT_MODEL,
@@ -92,6 +93,21 @@ function persistCurrentSession(): void {
     chatStorage.setSessionsIndex(sessionsIndex)
     chatStorage.setCurrentSessionId(currentSessionId)
   }
+}
+
+/**
+ * 流结束兜底：把仍处于「进行中」的助手消息提升为 success。
+ *
+ * 只对 sending/streaming 生效 —— 服务端先发 error 事件、随后正常关闭连接时，
+ * onError 已把消息置为 error，这里必须保持终态（详见 utils/message-status）。
+ */
+function promoteAssistantToSuccess(assistantMsgId: string): void {
+  const store = useChatStore.getState()
+  const msg = store.currentMessages.find((m) => m.id === assistantMsgId)
+  if (!msg || !canPromoteToSuccess(msg.status)) return
+
+  store.updateMessage(assistantMsgId, { status: 'success' })
+  persistCurrentSession()
 }
 
 // ── Sync helpers ────────────────────────────────────────────
@@ -400,6 +416,16 @@ export function useChatController() {
             }
           },
           onDone: (fullText: string) => {
+            // 已是终态（error）时不得再提升为 success —— 否则会把失败状态
+            // 连同 status:'success' 一起回写到服务端
+            const current = useChatStore
+              .getState()
+              .currentMessages.find((m) => m.id === assistantMsgId)
+            if (current && !canPromoteToSuccess(current.status)) {
+              activeStream = null
+              return
+            }
+
             // Final flush
             const blocks: MessageBlock[] = []
             if (thinkAccumulated) {
@@ -475,15 +501,8 @@ export function useChatController() {
         },
       )
 
-      // 9. Final flush: ensure latest content and status
-      const finalState = useChatStore.getState()
-      const assistantMsg = finalState.currentMessages.find(
-        (m) => m.id === assistantMsgId,
-      )
-      if (assistantMsg && assistantMsg.status !== 'success') {
-        store.updateMessage(assistantMsgId, { status: 'success' })
-        persistCurrentSession()
-      }
+      // 9. Final flush: 仅当消息仍在进行中时才兜底为 success（error 保持 error）
+      promoteAssistantToSuccess(assistantMsgId)
     } catch {
       // 10. Error: mark as error, persist（主动停止导致的 reject 已在 onError 处理，忽略）
       activeStream = null
@@ -611,6 +630,15 @@ export function useChatController() {
             }
           },
           onDone: (fullText: string) => {
+            // 已是终态（error）时不得再提升为 success（同 sendMessage）
+            const current = useChatStore
+              .getState()
+              .currentMessages.find((m) => m.id === assistantMsgId)
+            if (current && !canPromoteToSuccess(current.status)) {
+              activeStream = null
+              return
+            }
+
             const blocks: MessageBlock[] = []
             if (thinkAccumulated) {
               blocks.push({
@@ -684,14 +712,8 @@ export function useChatController() {
         },
       )
 
-      const finalState = useChatStore.getState()
-      const msg = finalState.currentMessages.find(
-        (m) => m.id === assistantMsgId,
-      )
-      if (msg && msg.status !== 'success') {
-        store.updateMessage(assistantMsgId, { status: 'success' })
-        persistCurrentSession()
-      }
+      // 仅当消息仍在进行中时才兜底为 success（error 保持 error）
+      promoteAssistantToSuccess(assistantMsgId)
     } catch {
       activeStream = null
       // 主动停止导致的 reject 已在 onError 处理，忽略

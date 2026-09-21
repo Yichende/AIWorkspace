@@ -8,6 +8,7 @@ import { AnalysisResult } from './entities/analysis-result.entity';
 import { AnalysisController } from './analysis.controller';
 import { AnalysisService } from './analysis.service';
 import { AnalysisQueueService } from './analysis-queue.service';
+import { AnalysisCleanupService } from './analysis-cleanup.service';
 import { ModelModule } from '../model/model.module';
 import { ModelResolver } from '../chat/model-resolver.service';
 import { diskStorage } from 'multer';
@@ -33,7 +34,12 @@ import { extname } from 'path';
     ModelModule, // 提供 ProviderFactory + UserModelService
   ],
   controllers: [AnalysisController],
-  providers: [AnalysisService, AnalysisQueueService, ModelResolver],
+  providers: [
+    AnalysisService,
+    AnalysisQueueService,
+    ModelResolver,
+    AnalysisCleanupService,
+  ],
   exports: [AnalysisService],
 })
 export class AnalysisModule {}

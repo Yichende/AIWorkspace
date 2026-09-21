@@ -1,5 +1,13 @@
 import { Logger } from '@nestjs/common';
-import type { IAIProvider, ProviderConfig, StreamChunk } from '@repo/types';
+import type { ProviderConfig, StreamChunk } from '@repo/types';
+import {
+  createStreamAbort,
+  disposeReader,
+  isStreamAborted,
+  isStreamTimeout,
+  type IAbortableProvider,
+  type StreamChatOptions,
+} from './stream-abort';
 
 /**
  * Anthropic Messages API SSE streaming provider.
@@ -13,13 +21,14 @@ import type { IAIProvider, ProviderConfig, StreamChunk } from '@repo/types';
  * SSE events: message_start, content_block_start, content_block_delta,
  *             content_block_stop, message_delta, message_stop
  */
-export class AnthropicProvider implements IAIProvider {
+export class AnthropicProvider implements IAbortableProvider {
   readonly protocol = 'anthropic';
   private readonly logger = new Logger(AnthropicProvider.name);
 
   async *streamChat(
     messages: Array<{ role: string; content: string }>,
     config: ProviderConfig,
+    options?: StreamChatOptions,
   ): AsyncGenerator<StreamChunk> {
     const baseUrl = config.apiBaseUrl || 'https://api.anthropic.com';
     const endpoint = `${baseUrl.replace(/\/+$/, '')}/v1/messages`;
@@ -29,6 +38,8 @@ export class AnthropicProvider implements IAIProvider {
     if (!config.apiKey) {
       throw new Error('Anthropic API 需要 API Key');
     }
+
+    const abort = createStreamAbort(options?.signal, options?.timeouts);
 
     let response: Response;
     try {
@@ -45,8 +56,11 @@ export class AnthropicProvider implements IAIProvider {
           max_tokens: 4096,
           stream: true,
         }),
+        signal: abort.signal,
       });
     } catch (err: any) {
+      // 中止 / 超时带语义，不能被下面的包装吞掉 code
+      if (isStreamAborted(err) || isStreamTimeout(err)) throw err;
       const message =
         err?.cause?.code === 'ECONNREFUSED'
           ? `无法连接到 Anthropic API (连接被拒绝)`
@@ -55,38 +69,46 @@ export class AnthropicProvider implements IAIProvider {
       throw new Error(message);
     }
 
-    if (!response.ok || !response.body) {
-      const body = await response.text().catch(() => '');
-      const message = `Anthropic 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
-      this.logger.error(message);
-      throw new Error(message);
-    }
-
-    const reader = (response.body as any).getReader();
-    if (!reader) {
-      throw new Error('无法读取 Anthropic 响应流');
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      if (!response.ok || !response.body) {
+        const body = await response.text().catch(() => '');
+        const message = `Anthropic 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
+        this.logger.error(message);
+        throw new Error(message);
+      }
 
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
+      const reader = (response.body as any).getReader();
+      if (!reader) {
+        throw new Error('无法读取 Anthropic 响应流');
+      }
 
-        for (const part of parts) {
-          for (const chunk of this.parseSSEEvent(part)) {
-            yield chunk;
+      // 响应头已到：清 TTFB 计时器、武装 idle 计时器
+      abort.headersReceived();
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          abort.bumpIdle();
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || '';
+
+          for (const part of parts) {
+            for (const chunk of this.parseSSEEvent(part)) {
+              yield chunk;
+            }
           }
         }
+      } finally {
+        await disposeReader(reader);
       }
     } finally {
-      reader.releaseLock?.();
+      abort.dispose();
     }
   }
 

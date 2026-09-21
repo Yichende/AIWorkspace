@@ -24,6 +24,16 @@ interface Props {
   progressPercent: number
   charts: ChartConfig[]
   tables: TableConfig[]
+  /** 是否由用户主动停止（决定失败文案） */
+  stopped?: boolean
+  /** 失败原因（stop 时为空） */
+  errorMessage?: string
+  /** 提供后显示停止按钮 */
+  onStop?: () => void
+  /** 提供后失败区显示「重试」 */
+  onRetry?: () => void
+  /** 提供后失败区显示「重新上传」 */
+  onReupload?: () => void
 }
 
 export default function AnalysisProgress({
@@ -36,6 +46,11 @@ export default function AnalysisProgress({
   progressPercent,
   charts,
   tables,
+  stopped = false,
+  errorMessage = '',
+  onStop,
+  onRetry,
+  onReupload,
 }: Props) {
   const isPending = status === 'PENDING'
   const isAnalyzing = status === 'ANALYZING'
@@ -54,9 +69,12 @@ export default function AnalysisProgress({
   const hasStreamContent =
     hasSummary || hasInsights || hasCharts || hasTables || hasText
 
+  const failedTitle = stopped ? '已停止分析' : '分析失败'
+  const canStop = (isPending || isAnalyzing) && !!onStop
+
   // ── 事件驱动状态文案（按已收到的事件推进：思考→摘要→发现→图表→表格→报告）─
   const eventStage = isFailed
-    ? '分析失败'
+    ? failedTitle
     : isPending
       ? '等待执行...'
       : parsedAny
@@ -142,10 +160,39 @@ export default function AnalysisProgress({
             : isAnalyzing
               ? '正在分析...'
               : isFailed
-                ? '分析失败'
+                ? failedTitle
                 : ''}
         </Text>
+        {canStop && (
+          <View className='progress-step__stop' onClick={onStop}>
+            <View className='progress-step__stop-icon' />
+          </View>
+        )}
       </View>
+
+      {/* ── 失败/停止：原因 + 出口 ───────────────────────────── */}
+      {isFailed && (
+        <View className='progress-step__failure'>
+          <Text className='progress-step__failure-text'>
+            {stopped ? '已停止分析' : errorMessage || '分析失败'}
+          </Text>
+          <View className='progress-step__failure-actions'>
+            {onRetry && (
+              <View className='progress-step__btn' onClick={onRetry}>
+                <Text className='progress-step__btn-text'>重试</Text>
+              </View>
+            )}
+            {onReupload && (
+              <View
+                className='progress-step__btn progress-step__btn--ghost'
+                onClick={onReupload}
+              >
+                <Text className='progress-step__btn-text'>重新上传</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* ── Progress Bar（下方为事件驱动状态文案）────────────── */}
       <View className='progress-step__bar-wrap'>

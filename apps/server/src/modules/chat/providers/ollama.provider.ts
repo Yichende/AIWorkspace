@@ -1,5 +1,13 @@
 import { Logger } from '@nestjs/common';
-import type { IAIProvider, ProviderConfig, StreamChunk } from '@repo/types';
+import type { ProviderConfig, StreamChunk } from '@repo/types';
+import {
+  createStreamAbort,
+  disposeReader,
+  isStreamAborted,
+  isStreamTimeout,
+  type IAbortableProvider,
+  type StreamChatOptions,
+} from './stream-abort';
 
 /**
  * Ollama NDJSON streaming provider.
@@ -10,7 +18,7 @@ import type { IAIProvider, ProviderConfig, StreamChunk } from '@repo/types';
  * Thinking/reasoning is extracted from the native "thinking" field (Ollama 0.5+).
  * <think> tag parsing within content is delegated to the Queue-level ThinkTagParser.
  */
-export class OllamaProvider implements IAIProvider {
+export class OllamaProvider implements IAbortableProvider {
   readonly protocol = 'ollama';
   private readonly logger = new Logger(OllamaProvider.name);
   private readonly defaultBaseUrl: string;
@@ -24,11 +32,14 @@ export class OllamaProvider implements IAIProvider {
   async *streamChat(
     messages: Array<{ role: string; content: string }>,
     config: ProviderConfig,
+    options?: StreamChatOptions,
   ): AsyncGenerator<StreamChunk> {
     const baseUrl = config.apiBaseUrl || this.defaultBaseUrl;
     const endpoint = `${baseUrl.replace(/\/+$/, '')}/api/chat`;
 
     this.logger.log(`Streaming to ${endpoint} (model=${config.apiModelName})`);
+
+    const abort = createStreamAbort(options?.signal, options?.timeouts);
 
     let response: Response;
     try {
@@ -44,8 +55,11 @@ export class OllamaProvider implements IAIProvider {
           messages,
           stream: true,
         }),
+        signal: abort.signal,
       });
     } catch (err: any) {
+      // 中止 / 超时带语义，不能被下面的包装吞掉 code
+      if (isStreamAborted(err) || isStreamTimeout(err)) throw err;
       const message =
         err?.cause?.code === 'ECONNREFUSED'
           ? `无法连接到 Ollama 服务 (${baseUrl})。请确保 Ollama 已启动。`
@@ -54,45 +68,53 @@ export class OllamaProvider implements IAIProvider {
       throw new Error(message);
     }
 
-    if (!response.ok || !response.body) {
-      const body = await response.text().catch(() => '');
-      const message = `Ollama 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
-      this.logger.error(message);
-      throw new Error(message);
-    }
-
-    const reader = (response.body as any).getReader();
-    if (!reader) {
-      throw new Error('无法读取 Ollama 响应流');
-    }
-
-    const decoder = new TextDecoder();
-    let leftover = '';
-
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      if (!response.ok || !response.body) {
+        const body = await response.text().catch(() => '');
+        const message = `Ollama 返回 ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
+        this.logger.error(message);
+        throw new Error(message);
+      }
 
-        leftover += decoder.decode(value, { stream: true });
-        const lines = leftover.split('\n');
-        leftover = lines.pop() || '';
+      const reader = (response.body as any).getReader();
+      if (!reader) {
+        throw new Error('无法读取 Ollama 响应流');
+      }
 
-        for (const line of lines) {
-          for (const chunk of this.parseLine(line)) {
+      // 响应头已到：清 TTFB 计时器、武装 idle 计时器
+      abort.headersReceived();
+
+      const decoder = new TextDecoder();
+      let leftover = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          abort.bumpIdle();
+
+          leftover += decoder.decode(value, { stream: true });
+          const lines = leftover.split('\n');
+          leftover = lines.pop() || '';
+
+          for (const line of lines) {
+            for (const chunk of this.parseLine(line)) {
+              yield chunk;
+            }
+          }
+        }
+
+        // Flush remaining
+        if (leftover.trim()) {
+          for (const chunk of this.parseLine(leftover)) {
             yield chunk;
           }
         }
-      }
-
-      // Flush remaining
-      if (leftover.trim()) {
-        for (const chunk of this.parseLine(leftover)) {
-          yield chunk;
-        }
+      } finally {
+        await disposeReader(reader);
       }
     } finally {
-      reader.releaseLock?.();
+      abort.dispose();
     }
   }
 

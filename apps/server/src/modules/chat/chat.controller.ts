@@ -7,16 +7,18 @@ import {
   Body,
   Param,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/entities/user.entity';
 import { ChatService } from './chat.service';
 import { ModelResolver } from './model-resolver.service';
 import { ProviderFactory } from './providers/provider-factory.service';
+import { StreamAbortedError, isStreamAborted } from './providers/stream-abort';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
@@ -77,33 +79,67 @@ export class ChatController {
     @Body()
     body: { model: string; messages: Array<{ role: string; content: string }> },
     @Res() res: Response,
+    @Req() req: Request,
   ) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    // 立刻提交响应头：否则首字节要等到模型解析 + 上游首 chunk，
+    // 而小程序的 networkTimeout.request 是按「等响应开始」计的
+    res.flushHeaders();
+
+    const abortCtl = new AbortController();
+    let aborted = false;
+
+    // 断连后所有写入都变 no-op：socket 已经没了，写进去只会抛 ERR_STREAM_WRITE_AFTER_END
+    const safeWrite = (chunk: string) => {
+      if (aborted || res.writableEnded || res.destroyed) return;
+      try {
+        res.write(chunk);
+      } catch {
+        // socket 已断
+      }
+    };
 
     // SSE helper: prefix every line with "data: " so newlines in the
     // payload don't break the SSE frame.
     const sseWrite = (event: string, data: string) => {
       const encoded = data.replace(/\n/g, '\ndata: ');
-      res.write(`event: ${event}\ndata: ${encoded}\n\n`);
+      safeWrite(`event: ${event}\ndata: ${encoded}\n\n`);
     };
 
-    // Layer 1: Resolve model → protocol type + config
-    const resolved = await this.modelResolver.resolve(user.id, body.model);
+    // 注释帧心跳（`: ping`）：防小程序/反代把长时间无数据的连接判死。
+    // 走注释而非 event，保证它永远不携带数据、被两端解析器安全忽略。
+    //
+    // 前提：每次写出的都是**完整帧**（含结尾 \n\n）。客户端解析器把注释当普通
+    // 一行处理，若与未收尾的 data 行相邻会被并进去、污染正文 —— 之所以安全，
+    // 是因为 res.write 的写入顺序即字节顺序，心跳只会落在帧与帧之间。
+    // 客户端侧有对应断言：tests/sse.test.ts「服务端心跳注释帧」。
+    const heartbeat = setInterval(() => safeWrite(': ping\n\n'), 15_000);
 
-    // Layer 2: Get the right provider for this protocol
-    const provider = this.providerFactory.getProvider(resolved.protocolType);
+    // 'close' 在正常结束时也会触发，用 writableEnded 区分
+    req.on('close', () => {
+      if (res.writableEnded) return;
+      aborted = true;
+      abortCtl.abort(new StreamAbortedError('client disconnected'));
+    });
 
-    // Layer 3: Stream chat via AsyncGenerator<StreamChunk>
     try {
+      // Layer 1: Resolve model → protocol type + config
+      const resolved = await this.modelResolver.resolve(user.id, body.model);
+
+      // Layer 2: Get the right provider for this protocol
+      const provider = this.providerFactory.getProvider(resolved.protocolType);
+
+      // Layer 3: Stream chat via AsyncGenerator<StreamChunk>
       // content 中的 <think> 标签由 ThinkTagParser 剥离（与 analysis 队列一致），
       // 否则思考内容会以 <think>...</think> 文本形式混入正文。
       const thinkParser = new ThinkTagParser();
       for await (const chunk of provider.streamChat(
         body.messages,
         resolved.config,
+        { signal: abortCtl.signal },
       )) {
         // 原生 thinking 字段（reasoning_content / delta.thinking 等）直接透传
         if (chunk.type === 'thinking') {
@@ -126,10 +162,18 @@ export class ChatController {
         );
       }
       sseWrite('done', '');
-      res.end();
     } catch (err: any) {
-      sseWrite('error', err.message || 'Stream error');
-      res.end();
+      // 客户端已断开时不再尝试写 error 帧（没人听）
+      if (!aborted && !isStreamAborted(err)) {
+        sseWrite('error', err.message || 'Stream error');
+      }
+    } finally {
+      clearInterval(heartbeat);
+      try {
+        res.end();
+      } catch {
+        // 已销毁
+      }
     }
   }
 

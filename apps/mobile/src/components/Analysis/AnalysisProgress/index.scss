@@ -4,12 +4,83 @@
 
 .progress-step__header {
   margin-bottom: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .progress-step__title {
   display: block;
   font-size: 44rpx;
   font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ── Stop Button ──────────────────────────────────────── */
+
+.progress-step__stop {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: var(--bg-solid);
+  border: 2rpx solid var(--border-table);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 暂停图标：两根竖条 */
+.progress-step__stop-icon {
+  width: 20rpx;
+  height: 24rpx;
+  border-left: 6rpx solid var(--text-primary);
+  border-right: 6rpx solid var(--text-primary);
+}
+
+/* ── Failure / Stopped Block ──────────────────────────── */
+
+.progress-step__failure {
+  background: var(--bg-page-top);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.progress-step__failure-text {
+  display: block;
+  font-size: 28rpx;
+  color: #e74c3c;
+  margin-bottom: 20rpx;
+  word-break: break-all;
+}
+
+.progress-step__failure-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.progress-step__btn {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: linear-gradient(90deg, #117c0d, #28a745);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-step__btn--ghost {
+  background: transparent;
+  border: 2rpx solid var(--border-table);
+}
+
+.progress-step__btn-text {
+  font-size: 28rpx;
+  color: #fff;
+}
+
+.progress-step__btn--ghost .progress-step__btn-text {
   color: var(--text-primary);
 }
 
