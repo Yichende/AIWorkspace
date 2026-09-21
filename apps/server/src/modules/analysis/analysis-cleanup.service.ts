@@ -5,6 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { AnalysisService } from './analysis.service';
+import { AnalysisTaskService } from './analysis-task.service';
 
 /** 启动后首跑延迟：给 Sequelize 建连/同步留时间，同时不阻塞启动 */
 const CLEANUP_FIRST_DELAY_MS = 20_000;
@@ -13,13 +14,15 @@ const CLEANUP_FIRST_DELAY_MS = 20_000;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
- * ANALYZING 超过该时长仍未走到终态即判定僵死。
+ * 会话层兜底阈值：ANALYZING 且 `updated_at` 超过该时长仍未走到终态即判定僵死。
  *
- * 正常分析 5–15 分钟，上游 idle 超时 90s，所以 1 小时既远超单次分析的合理
- * 上限（不会误杀进行中的任务），也远超「切后台再回来」的窗口（不会误判用户
- * 只是离开了片刻）。代价是僵死会话最长残留约 2 小时（阈值 + 一轮调度间隔）。
+ * ⚠️ 这条兜底**只针对没有任务行的会话**（历史遗留、或任务表未覆盖的路径）。
+ * 有任务行的会话由任务心跳判定（`AnalysisTaskService.reapStale`，5 分钟粒度），
+ * 因为 worker 运行期间 `analysis_sessions.updated_at` 不会变 —— 用 1 小时阈值
+ * 会误杀合法的长跑。因此这里放宽到 2 小时，且**必须排除心跳新鲜的运行中会话**，
+ * 否则同样会误杀。
  */
-const STALE_ANALYZING_MS = 60 * 60 * 1000;
+const STALE_ANALYZING_MS = 2 * 60 * 60 * 1000;
 
 /** 一轮清理的结果 */
 export interface CleanupResult {
@@ -46,7 +49,10 @@ export class AnalysisCleanupService implements OnModuleInit, OnModuleDestroy {
   /** 单飞：上一轮未结束时跳过本轮，避免重叠清理 */
   private running = false;
 
-  constructor(private readonly analysisService: AnalysisService) {}
+  constructor(
+    private readonly analysisService: AnalysisService,
+    private readonly taskService: AnalysisTaskService,
+  ) {}
 
   onModuleInit(): void {
     this.firstTimer = setTimeout(
@@ -80,9 +86,14 @@ export class AnalysisCleanupService implements OnModuleInit, OnModuleDestroy {
         filesRemoved: await this.runStep('清理过期文件', () =>
           this.analysisService.cleanupExpiredFiles(),
         ),
-        sessionsFailed: await this.runStep('清理僵死会话', () =>
-          this.analysisService.failStaleAnalyzingSessions(STALE_ANALYZING_MS),
-        ),
+        sessionsFailed: await this.runStep('清理僵死会话', async () => {
+          // 排除心跳新鲜的运行中会话：它们的 updated_at 不动，属正常现象
+          const running = await this.taskService.listRunningSessionIds();
+          return this.analysisService.failStaleAnalyzingSessions(
+            STALE_ANALYZING_MS,
+            running,
+          );
+        }),
       };
     } finally {
       this.running = false;

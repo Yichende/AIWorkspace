@@ -1,9 +1,9 @@
 import Taro from "@tarojs/taro";
 import { getToken, clearAllAuth } from "@/utils/auth";
 import { useUserStore } from "@/stores/user.store";
+import { API_BASE_URL as BASE_URL } from "@/config/env";
+import { ApiError, ErrorKind, toApiError } from "@/utils/api-error";
 import { refreshAccessToken } from "./token-refresh";
-
-const BASE_URL = "http://localhost:3000";
 
 interface RequestOptions {
   url: string;
@@ -52,6 +52,11 @@ const request = async <T>(options: RequestOptions): Promise<T> => {
         ...options.header,
         Authorization: authToken ? `Bearer ${authToken}` : "",
       },
+      // 此前没有 fail 回调，传输层失败会以 Taro 的 { errMsg } 形状直接逃逸
+      // 出去，成为第 5 种错误形状。这里统一转成 ApiError。
+      fail: (err) => {
+        throw toApiError(err, "请求失败");
+      },
     });
     return res;
   };
@@ -67,25 +72,34 @@ const request = async <T>(options: RequestOptions): Promise<T> => {
         // 单飞：并发的 401 共享同一次刷新；失败时所有等待者一起 reject
         newToken = await refreshAccessToken();
       } catch {
+        // 顺序不变：先登出（触发 reLaunch），再 reject，
+        // 保证跳转先于页面 toast 发生
         await forceLogout();
-        return Promise.reject("登录失效");
+        return Promise.reject(
+          new ApiError({
+            kind: ErrorKind.Auth,
+            status: 401,
+            message: "登录已过期，请重新登录",
+          }),
+        );
       }
 
       const retryRes = await doRequest(newToken);
       if (retryRes.statusCode < 200 || retryRes.statusCode >= 300) {
-        return Promise.reject(retryRes.data);
+        return Promise.reject(toApiError(retryRes.data, "请求失败"));
       }
       return retryRes.data as T;
     }
 
-    // ── Non-2xx → reject ─────────────────────────────────────
+    // ── Non-2xx → reject（归一化为 ApiError）────────────────
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      return Promise.reject(res.data);
+      return Promise.reject(toApiError(res.data, "请求失败"));
     }
 
     return res.data as T;
   } catch (error) {
-    return Promise.reject(error);
+    // toApiError 幂等：已是 ApiError 的原样返回，不会丢 serverCode/raw
+    return Promise.reject(toApiError(error, "请求失败"));
   }
 };
 

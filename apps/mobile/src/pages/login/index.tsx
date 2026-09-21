@@ -9,6 +9,7 @@ import {
 import { requestWechatCode } from '@/utils/wechat'
 import { setToken, setRefreshToken, getToken } from '@/utils/auth'
 import { useUserStore } from '@/stores/user.store'
+import { showErrorToast } from '@/utils/error-toast'
 import { useSettingsStore } from '@/stores/settings.store'
 import Taro from '@tarojs/taro'
 import LogoAnimation from '../../components/LogoAnimation'
@@ -66,16 +67,9 @@ export default function LoginPage() {
       Taro.reLaunch({
         url: '/pages/home/index',
       })
-    } catch (error: any) {
+    } catch (error) {
       console.error('[Login] 登录失败:', error)
-      const errMsg = typeof error === 'string'
-        ? error
-        : error?.message || error?.errMsg || JSON.stringify(error)
-      Taro.showToast({
-        title: errMsg.length > 30 ? errMsg.slice(0, 30) + '...' : errMsg,
-        icon: 'none',
-        duration: 3000,
-      })
+      showErrorToast(error, '登录失败')
     }
   }
 
@@ -94,16 +88,9 @@ export default function LoginPage() {
       Taro.reLaunch({
         url: '/pages/home/index',
       })
-    } catch (error: any) {
+    } catch (error) {
       console.error('[Login] 微信登录失败:', error)
-      const errMsg = typeof error === 'string'
-        ? error
-        : error?.message || error?.errMsg || JSON.stringify(error)
-      Taro.showToast({
-        title: errMsg.length > 30 ? errMsg.slice(0, 30) + '...' : errMsg,
-        icon: 'none',
-        duration: 3000,
-      })
+      showErrorToast(error, '微信登录失败')
     }
   }
 
@@ -136,15 +123,8 @@ export default function LoginPage() {
       Taro.reLaunch({
         url: '/pages/home/index',
       })
-    } catch (error: any) {
-      const errMsg = typeof error === 'string'
-        ? error
-        : error?.message || error?.errMsg || JSON.stringify(error)
-      Taro.showToast({
-        title: errMsg.length > 30 ? errMsg.slice(0, 30) + '...' : errMsg,
-        icon: 'none',
-        duration: 3000,
-      })
+    } catch (error) {
+      showErrorToast(error, '注册失败')
     }
   }
 

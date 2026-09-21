@@ -31,15 +31,16 @@ export class UserModelService {
     private userModelRepo: typeof UserModel,
     private providerFactory: ProviderFactory,
   ) {
+    // 缺失时不再退化为进程内随机密钥：那样生成的密文重启后永久解不开，
+    // 而用户当时看不到任何异常。bootstrap 已在最前面拦截（assertRequiredEnv），
+    // 这里再兜一层，保证任何入口都不会走到「静默降级」。
     const key = process.env.MODEL_API_KEY_ENCRYPTION_KEY;
     if (!key) {
-      this.logger.warn(
-        'MODEL_API_KEY_ENCRYPTION_KEY not set — API keys will NOT be encrypted!',
+      throw new Error(
+        'MODEL_API_KEY_ENCRYPTION_KEY 未配置：拒绝以进程内随机密钥降级（密文重启后将无法解密）。',
       );
-      this.encryptionKey = crypto.randomBytes(32);
-    } else {
-      this.encryptionKey = crypto.scryptSync(key, 'model-salt', 32);
     }
+    this.encryptionKey = crypto.scryptSync(key, 'model-salt', 32);
   }
 
   // ── CRUD ────────────────────────────────────────────────────

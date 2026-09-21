@@ -41,6 +41,10 @@ docs/
 .env
 .env.*
 !.env.example
+# 小程序端的环境文件不含密钥（只有 API 基地址与 AppID），需要入库以统一各环境的构建配置
+!apps/mobile/.env.development
+!apps/mobile/.env.production
+!apps/mobile/.env.test
 
 # =========================
 # OS Files

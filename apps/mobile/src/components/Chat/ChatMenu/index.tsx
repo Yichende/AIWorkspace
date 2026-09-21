@@ -10,6 +10,7 @@ import type { ModelListItem } from '@repo/types'
 
 import Taro from '@tarojs/taro'
 import ModelSwitcher from '@/components/common/ModelSwitcher'
+import { resolveAvatar } from '@/services/user'
 import ChatHistoryList from './ChatHistoryList'
 
 import './index.scss'
@@ -215,7 +216,7 @@ export default function ChatMenu({
           <View className='menu-user' onClick={handleUserProfile}>
             <View className='user-avatar'>
               {userInfo?.avatar ? (
-                <Image className='user-avatar-image' src={userInfo.avatar} mode='aspectFill' />
+                <Image className='user-avatar-image' src={resolveAvatar(userInfo.avatar)} mode='aspectFill' />
               ) : (
                 <Icon name='touxiang' size={44} color={IconColors.secondary} />
               )}

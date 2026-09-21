@@ -4,11 +4,15 @@ import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { assertRequiredEnv } from './config/env-validation';
 import { json, urlencoded } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 
 async function bootstrap() {
+  // 启动前置校验：缺密钥就拒绝启动，不做静默降级（详见 env-validation 注释）
+  assertRequiredEnv();
+
   // 确保头像上传目录存在（multer diskStorage 不会自动建目录）
   fs.mkdirSync(path.join(process.cwd(), 'uploads', 'avatar'), {
     recursive: true,

@@ -4,7 +4,6 @@ export default defineAppConfig({
     'pages/home/index',
     'pages/chat/index',
     'pages/search/index',
-    'pages/myTest/index',
     'pages/addModel/index',
     'pages/user/index',
     'pages/model/index',

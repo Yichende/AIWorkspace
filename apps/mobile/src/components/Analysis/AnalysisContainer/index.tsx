@@ -1,4 +1,5 @@
 import { View } from '@tarojs/components'
+import type { DatasetSummary } from '@repo/types'
 import { useAnalysisStore } from '@/stores/analysis.store'
 import { useAnalysisStream } from '@/hooks/useAnalysisStream'
 import AnalysisUpload from '../AnalysisUpload'
@@ -48,7 +49,11 @@ export default function AnalysisContainer() {
 
   // ── Upload → Preview ───────────────────────────────────────
 
-  const handleUploaded = (fileInfo, fid, ds) => {
+  const handleUploaded = (
+    fileInfo: { name: string; size: number },
+    fid: string,
+    ds: DatasetSummary,
+  ) => {
     setFile(fileInfo, fid, ds)
   }
 

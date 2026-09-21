@@ -19,19 +19,21 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/entities/user.entity';
 import { AnalysisService } from './analysis.service';
-import { AnalysisQueueService } from './analysis-queue.service';
+import { AnalysisTaskService } from './analysis-task.service';
+import { AnalysisWorkerService } from './analysis-worker.service';
+import { AnalysisRunRegistry } from './analysis-run.registry';
 import { safeUnlink } from '../../common/fs.util';
-import {
-  StreamAbortedError,
-  isStreamAborted,
-} from '../chat/providers/stream-abort';
 import { CreateAnalysisDto } from './dto/create-analysis.dto';
 import { UpdateAnalysisDto } from './dto/update-analysis.dto';
 import { QueryAnalysisDto } from './dto/query-analysis.dto';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { AnalysisCompletePayload, DatasetSummary } from '@repo/types';
+import type {
+  AnalysisCompletePayload,
+  AnalysisEvent,
+  DatasetSummary,
+} from '@repo/types';
 import { DEFAULT_MODEL } from '@repo/constants';
 
 /** multer v2 不自带类型，内联定义文件类型 */
@@ -50,7 +52,9 @@ interface UploadedFile {
 export class AnalysisController {
   constructor(
     private readonly analysisService: AnalysisService,
-    private readonly queueService: AnalysisQueueService,
+    private readonly taskService: AnalysisTaskService,
+    private readonly worker: AnalysisWorkerService,
+    private readonly registry: AnalysisRunRegistry,
   ) {}
 
   // ── File Upload ────────────────────────────────────────────
@@ -131,6 +135,12 @@ export class AnalysisController {
       title: dto.prompt.replace(/\s+/g, ' ').trim().slice(0, 50),
     });
 
+    // 入队并立刻唤醒 worker —— 分析的启动不能依赖「客户端随后会订阅流」：
+    // 客户端可能在 create 成功后立刻切后台/崩溃，那样任务永远不会开始。
+    // enqueue 幂等，/stream 再来一次也无害。
+    await this.taskService.enqueue(session.id);
+    this.worker.wake();
+
     return {
       id: session.id,
       status: 'PENDING' as const,
@@ -156,7 +166,6 @@ export class AnalysisController {
     // 而小程序的 networkTimeout.request 是按「等响应开始」计的
     res.flushHeaders();
 
-    const abortCtl = new AbortController();
     let aborted = false;
 
     // 断连后所有写入都变 no-op：socket 已经没了，写进去只会抛 ERR_STREAM_WRITE_AFTER_END
@@ -179,17 +188,20 @@ export class AnalysisController {
     // 详见 chat.controller 同处注释与 tests/sse.test.ts 的对应断言。
     const heartbeat = setInterval(() => safeWrite(': ping\n\n'), 15_000);
 
+    // 断开只是「少了一个听众」：运行在 worker 里继续跑完。
+    // 只有显式 cancel 才会中断上游（见 POST /analysis/:id/cancel）。
     req.on('close', () => {
       if (res.writableEnded) return;
       aborted = true;
-      abortCtl.abort(new StreamAbortedError('client disconnected'));
     });
+
+    let unsubscribe: (() => void) | undefined;
 
     try {
       // 获取 session 信息
       const session = await this.analysisService.getSession(user.id, id);
 
-      // 终态会话：补发历史结果（非终态在下面走管道）
+      // 终态会话：补发历史结果
       if (session.status === 'COMPLETED' || session.status === 'FAILED') {
         if (session.status === 'COMPLETED') {
           const detail = await this.analysisService.getDetail(user.id, id);
@@ -212,67 +224,40 @@ export class AnalysisController {
         return;
       }
 
-      // 执行分析管道
-      for await (const event of this.queueService.execute(
-        user.id,
-        id,
-        session.prompt ?? '',
-        session.model,
-        abortCtl.signal,
-      )) {
-        switch (event.type) {
-          case 'thinking':
-            sseWrite('thinking', event.delta);
-            break;
-          // 规范化四事件：summary / insights / report / chart
-          case 'summary':
-            sseWrite('summary', event.delta);
-            break;
-          case 'insights':
-            sseWrite('insights', JSON.stringify({ items: event.items }));
-            break;
-          case 'report':
-            sseWrite('report', event.delta);
-            break;
-          case 'chart':
-            sseWrite('chart', JSON.stringify({ chart: event.chart }));
-            break;
-          case 'table':
-            sseWrite('table', JSON.stringify({ table: event.table }));
-            break;
-          case 'progress':
-            sseWrite(
-              'progress',
-              JSON.stringify({
-                stage: event.stage,
-                percent: event.percent,
-              }),
-            );
-            break;
-          case 'complete': {
-            // 线上负载是裸 AnalysisResult（无 payload 包裹），
-            // 显式构造以让编译器校验全部 5 个字段
-            const payload: AnalysisCompletePayload = {
-              summary: event.payload.summary,
-              content: event.payload.content,
-              charts: event.payload.charts,
-              tables: event.payload.tables,
-              insights: event.payload.insights,
-            };
-            sseWrite('complete', JSON.stringify(payload));
-            break;
-          }
-          case 'error':
-            sseWrite('error', event.message);
-            break;
+      // 非终态：确保有任务在跑（幂等），然后**订阅**它 ——
+      // 不再在请求内执行管道。两个订阅者因此共享同一个运行，
+      // 而不是各跑一遍写出重复结果。
+      await this.taskService.enqueue(id);
+      this.worker.wake();
+
+      const sub = this.registry.subscribe(id, (event) => {
+        if (aborted) return;
+        this.writeEvent(sseWrite, event);
+      });
+      unsubscribe = sub.unsubscribe;
+
+      // 订阅前已产出的事件先重放（best-effort：缓冲区有上限）
+      for (const item of sub.replay) {
+        if (aborted) break;
+        this.writeEvent(sseWrite, item.event);
+      }
+
+      // 运行已结束（刚好错过）时不必等心跳：补一次终态
+      if (!this.registry.has(id)) {
+        const latest = await this.taskService.findLatest(id);
+        if (latest?.state === 'FAILED') {
+          sseWrite('error', latest.errorMessage || '分析失败');
+        } else if (latest?.state === 'CANCELED') {
+          sseWrite('error', latest.errorMessage || '已取消');
         }
       }
     } catch (err: any) {
       // 客户端已断开时不再尝试写 error 帧（没人听）
-      if (!aborted && !isStreamAborted(err)) {
+      if (!aborted) {
         sseWrite('error', err.message || 'Stream error');
       }
     } finally {
+      unsubscribe?.();
       clearInterval(heartbeat);
       try {
         res.end();
@@ -280,6 +265,83 @@ export class AnalysisController {
         // 已销毁
       }
     }
+  }
+
+  /** 把管道事件写成 SSE 帧（唯一的事件→帧映射点） */
+  private writeEvent(
+    sseWrite: (event: string, data: string) => void,
+    event: AnalysisEvent,
+  ): void {
+    switch (event.type) {
+      case 'thinking':
+        sseWrite('thinking', event.delta);
+        break;
+      case 'summary':
+        sseWrite('summary', event.delta);
+        break;
+      case 'insights':
+        sseWrite('insights', JSON.stringify({ items: event.items }));
+        break;
+      case 'report':
+        sseWrite('report', event.delta);
+        break;
+      case 'chart':
+        sseWrite('chart', JSON.stringify({ chart: event.chart }));
+        break;
+      case 'table':
+        sseWrite('table', JSON.stringify({ table: event.table }));
+        break;
+      case 'progress':
+        sseWrite(
+          'progress',
+          JSON.stringify({ stage: event.stage, percent: event.percent }),
+        );
+        break;
+      case 'complete': {
+        // 线上负载是裸 AnalysisResult（无 payload 包裹），
+        // 显式构造以让编译器校验全部 5 个字段
+        const payload: AnalysisCompletePayload = {
+          summary: event.payload.summary,
+          content: event.payload.content,
+          charts: event.payload.charts,
+          tables: event.payload.tables,
+          insights: event.payload.insights,
+        };
+        sseWrite('complete', JSON.stringify(payload));
+        break;
+      }
+      case 'error':
+        sseWrite('error', event.message);
+        break;
+    }
+  }
+
+  // ── Cancel ─────────────────────────────────────────────────
+
+  /**
+   * 取消正在跑的分析。
+   *
+   * 状态分派见 `AnalysisTaskService.cancelBySession` 的注释 —— 关键是要能
+   * 接住「任务刚被僵死回收重排成 QUEUED」这个窗口。
+   */
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard)
+  async cancelAnalysis(@CurrentUser() user: User, @Param('id') id: string) {
+    // 归属校验（非本人会话直接 403/404）
+    await this.analysisService.getSession(user.id, id);
+
+    const { canceled, wasRunning } = await this.taskService.cancelBySession(id);
+    if (!canceled) {
+      return { success: false, message: '没有进行中的分析' };
+    }
+
+    // 会话状态映射为 FAILED（session ENUM 没有 CANCELED，也不需要为它加值）
+    await this.analysisService.updateStatus(id, 'FAILED');
+
+    if (wasRunning) {
+      this.worker.abortRun(id);
+    }
+    return { success: true };
   }
 
   // ── History List ───────────────────────────────────────────

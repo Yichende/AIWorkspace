@@ -2,23 +2,31 @@ import { AnalysisCleanupService } from './analysis-cleanup.service';
 
 const FIRST_DELAY_MS = 20_000;
 const INTERVAL_MS = 60 * 60 * 1000;
-const STALE_ANALYZING_MS = 60 * 60 * 1000;
+/** 会话层兜底阈值（与 analysis-cleanup.service.ts 保持一致）：2 小时 */
+const STALE_ANALYZING_MS = 2 * 60 * 60 * 1000;
 
 describe('AnalysisCleanupService 定时调度', () => {
   let cleanupExpiredFiles: jest.Mock;
   let failStaleAnalyzingSessions: jest.Mock;
+  let listRunningSessionIds: jest.Mock;
   let analysisService: {
     cleanupExpiredFiles: jest.Mock;
     failStaleAnalyzingSessions: jest.Mock;
   };
+  let taskService: { listRunningSessionIds: jest.Mock };
   let service: AnalysisCleanupService;
 
   beforeEach(() => {
     jest.useFakeTimers();
     cleanupExpiredFiles = jest.fn().mockResolvedValue(3);
     failStaleAnalyzingSessions = jest.fn().mockResolvedValue(0);
+    listRunningSessionIds = jest.fn().mockResolvedValue([]);
     analysisService = { cleanupExpiredFiles, failStaleAnalyzingSessions };
-    service = new AnalysisCleanupService(analysisService as any);
+    taskService = { listRunningSessionIds };
+    service = new AnalysisCleanupService(
+      analysisService as any,
+      taskService as any,
+    );
   });
 
   afterEach(() => {
@@ -57,7 +65,23 @@ describe('AnalysisCleanupService 定时调度', () => {
       filesRemoved: 2,
       sessionsFailed: 5,
     });
-    expect(failStaleAnalyzingSessions).toHaveBeenCalledWith(STALE_ANALYZING_MS);
+    expect(failStaleAnalyzingSessions).toHaveBeenCalledWith(
+      STALE_ANALYZING_MS,
+      [],
+    );
+  });
+
+  it('把心跳新鲜的运行中会话传给兜底清理排除（防误杀长跑）', async () => {
+    listRunningSessionIds.mockResolvedValue(['s-run-1', 's-run-2']);
+    failStaleAnalyzingSessions.mockResolvedValue(1);
+
+    await service.runCleanup();
+
+    expect(listRunningSessionIds).toHaveBeenCalled();
+    expect(failStaleAnalyzingSessions).toHaveBeenCalledWith(
+      STALE_ANALYZING_MS,
+      ['s-run-1', 's-run-2'],
+    );
   });
 
   it('上一轮未结束时跳过本轮（单飞）', async () => {

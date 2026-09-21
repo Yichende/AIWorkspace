@@ -844,7 +844,7 @@ function toRowData(c: any): any[] | null {
   if (Array.isArray(c.data)) {
     if (c.data.length > 0 && c.data.every((d: any) => Array.isArray(d))) {
       // 二维数组：每行一个系列
-      c.data.forEach((row: any[], i) => {
+      c.data.forEach((row: any[], i: number) => {
         series.push({
           name: seriesNames[i] ?? `系列${i + 1}`,
           values: row,

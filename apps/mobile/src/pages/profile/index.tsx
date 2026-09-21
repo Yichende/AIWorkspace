@@ -10,6 +10,7 @@ import {
   setPasswordApi,
   uploadAvatarApi,
   profileToUserInfo,
+  resolveAvatar,
 } from '@/services/user'
 import { bindWechatAndRefresh } from '@/utils/wechat'
 import { clearAllAuth } from '@/utils/auth'
@@ -188,7 +189,7 @@ export default function ProfilePage() {
             {userInfo?.avatar ? (
               <Image
                 className='profile-row__avatar'
-                src={userInfo.avatar}
+                src={resolveAvatar(userInfo.avatar)}
                 mode='aspectFill'
               />
             ) : (
@@ -255,7 +256,7 @@ export default function ProfilePage() {
                   ) : userInfo?.avatar ? (
                     <Image
                       className='profile-modal__avatar-img'
-                      src={userInfo.avatar}
+                      src={resolveAvatar(userInfo.avatar)}
                       mode='aspectFill'
                     />
                   ) : (

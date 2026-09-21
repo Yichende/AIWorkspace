@@ -1,16 +1,31 @@
-import Taro from "@tarojs/taro";
-import { getValidAccessToken } from "./token-refresh";
+import { API_BASE_URL as BASE_URL } from "@/config/env";
+import { uploadWithAuth } from "@/utils/upload";
 import request from "./request";
 
-const BASE_URL = "http://localhost:3000";
+/** 形如 `http://host:port/uploads/avatar/x.jpg` 的绝对地址（用于归一化历史值） */
+const ABSOLUTE_URL_RE = /^https?:\/\/[^/]+(\/.*)?$/i;
 
-/** 服务端只存相对路径（/uploads/avatar/xxx.jpg），此处转换为完整 URL */
-export const resolveAvatar = (path?: string | null): string | undefined => {
+/**
+ * 把服务端的头像路径转成可渲染的完整 URL（**渲染期**调用）。
+ *
+ * 终态约定：store 里存**相对路径**，host 只在渲染时拼接 —— 换域名时持久层
+ * 不受影响。同时对历史/异常来源的绝对 URL 做兼容归一化：**重写其 host** 为
+ * 当前 API_BASE_URL，而不是原样透传，避免指向已失效的旧地址。
+ */
+export function resolveAvatar(path: string): string;
+export function resolveAvatar(path?: string | null): string | undefined;
+export function resolveAvatar(path?: string | null): string | undefined {
   if (!path) return undefined;
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+
+  const absolute = path.match(ABSOLUTE_URL_RE);
+  if (absolute) {
+    // 已带 host：只保留其路径部分，改用当前 host
+    return `${BASE_URL}${absolute[1] ?? ""}`;
+  }
+
   if (path.startsWith("/")) return `${BASE_URL}${path}`;
   return path;
-};
+}
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -43,12 +58,17 @@ interface LoginResult {
   user: AuthUser;
 }
 
-/** 服务端 user/profile → store UserInfo（avatar 相对路径转完整 URL） */
+/**
+ * 服务端 user/profile → store UserInfo。
+ *
+ * avatar 原样存**相对路径**（不在此拼 host）—— 渲染时由 resolveAvatar 拼接，
+ * 这样换域名/换环境不需要迁移 store 里的数据。
+ */
 export const profileToUserInfo = (p: AuthUser) => ({
   id: p.id,
   username: p.username,
   email: p.email,
-  avatar: resolveAvatar(p.avatar),
+  avatar: p.avatar ?? undefined,
   wechatBound: p.wechat_bound,
   hasPassword: p.has_password,
 });
@@ -154,39 +174,14 @@ export const setPasswordApi = (data: { newPassword: string }) => {
 };
 
 /** 上传头像（返回相对 URL /uploads/avatar/xxx.jpg） */
-export const uploadAvatarApi = async (
+export const uploadAvatarApi = (
   filePath: string
-): Promise<{ url: string }> => {
-  // 临期则先刷新（单飞）。必须在构造 Promise 之前 await —— 写在 executor
-  // 内部的话，抛出的错误会让外层 Promise 永久 pending。
-  const token = await getValidAccessToken();
-
-  return new Promise((resolve, reject) => {
-    Taro.uploadFile({
-      url: `${BASE_URL}/upload/avatar`,
-      filePath,
-      name: "file",
-      header: {
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-      success: (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            const data = JSON.parse(res.data);
-            resolve(data);
-          } catch {
-            reject(new Error("上传响应解析失败"));
-          }
-        } else {
-          reject(new Error(res.data || "上传失败"));
-        }
-      },
-      fail: (err) => {
-        reject(new Error(err.errMsg || "上传失败"));
-      },
-    });
+): Promise<{ url: string }> =>
+  uploadWithAuth<{ url: string }>({
+    url: `${BASE_URL}/upload/avatar`,
+    filePath,
+    name: "file",
   });
-};
 
 /** 单设备登出 */
 export const revokeSessionApi = (sessionId: number) => {

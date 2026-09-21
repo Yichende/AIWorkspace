@@ -135,7 +135,7 @@ export default function AnalysisUpload({
       try {
         // file.name 为 chooseMessageFile 返回的原始文件名（哈希串仅存在于
         // 临时路径），显式传给服务端用于落库/展示
-        const result = await analysisApi.upload(file.path, file.name, file.name)
+        const result = await analysisApi.upload(file.path, file.name)
         onUploaded(
           { name: file.name, size: file.size },
           result.fileId,

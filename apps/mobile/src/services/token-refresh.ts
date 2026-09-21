@@ -7,9 +7,9 @@ import {
 } from "@/utils/auth";
 import { isTokenExpiringSoon } from "@/utils/token-check";
 import { useUserStore } from "@/stores/user.store";
-
-/** 本地常量：不要从 request.ts 导入，request.ts 反向依赖本模块，会成环 */
-const BASE_URL = "http://localhost:3000";
+// BASE_URL 来自叶子模块 config/env：request.ts 与本模块互相依赖，
+// 常量下沉到叶子后既不复也不成环
+import { API_BASE_URL as BASE_URL } from "@/config/env";
 
 /** 临期阈值：30 秒 */
 const REFRESH_THRESHOLD_MS = 30000;

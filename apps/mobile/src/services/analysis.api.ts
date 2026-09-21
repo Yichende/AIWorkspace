@@ -11,12 +11,12 @@ import type {
   TableConfig,
 } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
-import { SseFrameReader } from '@/utils/sse'
 import type { SseFrame } from '@/utils/sse'
-import { getValidAccessToken } from './token-refresh'
+import { createSSEClient } from '@/utils/sse-client'
+import { ERROR_COPY, ErrorKind, toApiError } from '@/utils/api-error'
+import { uploadWithAuth } from '@/utils/upload'
+import { API_BASE_URL as BASE_URL } from '@/config/env'
 import request from './request'
-
-const BASE_URL = 'http://localhost:3000'
 
 // ── SSE Stream Callbacks（规范化四事件：summary/insights/report/chart）─
 
@@ -66,38 +66,14 @@ export const analysisApi = {
    */
   async upload(
     filePath: string,
-    fileName: string,
     originalName?: string,
   ): Promise<UploadFileResponse> {
-    // 临期则先刷新（单飞，与其他请求共享同一次刷新）
-    const token = await getValidAccessToken()
-
-    return new Promise((resolve, reject) => {
-      Taro.uploadFile({
-        url: `${BASE_URL}/analysis/upload`,
-        filePath,
-        name: 'file',
-        // 显式携带原始文件名（微信 multipart 的 filename 无法自定义）
-        ...(originalName ? { formData: { originalName } } : {}),
-        header: {
-          Authorization: token ? `Bearer ${token}` : '',
-        },
-        success: (res) => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            try {
-              const data = JSON.parse(res.data)
-              resolve(data)
-            } catch {
-              reject(new Error('上传响应解析失败'))
-            }
-          } else {
-            reject(new Error(res.data || '上传失败'))
-          }
-        },
-        fail: (err) => {
-          reject(new Error(err.errMsg || '上传失败'))
-        },
-      })
+    return uploadWithAuth<UploadFileResponse>({
+      url: `${BASE_URL}/analysis/upload`,
+      filePath,
+      name: 'file',
+      // 显式携带原始文件名（微信 multipart 的 filename 无法自定义）
+      ...(originalName ? { formData: { originalName } } : {}),
     })
   },
 
@@ -121,45 +97,16 @@ export const analysisApi = {
     id: string,
     callbacks: AnalysisStreamCallbacks,
   ): Promise<void> {
-    const reqUrl = `${BASE_URL}/analysis/${id}/stream`
-    // 临期则先刷新（单飞，与其他请求共享同一次刷新）
-    const token = await getValidAccessToken()
-
-    // 共享收流骨架：增量 UTF-8 解码（跨 chunk 字节残留）+ \n\n 拆帧留尾 + 分发完整帧
-    const reader = new SseFrameReader((frame) => {
-      analysisApi._dispatchFrame(frame, callbacks)
-    })
-
-    const requestTask = Taro.request({
-      url: reqUrl,
-      method: 'GET',
-      header: {
-        Accept: 'text/event-stream',
-        Authorization: token ? `Bearer ${token}` : '',
+    // 请求构造/收流骨架在 utils/sse-client.ts（与 chat.api 共用）
+    return createSSEClient(
+      { url: `${BASE_URL}/analysis/${id}/stream`, method: 'GET' },
+      {
+        onFrame: (frame) => analysisApi._dispatchFrame(frame, callbacks),
+        onError: (err) =>
+          callbacks.onError?.(toApiError(err, ERROR_COPY[ErrorKind.Stream]).message),
+        onTaskReady: callbacks.onTaskReady,
       },
-      enableChunked: true,
-      responseType: 'arraybuffer',
-      enableHttp2: false,
-      success: () => {
-        // Stream complete — flush decode tail + any unterminated final frame
-        reader.end()
-      },
-      fail: (err) => {
-        callbacks.onError?.(err.errMsg || 'Stream request failed')
-      },
-    })
-
-    // WeChat Mini Program chunk listener
-    ;(requestTask as any).onChunkReceived?.((res: { data: ArrayBuffer }) => {
-      reader.feed(res.data)
-    })
-
-    // 同步把 RequestTask 交给调用方（用于 abort 中断）
-    callbacks.onTaskReady?.(requestTask)
-
-    // RequestTask 是 thenable：Promise.resolve 会采纳它，settle 时机即请求结束。
-    // 因此本 promise 不能用来拿句柄（句柄走 onTaskReady），只能做流程控制。
-    return Promise.resolve(requestTask) as unknown as Promise<void>
+    )
   },
 
   /**
@@ -271,7 +218,8 @@ export const analysisApi = {
         }
         break
       case 'error':
-        cb.onError?.(frame.data)
+        // 线上仍是裸字符串（不改服务端格式），这里只归一化出 message
+        cb.onError?.(toApiError(frame.data, ERROR_COPY[ErrorKind.Stream]).message)
         break
     }
   },

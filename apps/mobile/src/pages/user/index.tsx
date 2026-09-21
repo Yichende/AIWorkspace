@@ -8,7 +8,11 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { useChatStore } from '@/stores/chat.store'
 import { useAnalysisStore } from '@/stores/analysis.store'
 import { chatStorage } from '@/stores/storage/chat'
-import { getProfileApi, profileToUserInfo } from '@/services/user'
+import {
+  getProfileApi,
+  profileToUserInfo,
+  resolveAvatar,
+} from '@/services/user'
 import { modelApi } from '@/services/model.api'
 import { clearLocalCache } from '@/utils/cache'
 import { clearAllAuth } from '@/utils/auth'
@@ -188,7 +192,7 @@ export default function UserPage() {
           {userInfo?.avatar ? (
             <Image
               className='user-card__avatar-img'
-              src={userInfo.avatar}
+              src={resolveAvatar(userInfo.avatar)}
               mode='aspectFill'
             />
           ) : (

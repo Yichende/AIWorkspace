@@ -1,16 +1,14 @@
 import Taro from '@tarojs/taro'
 import type { CreateSessionParams, CreateMessageParams, UpdateMessageParams, UpdateSessionParams, PaginatedSessions, MessageListResponse } from '@repo/types'
 import { DEFAULT_PAGE_SIZE } from '@repo/constants'
-import { SseFrameReader } from '@/utils/sse'
 import type { SseFrame } from '@/utils/sse'
-import { getValidAccessToken } from './token-refresh'
+import { createSSEClient } from '@/utils/sse-client'
+import { API_BASE_URL as BASE_URL } from '@/config/env'
 import request from './request'
 
 // Re-export for backward compatibility
 export type { SessionIndexItem } from '@repo/types'
 export type { PaginatedSessions, MessageListResponse } from '@repo/types'
-
-const BASE_URL = 'http://localhost:3000'
 
 // ── SSE Stream Callbacks ────────────────────────────────────
 
@@ -117,46 +115,19 @@ export const chatApi = {
     messages: Array<{ role: string; content: string }>,
     callbacks: StreamCallbacks,
   ): Promise<void> {
-    const reqUrl = `${BASE_URL}/chat/completions`
-    // 临期则先刷新（单飞，避免流式请求中途 401）
-    const token = await getValidAccessToken()
-
-    // 共享收流骨架：增量 UTF-8 解码（跨 chunk 字节残留）+ \n\n 拆帧留尾 + 分发完整帧
-    const reader = new SseFrameReader((frame) => {
-      chatApi._dispatchFrame(frame, callbacks)
-    })
-
-    const requestTask = Taro.request({
-      url: reqUrl,
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        'Authorization': token ? `Bearer ${token}` : '',
+    // 请求构造/收流骨架在 utils/sse-client.ts（与 analysis.api 共用）
+    return createSSEClient(
+      {
+        url: `${BASE_URL}/chat/completions`,
+        method: 'POST',
+        data: { model, messages },
       },
-      data: { model, messages },
-      enableChunked: true,
-      responseType: 'arraybuffer',
-      enableHttp2: false,
-      success: () => {
-        // Stream complete — flush decode tail + any unterminated final frame
-        reader.end()
+      {
+        onFrame: (frame) => chatApi._dispatchFrame(frame, callbacks),
+        onError: callbacks.onError,
+        onTaskReady: callbacks.onTaskReady,
       },
-      fail: (err) => {
-        callbacks.onError?.(err.errMsg || 'Stream request failed')
-      },
-    })
-
-    // WeChat Mini Program chunk listener
-    ;(requestTask as any).onChunkReceived?.((res: { data: ArrayBuffer }) => {
-      reader.feed(res.data)
-    })
-
-    // 同步把 RequestTask 交给调用方（用于 abort 中断）
-    callbacks.onTaskReady?.(requestTask)
-
-    // Promise.resolve(thenable) 会采纳 RequestTask —— settle 时机即请求结束
-    return Promise.resolve(requestTask) as unknown as Promise<void>
+    )
   },
 
   // ── Internal helpers ─────────────────────────────────────

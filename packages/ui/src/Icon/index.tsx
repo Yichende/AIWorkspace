@@ -1,5 +1,5 @@
 import React from 'react'
-import { Text, Image } from '@tarojs/components'
+import { Image } from '@tarojs/components'
 import { useMemo } from 'react'
 import Taro from '@tarojs/taro'
 import './iconfont.css' // 只在需要的端生效，编译时其它端会被摇树

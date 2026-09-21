@@ -103,6 +103,19 @@ export class AnalysisService {
     return session;
   }
 
+  /** worker 用：按 id 取会话（无归属校验，不抛 NotFound） */
+  async getSessionById(sessionId: string): Promise<AnalysisSession | null> {
+    return this.sessionModel.findByPk(sessionId);
+  }
+
+  /** 只取状态（僵死回收的对账用），不存在返回 null */
+  async getSessionStatus(sessionId: string): Promise<string | null> {
+    const row = await this.sessionModel.findByPk(sessionId, {
+      attributes: ['status'],
+    });
+    return row?.status ?? null;
+  }
+
   // ── List ────────────────────────────────────────────────────
 
   async listSessions(userId: number, page = 1, limit = 20, keyword?: string) {
@@ -244,6 +257,9 @@ export class AnalysisService {
   // ── Save Results ────────────────────────────────────────────
 
   async saveCharts(analysisId: string, charts: ChartConfig[]): Promise<void> {
+    // 先清后插：重跑（崩溃自动重试）时会再次调用，不去重会累积重复图表。
+    // 也顺带修掉了旧实现里「第二个订阅者各跑一遍 → 双份图表」的问题。
+    await this.chartModel.destroy({ where: { analysisId } });
     if (charts.length === 0) return;
     await this.chartModel.bulkCreate(
       charts.map((c) => ({
@@ -264,6 +280,8 @@ export class AnalysisService {
     analysisId: string,
     data: { summary: string; content: string; insights: string[] },
   ): Promise<void> {
+    // 同上：重跑必须覆盖上一次的结果行，而不是再插一行
+    await this.resultModel.destroy({ where: { analysisId } });
     await this.resultModel.create({
       analysisId,
       summary: data.summary,
@@ -337,8 +355,14 @@ export class AnalysisService {
    * 不清理就会永久堆在「分析中」，所以用「远超单次分析合理时长」的阈值兜底。
    *
    * @param maxAgeMs 距最后一次状态变更超过该时长即判定僵死
+   * @param excludeSessionIds 要排除的会话（心跳新鲜的运行中会话）——
+   *   否则一次合法的 >2h 长跑会因为会话 `updated_at` 不动而被误杀。
+   *   默认空数组，保持既有调用方与单测不变。
    */
-  async failStaleAnalyzingSessions(maxAgeMs: number): Promise<number> {
+  async failStaleAnalyzingSessions(
+    maxAgeMs: number,
+    excludeSessionIds: string[] = [],
+  ): Promise<number> {
     const cutoff = new Date(Date.now() - maxAgeMs);
     const [affected] = await this.sessionModel.update(
       { status: 'FAILED' },
@@ -346,6 +370,9 @@ export class AnalysisService {
         where: {
           status: 'ANALYZING',
           updated_at: { [Op.lt]: cutoff },
+          ...(excludeSessionIds.length > 0
+            ? { id: { [Op.notIn]: excludeSessionIds } }
+            : {}),
         },
       },
     );

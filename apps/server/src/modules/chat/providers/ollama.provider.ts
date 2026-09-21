@@ -24,7 +24,11 @@ export class OllamaProvider implements IAbortableProvider {
   private readonly defaultBaseUrl: string;
 
   constructor() {
-    this.defaultBaseUrl = process.env.OLLAMA_HOST || 'http://localhost:11434';
+    // 键名与 .env / .env.example 保持一致（此前读的是 OLLAMA_HOST，
+    // 而配置文件里写的是 OLLAMA_BASE_URL，两者从未对上 —— 该配置实际一直没生效）。
+    // 注意 OLLAMA_HOST 在 Ollama 生态里是「服务端监听地址」，用作客户端基地址有歧义。
+    this.defaultBaseUrl =
+      process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
   }
 
   // ── Public API ──────────────────────────────────────────────

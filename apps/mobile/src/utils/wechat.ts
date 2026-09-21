@@ -1,6 +1,7 @@
 import Taro from "@tarojs/taro";
 import { wechatBindApi } from "@/services/user";
 import { useUserStore } from "@/stores/user.store";
+import { showErrorToast } from "@/utils/error-toast";
 
 /** 是否为微信小程序运行环境（Taro.login 仅该平台可用） */
 export const isWeapp = () => process.env.TARO_ENV === "weapp";
@@ -47,11 +48,7 @@ export const bindWechatAndRefresh = async () => {
       useUserStore.getState().setUserInfo({ ...cur, wechatBound: true });
     }
     Taro.showToast({ title: "绑定成功", icon: "success" });
-  } catch (error: any) {
-    const errMsg =
-      typeof error === "string"
-        ? error
-        : error?.message || error?.errMsg || "绑定失败";
-    Taro.showToast({ title: errMsg, icon: "none" });
+  } catch (error) {
+    showErrorToast(error, "绑定失败");
   }
 };
