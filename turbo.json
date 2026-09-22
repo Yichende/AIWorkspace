@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [".npmrc", "tsconfig.base.json", "pnpm-workspace.yaml"],
   "tasks": {
     "dev": {
       "cache": false,

@@ -10,6 +10,9 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "type-check": "turbo run type-check",
+    "ci:check": "node scripts/ci-check.mjs",
+    "ci:check:full": "node scripts/ci-check.mjs --full",
+    "ci:check:fresh": "node scripts/ci-check.mjs --full --force",
     "prepare": "husky"
   },
   "keywords": [],

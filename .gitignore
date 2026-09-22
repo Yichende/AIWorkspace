@@ -7,17 +7,17 @@ node_modules/
 # =========================
 # Build Output
 # =========================
-dist/
-build/
-temp/
-tmp/
-.cache/
+/dist/
+/build/
+/temp/
+/tmp/
+/.cache/
 .turbo/
 
 # =========================
 # Logs
 # =========================
-logs/
+/logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
@@ -27,7 +27,7 @@ yarn-error.log*
 # =========================
 # Docs
 # =========================
-docs/
+/docs/
 
 # =========================
 # Uploads
@@ -81,7 +81,7 @@ Thumbs.db
 # =========================
 # React
 # =========================
-coverage/
+/coverage/
 
 # =========================
 # NestJS
@@ -97,14 +97,17 @@ coverage/
 # =========================
 # Upload Files
 # =========================
-uploads/
-storage/
+# 注意：此处不要写无锚点的 storage/ —— 它会连源码目录一起吃
+# （如 apps/mobile/src/stores/storage/），导致该文件不进仓库、
+# CI 上解析不到模块。服务端上传目录是 ./uploads/*，见上方 Uploads。
+# 模式一律加锚点：无锚点的目录名会匹配任意层级，等于给源码目录埋雷。
+/uploads/
 
 # =========================
 # AI / Model Cache
 # =========================
-models/
-ollama-models/
+/models/
+/ollama-models/
 CLAUDE.md
 
 # =========================
@@ -120,7 +123,7 @@ docker-data/
 # =========================
 # Testing
 # =========================
-coverage/
+/coverage/
 .nyc_output/
 
 # =========================
