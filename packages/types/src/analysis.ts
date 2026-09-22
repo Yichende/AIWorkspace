@@ -225,4 +225,21 @@ export interface AnalysisDetail {
   charts: ChartConfig[]
   tables: TableConfig[]
   result: AnalysisResult | null
+  /**
+   * 运行中会话的实时进度，取自 `analysis_tasks` 最新一行。
+   *
+   * 此前进度只能从 SSE 的 progress 帧拿到，刷新/重开详情页就归零；
+   * 有了它，客户端附着直播流之前就能把进度条摆到正确位置。
+   * 无任务或任务尚未上报时为 null。
+   */
+  progress?: {
+    stage: ProgressStage
+    percent: number
+  } | null
+  /**
+   * 失败原因 / 取消提示，取自 `analysis_tasks.error_message`。
+   *
+   * 此前只存在于 SSE 的 error 帧，刷新后即丢失，页面上只剩一句「分析失败」。
+   */
+  errorMessage?: string | null
 }

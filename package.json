@@ -16,7 +16,7 @@
     "prepare": "husky"
   },
   "keywords": [],
-  "author": "",
+  "author": "yichend",
   "license": "ISC",
   "packageManager": "pnpm@10.33.4",
   "devDependencies": {

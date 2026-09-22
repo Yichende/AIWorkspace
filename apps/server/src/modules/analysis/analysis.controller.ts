@@ -36,6 +36,14 @@ import type {
 } from '@repo/types';
 import { DEFAULT_MODEL } from '@repo/constants';
 
+/**
+ * 单条 SSE 连接的兜底上限。
+ *
+ * 语义是**传输层超时**，不是分析失败、更不是取消：到点只收掉这条连接，
+ * worker 里的运行照跑，会话状态不变。取值远大于单次分析的合理时长（5–15 分钟）。
+ */
+const STREAM_MAX_MS = 30 * 60 * 1000;
+
 /** multer v2 不自带类型，内联定义文件类型 */
 interface UploadedFile {
   fieldname: string;
@@ -154,6 +162,8 @@ export class AnalysisController {
   async streamAnalysis(
     @CurrentUser() user: User,
     @Param('id') id: string,
+    /** 客户端游标：只回放 seq > after 的事件。缺省/非法值按 0（全量回放）处理 */
+    @Query('after') after: string | undefined,
     @Res() res: Response,
     @Req() req: Request,
   ) {
@@ -178,9 +188,13 @@ export class AnalysisController {
       }
     };
 
-    const sseWrite = (event: string, data: string) => {
+    const sseWrite = (event: string, data: string, seq?: number) => {
       const encoded = data.replace(/\n/g, '\ndata: ');
-      safeWrite(`event: ${event}\ndata: ${encoded}\n\n`);
+      // seq 有值时前置一行 `id:`，客户端据此维护游标并原样回传到 `?after=`。
+      // 只加 `id:` 这一行，9 类既有帧的 data 负载格式一律不动。
+      // 终态补发帧、timeout、truncated、done 都没有 seq，不写 id。
+      const idLine = typeof seq === 'number' ? `id: ${seq}\n` : '';
+      safeWrite(`${idLine}event: ${event}\ndata: ${encoded}\n\n`);
     };
 
     // 注释帧心跳（`: ping`）：分析阶段可能几十秒无事件，防小程序/反代判死。
@@ -193,9 +207,28 @@ export class AnalysisController {
     req.on('close', () => {
       if (res.writableEnded) return;
       aborted = true;
+      resolveWait?.();
     });
 
     let unsubscribe: (() => void) | undefined;
+    let timeoutTimer: NodeJS.Timeout | undefined;
+    let wroteTerminal = false;
+
+    // 收尾汇合点：运行结束 / 超时 / 客户端断开，任一发生都让它 resolve，
+    // 保证 finally 一定会跑。少了它，客户端断开后还会抱着订阅和定时器
+    // 死等到运行结束。
+    let resolveWait: (() => void) | undefined;
+    const waitDone = new Promise<void>((resolve) => {
+      resolveWait = resolve;
+    });
+
+    /** 统一事件出口：顺带记录是否已写过终态帧，供收尾判断要不要补 */
+    const handleEvent = (event: AnalysisEvent, seq?: number) => {
+      if (aborted) return;
+      if (event.type === 'complete' || event.type === 'error')
+        wroteTerminal = true;
+      this.writeEvent(sseWrite, event, seq);
+    };
 
     try {
       // 获取 session 信息
@@ -230,25 +263,65 @@ export class AnalysisController {
       await this.taskService.enqueue(id);
       this.worker.wake();
 
-      const sub = this.registry.subscribe(id, (event) => {
-        if (aborted) return;
-        this.writeEvent(sseWrite, event);
-      });
+      const fromSeq = Math.max(0, Number.parseInt(after ?? '', 10) || 0);
+      const sub = this.registry.subscribe(id, handleEvent, { fromSeq });
       unsubscribe = sub.unsubscribe;
+
+      // 游标掉出保留窗口：先把可续传位置告诉客户端，它才知道要丢掉残缺缓冲。
+      // 必须在 replay 之前发 —— 否则客户端会先把残缺片段拼进正文。
+      // 注意 replay 仍然是「服务端现存的全量」，所以客户端无需重连。
+      if (sub.truncated) {
+        sseWrite('truncated', JSON.stringify({ firstSeq: sub.firstSeq ?? 1 }));
+      }
 
       // 订阅前已产出的事件先重放（best-effort：缓冲区有上限）
       for (const item of sub.replay) {
         if (aborted) break;
-        this.writeEvent(sseWrite, item.event);
+        handleEvent(item.event, item.seq);
       }
 
-      // 运行已结束（刚好错过）时不必等心跳：补一次终态
-      if (!this.registry.has(id)) {
+      // 运行从没启动过、也没有任何缓冲：任务可能早已终态（运行结束且已过保留期）。
+      // 这种情况干等 done 会一直挂到超时，先查一次任务状态直接收尾。
+      if (!sub.started && sub.lastSeq === null) {
+        const latest = await this.taskService.findLatest(id);
+        if (!latest) {
+          sseWrite('error', '分析任务不存在');
+          return;
+        }
+        if (latest.state === 'FAILED' || latest.state === 'CANCELED') {
+          sseWrite('error', latest.errorMessage || '分析失败');
+          return;
+        }
+      }
+
+      // 关键：必须等运行结束才落到 finally。
+      // 少了这层 await，handler 会在 subscribe 之后同步走到底，res.end() 立刻
+      // 把连接关掉，此后所有事件的写入因 writableEnded 全部变成 no-op
+      // —— 这正是阶段一重构引入的回归。
+      let timedOut = false;
+      timeoutTimer = setTimeout(() => {
+        timedOut = true;
+        // 只收连接、不动运行：客户端据此区分「超时」与「失败 / 取消」
+        sseWrite(
+          'timeout',
+          JSON.stringify({ message: '连接超时，分析仍在后台进行' }),
+        );
+        resolveWait?.();
+      }, STREAM_MAX_MS);
+      timeoutTimer.unref?.();
+      void sub.done.then(() => resolveWait?.());
+      await waitDone;
+
+      // 收尾补终态：管道被中断（取消 / 重排）时可能一个终态帧都没发过，
+      // 不补的话客户端只能靠静默断连兜底，被误判成「连接中断，请重试」。
+      if (!aborted && !timedOut && !wroteTerminal) {
         const latest = await this.taskService.findLatest(id);
         if (latest?.state === 'FAILED') {
           sseWrite('error', latest.errorMessage || '分析失败');
         } else if (latest?.state === 'CANCELED') {
           sseWrite('error', latest.errorMessage || '已取消');
+        } else {
+          sseWrite('done', '');
         }
       }
     } catch (err: any) {
@@ -257,6 +330,7 @@ export class AnalysisController {
         sseWrite('error', err.message || 'Stream error');
       }
     } finally {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
       unsubscribe?.();
       clearInterval(heartbeat);
       try {
@@ -269,9 +343,13 @@ export class AnalysisController {
 
   /** 把管道事件写成 SSE 帧（唯一的事件→帧映射点） */
   private writeEvent(
-    sseWrite: (event: string, data: string) => void,
+    write: (event: string, data: string, seq?: number) => void,
     event: AnalysisEvent,
+    seq?: number,
   ): void {
+    // 一个事件对应一帧，seq 就是该事件自身的序号。局部重绑后下面的 switch
+    // 分支不用逐个改签名。
+    const sseWrite = (e: string, d: string) => write(e, d, seq);
     switch (event.type) {
       case 'thinking':
         sseWrite('thinking', event.delta);

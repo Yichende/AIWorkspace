@@ -28,6 +28,10 @@ interface Props {
   stopped?: boolean
   /** 失败原因（stop 时为空） */
   errorMessage?: string
+  /** 传输层超时：连接已断开，但分析仍在后台进行（**不是失败**） */
+  streamTimeout?: boolean
+  /** 提供后超时提示区显示「重新连接」 */
+  onReconnect?: () => void
   /** 提供后显示停止按钮 */
   onStop?: () => void
   /** 提供后失败区显示「重试」 */
@@ -48,9 +52,11 @@ export default function AnalysisProgress({
   tables,
   stopped = false,
   errorMessage = '',
+  streamTimeout = false,
   onStop,
   onRetry,
   onReupload,
+  onReconnect,
 }: Props) {
   const isPending = status === 'PENDING'
   const isAnalyzing = status === 'ANALYZING'
@@ -191,6 +197,24 @@ export default function AnalysisProgress({
               </View>
             )}
           </View>
+        </View>
+      )}
+
+      {/* ── 传输层超时：分析没失败，只是这条连接被服务端收尾了 ────
+          复用失败区的样式（同一类「需要用户动作」的提示块），
+          但文案与出口都不同 —— 不报错，只给「重新连接」。 */}
+      {streamTimeout && !isFailed && !stopped && (
+        <View className='progress-step__failure'>
+          <Text className='progress-step__failure-text'>
+            连接已断开，分析仍在后台进行
+          </Text>
+          {onReconnect && (
+            <View className='progress-step__failure-actions'>
+              <View className='progress-step__btn' onClick={onReconnect}>
+                <Text className='progress-step__btn-text'>重新连接</Text>
+              </View>
+            </View>
+          )}
         </View>
       )}
 

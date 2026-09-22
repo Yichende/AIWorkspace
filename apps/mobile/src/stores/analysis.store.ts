@@ -52,6 +52,21 @@ interface AnalysisState {
   stopped: boolean;
   /** 失败原因（stop 时为空）；独立于 thinkingText，思考面板关闭时也要能显示 */
   errorMessage: string;
+  /**
+   * 已收到的最新事件序号（SSE `id:` 行），重连时作为 `?after=` 游标回传。
+   * 放在 store 而不是 hook 局部变量：跨页面、跨次附着都要读它。
+   */
+  lastSeq: number;
+  /**
+   * 传输层超时（服务端主动收尾连接）。**不是失败** —— 分析仍在后台跑，
+   * 所以不动 status、不置 stopped，UI 给的是「重新连接」入口。
+   */
+  streamTimeout: boolean;
+  /**
+   * 服务端缓冲已越界，正文**前缀永久丢失**。UI 必须如实说明，
+   * 不能把残缺内容当成一份完整报告展示。
+   */
+  prefixTruncated: boolean;
 
   // ── 结果阶段 ──
   result: AnalysisResult | null;
@@ -112,8 +127,24 @@ interface AnalysisActions {
   /** 用户主动停止分析 */
   setStopped: () => void;
 
+  /** 记录最新事件序号（游标） */
+  setLastSeq: (seq: number) => void;
+
+  /** 设置/清除「连接超时」提示（只改提示，不动 status / stopped） */
+  setStreamTimeout: (value: boolean) => void;
+
+  /** 标记正文前缀因服务端缓冲越界而丢失 */
+  markPrefixTruncated: () => void;
+
   /** 清空流式缓存（重试/重新分析前调用；不改 status 与 step） */
   resetStreamingState: () => void;
+
+  /**
+   * 只清流式缓冲与游标，**不动 status / step**。
+   * 用于服务端游标越界后重新对齐 —— 那条路径上分析还在跑，
+   * 状态必须保持 ANALYZING（resetStreamingState 会把 status 一并清掉）。
+   */
+  clearStreamBuffers: () => void;
 
   /** 加载已保存的分析详情 */
   hydrate: (data: {
@@ -150,6 +181,9 @@ const initialState: AnalysisState = {
   progressPercent: 0,
   stopped: false,
   errorMessage: '',
+  lastSeq: 0,
+  streamTimeout: false,
+  prefixTruncated: false,
   result: null,
 };
 
@@ -258,6 +292,13 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         errorMessage: '',
       }),
 
+    setLastSeq: (seq) => set({ lastSeq: seq }),
+
+    // 超时只是「这条连接没了」，分析还在后台跑：不动 status / stopped
+    setStreamTimeout: (value) => set({ streamTimeout: value }),
+
+    markPrefixTruncated: () => set({ prefixTruncated: true }),
+
     resetStreamingState: () =>
       set({
         status: null,
@@ -272,7 +313,22 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         progressPercent: 0,
         stopped: false,
         errorMessage: '',
+        lastSeq: 0,
+        streamTimeout: false,
+        prefixTruncated: false,
         result: null,
+      }),
+
+    clearStreamBuffers: () =>
+      set({
+        thinkingText: '',
+        streamingText: '',
+        streamingSummary: '',
+        streamingInsights: [],
+        charts: [],
+        tables: [],
+        parsedAny: false,
+        lastSeq: 0,
       }),
 
     hydrate: (data) =>
@@ -283,6 +339,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         charts: data.charts,
         tables: data.tables,
         result: data.result,
+        streamTimeout: false,
+        prefixTruncated: false,
       }),
 
     // 每次重置时重取用户设置的默认模型（AnalysisPage 每次进入都调 reset）

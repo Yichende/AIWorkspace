@@ -37,11 +37,16 @@ describe('AnalysisService 过期文件清理', () => {
     };
     chartModel = { destroy: jest.fn().mockResolvedValue(undefined) };
     resultModel = { destroy: jest.fn().mockResolvedValue(undefined) };
+    // 本 spec 只覆盖文件清理；阶段二新增的两个 model 补占位即可
+    const tableModel: any = { destroy: jest.fn().mockResolvedValue(undefined) };
+    const taskModel: any = { findOne: jest.fn().mockResolvedValue(null) };
     service = new AnalysisService(
       sessionModel,
       fileModel,
       chartModel,
       resultModel,
+      tableModel,
+      taskModel,
     );
   });
 

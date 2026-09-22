@@ -283,6 +283,8 @@ export class AnalysisQueueService {
 
       // ── 9. 持久化结果（不含 thinking） ──────────────────────
       await this.analysisService.saveCharts(sessionId, charts);
+      // 表格此前从未落库，导致「实时流里看得到、重开详情页就没了」
+      await this.analysisService.saveTables(sessionId, tables);
       await this.analysisService.saveResult(sessionId, {
         summary: finalSummary,
         content: cleanContent,

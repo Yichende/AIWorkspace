@@ -5,6 +5,7 @@ import { AnalysisSession } from './entities/analysis-session.entity';
 import { AnalysisFile } from './entities/analysis-file.entity';
 import { AnalysisChart } from './entities/analysis-chart.entity';
 import { AnalysisResult } from './entities/analysis-result.entity';
+import { AnalysisTable } from './entities/analysis-table.entity';
 import { AnalysisTask } from './entities/analysis-task.entity';
 import { AnalysisController } from './analysis.controller';
 import { AnalysisService } from './analysis.service';
@@ -25,6 +26,7 @@ import { extname } from 'path';
       AnalysisFile,
       AnalysisChart,
       AnalysisResult,
+      AnalysisTable,
       AnalysisTask,
     ]),
     MulterModule.register({

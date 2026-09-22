@@ -200,6 +200,42 @@ describe('parseSseFrame', () => {
   it('空输入', () => {
     expect(parseSseFrame('')).toEqual({ event: '', data: '' })
   })
+
+  // 分析流的重连游标：服务端在事件帧上多写一行 `id: <seq>`，客户端据此维护
+  // lastSeq 并以 ?after= 重连。漏解析这一行 → 每次附着都从头回放，
+  // 把已产出的正文再追加一遍（append 语义）。
+  it('解析 id 行（重连游标）', () => {
+    expect(parseSseFrame('id: 7\nevent: thinking\ndata: hi')).toEqual({
+      event: 'thinking',
+      data: 'hi',
+      id: '7',
+    })
+  })
+
+  it('无 id 行的帧不产出 id 字段（心跳与终态补发帧）', () => {
+    expect(parseSseFrame('event: complete\ndata: {}')).toEqual({
+      event: 'complete',
+      data: '{}',
+    })
+    // 心跳注释帧既无 event 也无 id
+    expect(parseSseFrame(': ping')).toEqual({ event: '', data: '' })
+  })
+
+  it('id 行位置无关，且与 event/data 同样大小写敏感、要求前缀带空格', () => {
+    expect(parseSseFrame('event: x\ndata: v\nid: 42')).toEqual({
+      event: 'x',
+      data: 'v',
+      id: '42',
+    })
+    expect(parseSseFrame('event: x\ndata: v\nid:42')).toEqual({
+      event: 'x',
+      data: 'v',
+    })
+  })
+
+  it('id 保留原始字符串形态（不转 number，前导零不被吞）', () => {
+    expect(parseSseFrame('id: 001\nevent: x\ndata: v').id).toBe('001')
+  })
 })
 
 describe('SseFrameReader 端到端拆帧', () => {

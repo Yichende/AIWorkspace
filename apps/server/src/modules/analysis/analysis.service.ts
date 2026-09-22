@@ -12,7 +12,9 @@ import { AnalysisSession } from './entities/analysis-session.entity';
 import { AnalysisFile } from './entities/analysis-file.entity';
 import { AnalysisChart } from './entities/analysis-chart.entity';
 import { AnalysisResult } from './entities/analysis-result.entity';
-import type { ChartConfig } from '@repo/types';
+import { AnalysisTable } from './entities/analysis-table.entity';
+import { AnalysisTask } from './entities/analysis-task.entity';
+import type { ChartConfig, ProgressStage, TableConfig } from '@repo/types';
 
 /** 一小时毫秒数 */
 const ONE_HOUR = 60 * 60 * 1000;
@@ -30,6 +32,10 @@ export class AnalysisService {
     private chartModel: typeof AnalysisChart,
     @InjectModel(AnalysisResult)
     private resultModel: typeof AnalysisResult,
+    @InjectModel(AnalysisTable)
+    private tableModel: typeof AnalysisTable,
+    @InjectModel(AnalysisTask)
+    private taskModel: typeof AnalysisTask,
   ) {}
 
   // ── File Upload ─────────────────────────────────────────────
@@ -211,19 +217,42 @@ export class AnalysisService {
   async getDetail(userId: number, sessionId: string) {
     const session = await this.getSession(userId, sessionId);
 
-    const file = await this.fileModel.findOne({
-      where: { analysisId: sessionId },
-      attributes: ['fileName', 'size'],
-    });
+    const [file, charts, tables, result, task] = await Promise.all([
+      this.fileModel.findOne({
+        where: { analysisId: sessionId },
+        attributes: ['fileName', 'size'],
+      }),
+      this.chartModel.findAll({
+        where: { analysisId: sessionId },
+        order: [['created_at', 'ASC']],
+      }),
+      this.tableModel.findAll({
+        where: { analysisId: sessionId },
+        order: [['created_at', 'ASC']],
+      }),
+      this.resultModel.findOne({
+        where: { analysisId: sessionId },
+      }),
+      // 最新一行任务。进度与失败原因此前没有任何 HTTP 出口 ——
+      // 刷新页面后客户端就再也拿不到，只剩一句「分析失败」。
+      this.taskModel.findOne({
+        where: { sessionId },
+        order: [['id', 'DESC']],
+      }),
+    ]);
 
-    const charts = await this.chartModel.findAll({
-      where: { analysisId: sessionId },
-      order: [['created_at', 'ASC']],
-    });
+    const chartList = charts.map((c) => ({
+      id: c.id.toString(),
+      ...(c.chartConfig as any),
+    }));
+    // 表格此前恒为 []（注释写着 "stored inside result.content as markdown"），
+    // 导致「实时流里看得到表格、重开详情页就没了」。现在读真表。
+    const tableList = tables.map((t) => ({
+      id: t.id.toString(),
+      ...(t.tableConfig as any),
+    }));
 
-    const result = await this.resultModel.findOne({
-      where: { analysisId: sessionId },
-    });
+    const progressPercent = task?.progressPercent ?? null;
 
     return {
       session: {
@@ -234,23 +263,28 @@ export class AnalysisService {
         createdAt: (session as any).created_at,
       },
       file: file ? { fileName: file.fileName, size: file.size } : undefined,
-      charts: charts.map((c) => ({
-        id: c.id.toString(),
-        ...(c.chartConfig as any),
-      })),
-      tables: [], // tables are stored inside result.content as markdown
+      charts: chartList,
+      tables: tableList,
       result: result
         ? {
             summary: result.summary,
             content: result.content,
-            charts: charts.map((c) => ({
-              id: c.id.toString(),
-              ...(c.chartConfig as any),
-            })),
-            tables: [],
+            charts: chartList,
+            tables: tableList,
             insights: result.insights ?? [],
           }
         : null,
+      progress:
+        progressPercent === null
+          ? null
+          : {
+              // 任务刚入队时 progress_stage 还是 null（百分比为 0），
+              // 兜底成 'analyzing' —— 客户端进度条的文案本就由事件驱动，
+              // 这里只负责百分比落位。
+              stage: (task?.progressStage ?? 'analyzing') as ProgressStage,
+              percent: progressPercent,
+            },
+      errorMessage: task?.errorMessage ?? null,
     };
   }
 
@@ -271,6 +305,23 @@ export class AnalysisService {
           data: c.data,
           option: c.option,
           id: c.id,
+        },
+      })),
+    );
+  }
+
+  async saveTables(analysisId: string, tables: TableConfig[]): Promise<void> {
+    // 与 saveCharts 同样的先清后插：崩溃重跑会再次调用，不去重会累积重复表格
+    await this.tableModel.destroy({ where: { analysisId } });
+    if (tables.length === 0) return;
+    await this.tableModel.bulkCreate(
+      tables.map((t) => ({
+        analysisId,
+        tableConfig: {
+          id: t.id,
+          title: t.title,
+          columns: t.columns,
+          data: t.data,
         },
       })),
     );

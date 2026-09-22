@@ -15,6 +15,12 @@
 export interface SseFrame {
   event: string
   data: string
+  /**
+   * SSE `id:` 行的值。分析流用它下发事件的单调序号，客户端据此维护
+   * 游标并在重连时以 `?after=` 回传，避免重放整段已产出的正文。
+   * 心跳、终态补发帧等不带 id。
+   */
+  id?: string
 }
 
 export type SseFrameHandler = (frame: SseFrame) => void
@@ -145,11 +151,14 @@ function secondByteInRange(b: number, c: number): boolean {
  * 解析单个 SSE 帧文本（一个完整帧，不含结尾 \n\n）：
  * - `event: X`（前缀精确含空格）→ event = X.trim()；
  * - `data: X` → 多行 data 以 '\n' 连接，内容不 trim；
+ * - `id: X` → 原样保留。分析流用它下发事件序号（重连游标）；
+ *   心跳 `: ping`、终态补发帧等不带 id 的帧不会产出该字段；
  * - 其余行忽略；大小写敏感。
  */
 export function parseSseFrame(raw: string): SseFrame {
   let event = ''
   let data = ''
+  let id: string | undefined
 
   const lines = raw.split('\n')
   for (const line of lines) {
@@ -158,10 +167,12 @@ export function parseSseFrame(raw: string): SseFrame {
     } else if (line.startsWith('data: ')) {
       if (data) data += '\n'
       data += line.slice(6)
+    } else if (line.startsWith('id: ')) {
+      id = line.slice(4).trim()
     }
   }
 
-  return { event, data }
+  return id === undefined ? { event, data } : { event, data, id }
 }
 
 /**

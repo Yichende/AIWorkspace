@@ -35,6 +35,14 @@ export interface AnalysisStreamCallbacks {
   onProgress?: (stage: string, percent: number) => void
   onComplete?: (result: AnalysisResult) => void
   onError?: (err: string) => void
+  /** 事件序号（SSE `id:` 行），调用方据此维护重连游标 */
+  onSeq?: (seq: number) => void
+  /** 服务端缓冲已越界：正文前缀永久丢失，参数是仍可续传的起点 */
+  onTruncated?: (firstSeq: number) => void
+  /** 传输层超时：连接被服务端收尾，但分析仍在后台跑 —— **不是失败** */
+  onTimeout?: (message: string) => void
+  /** 服务端正常收尾（终态帧已经发过了） */
+  onDone?: () => void
   /** 同步交付 RequestTask 句柄 —— 供调用方 abort() 停止分析 */
   onTaskReady?: (task: Taro.RequestTask<any>) => void
 }
@@ -91,15 +99,21 @@ export const analysisApi = {
   /**
    * SSE 流式分析（复用 chat.api.ts 的 enableChunked 模式）。
    *
-   * 事件类型: status / text / chart / table / complete / error
+   * 事件类型：thinking / summary / insights / report / chart / table /
+   * progress / complete / error / truncated / timeout / done
+   *
+   * @param after 游标：>0 时只回放该序号之后的事件。附着到一个已经在跑的
+   *   会话时必须带上，否则会把已产出的正文**再追加一遍**（append 语义）。
    */
   async stream(
     id: string,
     callbacks: AnalysisStreamCallbacks,
+    after = 0,
   ): Promise<void> {
     // 请求构造/收流骨架在 utils/sse-client.ts（与 chat.api 共用）
+    const query = after > 0 ? `?after=${after}` : ''
     return createSSEClient(
-      { url: `${BASE_URL}/analysis/${id}/stream`, method: 'GET' },
+      { url: `${BASE_URL}/analysis/${id}/stream${query}`, method: 'GET' },
       {
         onFrame: (frame) => analysisApi._dispatchFrame(frame, callbacks),
         onError: (err) =>
@@ -107,6 +121,19 @@ export const analysisApi = {
         onTaskReady: callbacks.onTaskReady,
       },
     )
+  },
+
+  /**
+   * 取消正在跑的分析。
+   *
+   * 只 abort 本地 SSE 是不够的：阶段一之后断开只代表「少了一个听众」，
+   * 运行会在 worker 里继续跑到 COMPLETED。必须显式调这个接口。
+   */
+  cancel(id: string): Promise<{ success: boolean; message?: string }> {
+    return request({
+      url: `/analysis/${id}/cancel`,
+      method: 'POST',
+    })
   },
 
   /**
@@ -163,6 +190,13 @@ export const analysisApi = {
 
   /** SSE 帧分发（业务事件表；JSON 事件容错解析）—— 解码/拆帧在 utils/sse.ts */
   _dispatchFrame(frame: SseFrame, cb: AnalysisStreamCallbacks): void {
+    // 游标先于业务事件处理：任何带 id: 的帧都要把序号记下来，
+    // 重连时回传 ?after=，否则会重复收已产出的正文
+    if (frame.id) {
+      const seq = Number.parseInt(frame.id, 10)
+      if (Number.isFinite(seq)) cb.onSeq?.(seq)
+    }
+
     switch (frame.event) {
       case 'thinking':
         cb.onThinking?.(frame.data)
@@ -220,6 +254,33 @@ export const analysisApi = {
       case 'error':
         // 线上仍是裸字符串（不改服务端格式），这里只归一化出 message
         cb.onError?.(toApiError(frame.data, ERROR_COPY[ErrorKind.Stream]).message)
+        break
+      // 服务端缓冲越界：正文前缀没了，客户端先清缓冲再接着收
+      case 'truncated': {
+        let firstSeq = 1
+        try {
+          const parsed = JSON.parse(frame.data)
+          if (typeof parsed?.firstSeq === 'number') firstSeq = parsed.firstSeq
+        } catch {
+          // 解析不出来就按「从头都不可信」处理
+        }
+        cb.onTruncated?.(firstSeq)
+        break
+      }
+      // 传输层超时：连接被收尾，但分析仍在后台跑 —— 绝不能当失败处理
+      case 'timeout': {
+        let message = '连接超时，分析仍在后台进行'
+        try {
+          const parsed = JSON.parse(frame.data)
+          if (typeof parsed?.message === 'string') message = parsed.message
+        } catch {
+          // 用兜底文案
+        }
+        cb.onTimeout?.(message)
+        break
+      }
+      case 'done':
+        cb.onDone?.()
         break
     }
   },

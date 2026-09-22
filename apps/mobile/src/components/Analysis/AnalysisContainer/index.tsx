@@ -41,11 +41,24 @@ export default function AnalysisContainer() {
     prompt,
     stopped,
     errorMessage,
+    streamTimeout,
+    sessionId,
     setModel,
     reset,
   } = useAnalysisStore()
 
-  const { startAnalysis, stopAnalysis, retryAnalysis } = useAnalysisStream()
+  const { startAnalysis, stopAnalysis, retryAnalysis, attachToSession } =
+    useAnalysisStream()
+
+  /**
+   * 超时后重新连接。
+   *
+   * `reset: false` 保留 store 里的 lastSeq —— 服务端据此只回放增量，
+   * 不会把已经产出的正文再追加一遍。
+   */
+  const handleReconnect = () => {
+    if (sessionId) attachToSession(sessionId, { reset: false })
+  }
 
   // ── Upload → Preview ───────────────────────────────────────
 
@@ -115,6 +128,8 @@ export default function AnalysisContainer() {
           tables={tables}
           stopped={stopped}
           errorMessage={errorMessage}
+          streamTimeout={streamTimeout}
+          onReconnect={sessionId ? handleReconnect : undefined}
           onStop={stopAnalysis}
           // 重试要重新 create，缺 fileId/prompt 根本发不出去 → 只给「重新上传」
           onRetry={fileId && prompt ? retryAnalysis : undefined}
