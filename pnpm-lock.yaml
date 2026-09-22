@@ -379,9 +379,16 @@ importers:
       '@tarojs/components':
         specifier: ^4.1.7
         version: 4.2.0(@tarojs/helper@4.2.0(@swc/helpers@0.5.23))(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15))
+      '@tarojs/taro':
+        specifier: ^4.1.7
+        version: 4.2.0(@tarojs/components@4.2.0(@tarojs/helper@4.2.0(@swc/helpers@0.5.23))(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15)))(@tarojs/helper@4.2.0(@swc/helpers@0.5.23))(@tarojs/shared@4.2.0)(@types/react@18.3.29)(postcss@8.5.15)(rollup@3.30.0)(webpack@5.106.0(postcss@8.5.15))
       react:
         specifier: ^18.0.0
         version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.29
 
   packages/utils:
     dependencies:

@@ -35,8 +35,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # --continue: 单个包失败时不再中断其余包，避免一个错误掩盖后续错误
       - name: Type-check
-        run: pnpm type-check
+        run: pnpm type-check --continue
 
       # 全部测试走 mock，不需要数据库与任何密钥环境变量
       - name: Test
