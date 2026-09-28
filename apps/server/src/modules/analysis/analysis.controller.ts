@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   Controller,
   Get,
+  Logger,
   Post,
   Patch,
   Delete,
@@ -15,6 +17,8 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMITS } from '../../config/throttle.config';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/entities/user.entity';
@@ -23,6 +27,13 @@ import { AnalysisTaskService } from './analysis-task.service';
 import { AnalysisWorkerService } from './analysis-worker.service';
 import { AnalysisRunRegistry } from './analysis-run.registry';
 import { safeUnlink } from '../../common/fs.util';
+import {
+  ALLOWED_ANALYSIS_EXTS,
+  CONTENT_SNIFF_BYTES,
+  MAX_ANALYSIS_FILE_BYTES,
+  detectAnalysisContent,
+  isExtensionConsistentWithContent,
+} from './analysis-file.constants';
 import { CreateAnalysisDto } from './dto/create-analysis.dto';
 import { UpdateAnalysisDto } from './dto/update-analysis.dto';
 import { QueryAnalysisDto } from './dto/query-analysis.dto';
@@ -58,6 +69,8 @@ interface UploadedFile {
 
 @Controller('analysis')
 export class AnalysisController {
+  private readonly logger = new Logger(AnalysisController.name);
+
   constructor(
     private readonly analysisService: AnalysisService,
     private readonly taskService: AnalysisTaskService,
@@ -67,6 +80,8 @@ export class AnalysisController {
 
   // ── File Upload ────────────────────────────────────────────
 
+  /** 上传：10MB 落盘 + 同步 XLSX 解析都在请求线程里，限流挡的是 CPU 与磁盘放大 */
+  @Throttle({ default: RATE_LIMITS.analysisUpload })
   @Post('upload')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
@@ -76,7 +91,7 @@ export class AnalysisController {
     @Body('originalName') originalName?: string,
   ) {
     if (!file) {
-      throw new Error('请选择文件');
+      throw new BadRequestException('请选择文件');
     }
 
     // 原始文件名：小程序 uploadFile 的 multipart filename 是临时路径 basename
@@ -89,25 +104,36 @@ export class AnalysisController {
 
     // 验证文件类型
     const ext = path.extname(file.originalname).toLowerCase();
-    if (!['.xlsx', '.xls', '.csv'].includes(ext)) {
+    if (!(ALLOWED_ANALYSIS_EXTS as readonly string[]).includes(ext)) {
       // 删除临时文件（safeUnlink：删不掉也不能盖掉真正的校验错误）
       safeUnlink(file.path);
-      throw new Error('仅支持 .xlsx .xls .csv 格式');
+      throw new BadRequestException('仅支持 .xlsx .xls .csv 格式');
     }
 
-    // 验证文件大小 (10MB)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
+    // 内容门禁：扩展名是客户端给的，而 XLSX.read 会**按内容**识别格式 ——
+    // 换个后缀就能把任意文件送进解析器。这里只放行「形态上可能是表格」的输入。
+    const kind = detectAnalysisContent(
+      this.readHeader(file.path, CONTENT_SNIFF_BYTES),
+    );
+    if (!kind || !isExtensionConsistentWithContent(ext, kind)) {
       safeUnlink(file.path);
-      throw new Error('文件大小不能超过 10MB');
+      throw new BadRequestException('文件内容与格式不符，请确认后重新上传');
+    }
+
+    // 验证文件大小（multer 的 limits 已挡在前面，这里是双保险）
+    if (file.size > MAX_ANALYSIS_FILE_BYTES) {
+      safeUnlink(file.path);
+      throw new BadRequestException('文件大小不能超过 10MB');
     }
 
     try {
       // SheetJS 解析：格式识别用真实上传文件名（保证扩展名正确）
       const dataset = this.parseFile(file.path, file.originalname);
 
-      // 保存文件记录（临时，24h 过期）
+      // 保存文件记录（临时，24h 过期）。
+      // user.id 是归属的唯一写入点 —— 没有它，create 阶段的越权校验无从谈起。
       const fileRecord = await this.analysisService.saveFileRecord(
+        user.id,
         null, // 暂不关联 session（create 时再关联）
         fallbackName,
         file.path,
@@ -122,12 +148,33 @@ export class AnalysisController {
     } catch (err: any) {
       // 清理文件（失败不影响报错语义）
       safeUnlink(file.path);
-      throw new Error(`文件解析失败: ${err.message}`);
+      // 第三方解析器的原始报错只进服务端日志：SheetJS 的报错会带上内部
+      // 结构细节（zip 偏移、单元格引用等），不对外暴露
+      this.logger.error(
+        `[analysis] 解析失败 ${file.originalname}: ${err?.message ?? err}`,
+      );
+      throw new BadRequestException(
+        '文件解析失败，请确认文件为有效的 Excel/CSV 后重试',
+      );
+    }
+  }
+
+  /** 读取文件头部若干字节（镜像 UploadController.readHeader 的写法） */
+  private readHeader(filePath: string, bytes: number): Buffer {
+    const fd = fs.openSync(filePath, 'r');
+    try {
+      const buf = Buffer.alloc(bytes);
+      const read = fs.readSync(fd, buf, 0, bytes, 0);
+      return buf.subarray(0, read);
+    } finally {
+      fs.closeSync(fd);
     }
   }
 
   // ── Create Analysis Task ───────────────────────────────────
 
+  /** 建会话即入队，最终会打到付费上游 */
+  @Throttle({ default: RATE_LIMITS.analysisCreate })
   @Post('create')
   @UseGuards(JwtAuthGuard)
   async createAnalysis(
@@ -157,6 +204,8 @@ export class AnalysisController {
 
   // ── SSE Stream ─────────────────────────────────────────────
 
+  /** SSE：额度只计建连与重连，连接本身的 30 分钟时长不消耗额度 */
+  @Throttle({ default: RATE_LIMITS.analysisStream })
   @Get(':id/stream')
   @UseGuards(JwtAuthGuard)
   async streamAnalysis(

@@ -13,6 +13,32 @@ import * as crypto from 'crypto';
 import { Op, UniqueConstraintError } from 'sequelize';
 import { User } from '../user/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { hashRefreshToken, verifyRefreshToken } from './refresh-token-hash';
+import { parseDurationMs } from '../../common/duration.util';
+
+/**
+ * 会话指纹：登录 / 刷新时从请求里取，写进 refresh_tokens 供会话列表展示。
+ *
+ * 注意它**不是安全判据** —— IP 与 UA 都能被伪造。它的用途是让用户能在
+ * 「登录设备」列表里认出哪条是自己的会话、以及发现异常登录。
+ */
+export interface ClientFingerprint {
+  ip_address?: string;
+  user_agent?: string;
+}
+
+/** refresh_tokens.user_agent 的列宽 */
+const MAX_UA_LENGTH = 512;
+/** refresh_tokens.ip_address 的列宽（DataType.STRING 默认 255） */
+const MAX_IP_LENGTH = 255;
+
+/** refresh token 的默认有效期，与 JWT_REFRESH_EXPIRES_IN 的默认值同源 */
+const DEFAULT_REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** 超长直接截断：MySQL 严格模式下列宽溢出会报错，宁可截断也不能让登录失败 */
+function truncate(value: string, max: number): string {
+  return value.length > max ? value.slice(0, max) : value;
+}
 
 @Injectable()
 export class AuthService {
@@ -37,6 +63,8 @@ export class AuthService {
     device_type?: string;
     device_name?: string;
     device_id?: string;
+    ip_address?: string;
+    user_agent?: string;
   }) {
     const existUser = await this.userModel.findOne({
       where: { email: data.email },
@@ -63,6 +91,7 @@ export class AuthService {
       device_id,
       data.device_type,
       data.device_name,
+      data,
     );
 
     return {
@@ -78,6 +107,8 @@ export class AuthService {
     device_type?: string;
     device_name?: string;
     device_id?: string;
+    ip_address?: string;
+    user_agent?: string;
   }) {
     const user = await this.userModel.findOne({
       where: { email: data.email },
@@ -109,6 +140,7 @@ export class AuthService {
       device_id,
       data.device_type,
       data.device_name,
+      data,
     );
 
     return {
@@ -129,6 +161,8 @@ export class AuthService {
     device_type?: string;
     device_name?: string;
     device_id?: string;
+    ip_address?: string;
+    user_agent?: string;
   }) {
     const { openid } = await this.code2session(data.code);
 
@@ -166,6 +200,7 @@ export class AuthService {
       device_id,
       data.device_type,
       data.device_name,
+      data,
     );
 
     return {
@@ -205,7 +240,10 @@ export class AuthService {
     return { success: true, wechat_bound: true };
   }
 
-  async refreshToken(rawRefreshToken: string) {
+  async refreshToken(
+    rawRefreshToken: string,
+    fingerprint: ClientFingerprint = {},
+  ) {
     let payload: { id: number; type: string; device_id: string };
 
     try {
@@ -231,7 +269,23 @@ export class AuthService {
       throw new UnauthorizedException('会话不存在或已被撤销');
     }
 
-    const isMatch = await bcrypt.compare(rawRefreshToken, record.token_hash);
+    // DB 的 expires_at 是会话寿命的**权威**。此前只信 JWT 自己的 exp，
+    // 于是「把 JWT_REFRESH_EXPIRES_IN 调短」对存量会话完全无效 ——
+    // 记录里写着 7 天，实际能一直用到 JWT 的 exp 为止。
+    //
+    // 位置在摘要比较之前，有两个理由：
+    //   1. 过期会话不必再走一次比较（换成 sha256 后开销很小，但没必要）；
+    //   2. **顺序反了会让「过期且摘要不匹配」走进下面的重放分支**，
+    //      返回「已被使用」并 destroy 记录 —— 语义错，还抹掉审计痕迹。
+    // 过期**不销毁**记录：它是审计线索，不是攻击证据。
+    if (record.expires_at && record.expires_at.getTime() < Date.now()) {
+      throw new UnauthorizedException('会话已过期，请重新登录');
+    }
+
+    // 用 sha256 摘要比较而不是 bcrypt.compare —— 后者只看前 72 字节，
+    // 对 262 字符的 JWT 会让同一用户的任意两个 token 无法区分，
+    // 重放检测因此永远不触发。详见 refresh-token-hash.ts
+    const isMatch = verifyRefreshToken(rawRefreshToken, record.token_hash);
 
     if (!isMatch) {
       // Replay attack detected — delete the compromised record
@@ -241,13 +295,19 @@ export class AuthService {
 
     // Generate new token pair and UPDATE the record (rotation)
     const tokens = this.generateTokens(payload.id, payload.device_id);
-    const newHash = await bcrypt.hash(tokens.refresh_token, 10);
-    const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const newHash = hashRefreshToken(tokens.refresh_token);
 
     await record.update({
       token_hash: newHash,
-      expires_at: newExpiresAt,
+      expires_at: new Date(Date.now() + this.getRefreshTtlMs()),
       last_used_at: new Date(),
+      // 轮转点也刷新指纹：换了网络/客户端的话，这里的值应当跟着变
+      ...(fingerprint.ip_address
+        ? { ip_address: truncate(fingerprint.ip_address, MAX_IP_LENGTH) }
+        : {}),
+      ...(fingerprint.user_agent
+        ? { user_agent: truncate(fingerprint.user_agent, MAX_UA_LENGTH) }
+        : {}),
     });
 
     return {
@@ -258,7 +318,9 @@ export class AuthService {
 
   async getSessions(userId: number, currentDeviceId?: string) {
     const records = await this.refreshTokenModel.findAll({
-      where: { user_id: userId },
+      // 已过期的会话不该出现在「登录设备」列表里：刷新它必然失败，
+      // 留着只会让用户以为自己还在某台设备上登录着
+      where: { user_id: userId, expires_at: { [Op.gt]: new Date() } },
       order: [['last_used_at', 'DESC']],
     });
 
@@ -268,8 +330,12 @@ export class AuthService {
       device_name: r.device_name,
       device_id: r.device_id,
       ip_address: r.ip_address,
+      user_agent: r.user_agent,
       last_used_at: r.last_used_at,
       created_at: r.createdAt,
+      // 已知限制：客户端从不发 x-device-id（服务端回退成随机 UUID，
+      // 客户端无法回传），所以这里对真实客户端**恒为 false**。
+      // 修法在客户端侧（持久化一个设备 ID 并随请求头回传），另立任务。
       is_current: currentDeviceId ? r.device_id === currentDeviceId : false,
     }));
   }
@@ -426,7 +492,19 @@ export class AuthService {
 
   private generateTokens(userId: number, device_id: string) {
     const accessPayload = { id: userId, type: 'access' };
-    const refreshPayload = { id: userId, type: 'refresh', device_id };
+
+    // jti 是必须的，不是锦上添花：JWT 的 iat 只有**秒级**精度，而 refresh
+    // 负载此前只有 {id, type, device_id} —— 同一秒内签发的两个 refresh token
+    // 会**逐字节相同**（HMAC 是确定性的）。后果是「轮转」变成原地踏步：
+    // 新旧 token 一模一样，库里只存得下一个 hash，于是重放检测那道分支
+    // 永远不会触发（实测 RT1 === RT2 为 true，重放旧 token 直接通过）。
+    // 加一个随机 jti 让每次签发都唯一，轮转与重放检测才真正成立。
+    const refreshPayload = {
+      id: userId,
+      type: 'refresh',
+      device_id,
+      jti: crypto.randomUUID(),
+    };
 
     const accessExpiresIn =
       this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m';
@@ -447,15 +525,37 @@ export class AuthService {
     return { access_token, refresh_token };
   }
 
+  /**
+   * refresh token 的**唯一**有效期来源：JWT 的 exp 与 DB 的 expires_at
+   * 都由它推导。此前这个 7 天在函数体里硬编码了两处，而 DB 的 expires_at
+   * 又根本不被校验 —— 等于配置项形同虚设。
+   *
+   * 启动期 `assertRequiredEnv` 已保证该值可解析，所以这里不会抛。
+   */
+  private getRefreshTtlMs(): number {
+    return parseDurationMs(
+      this.configService.get<string>('JWT_REFRESH_EXPIRES_IN'),
+      DEFAULT_REFRESH_TTL_MS,
+    );
+  }
+
   private async upsertRefreshToken(
     userId: number,
     refreshToken: string,
     device_id: string,
     device_type?: string,
     device_name?: string,
+    fingerprint: ClientFingerprint = {},
   ) {
-    const tokenHash = await bcrypt.hash(refreshToken, 10);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const tokenHash = hashRefreshToken(refreshToken);
+    const expiresAt = new Date(Date.now() + this.getRefreshTtlMs());
+
+    const ip = fingerprint.ip_address
+      ? truncate(fingerprint.ip_address, MAX_IP_LENGTH)
+      : null;
+    const ua = fingerprint.user_agent
+      ? truncate(fingerprint.user_agent, MAX_UA_LENGTH)
+      : null;
 
     const existing = await this.refreshTokenModel.findOne({
       where: { user_id: userId, device_id },
@@ -468,14 +568,21 @@ export class AuthService {
         device_name: device_name || existing.device_name,
         expires_at: expiresAt,
         last_used_at: new Date(),
+        // 缺失时保留旧值：不能因为一次请求没带 UA 就把已有指纹抹成空
+        ip_address: ip ?? existing.ip_address,
+        user_agent: ua ?? existing.user_agent,
       });
     } else {
+      // 缺失时写 null 而不是空串：空串在会话列表里会渲染成空白行，
+      // null 才能让前端区分「未知」与「长度为 0」
       await this.refreshTokenModel.create({
         token_hash: tokenHash,
         user_id: userId,
         device_type: device_type || 'unknown',
         device_name: device_name || 'Unknown Device',
         device_id,
+        ip_address: ip,
+        user_agent: ua,
         expires_at: expiresAt,
         last_used_at: new Date(),
       });

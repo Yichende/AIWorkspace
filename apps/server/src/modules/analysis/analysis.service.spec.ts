@@ -184,3 +184,129 @@ describe('AnalysisService 过期文件清理', () => {
     });
   });
 });
+
+/**
+ * P2-5：analysis_files 的归属校验。
+ *
+ * fileId 是客户端自报的自增整数，此前 createSession 直接 findByPk 就挂上去，
+ * 不校验归属 —— 任何登录用户都能拿别人的 fileId 建会话读别人的数据。
+ */
+describe('AnalysisService 文件归属（越权修复）', () => {
+  let sessionModel: any;
+  let fileModel: any;
+  let service: AnalysisService;
+
+  const dto = { fileId: '7', prompt: 'p', model: 'm', title: 't' };
+  const future = () => new Date(Date.now() + 60 * 60 * 1000);
+
+  beforeEach(() => {
+    sessionModel = {
+      create: jest.fn().mockResolvedValue({ id: 'session-1' }),
+    };
+    fileModel = {
+      findByPk: jest.fn(),
+      create: jest.fn(),
+    };
+    service = new AnalysisService(
+      sessionModel,
+      fileModel,
+      { destroy: jest.fn() } as any,
+      { destroy: jest.fn() } as any,
+      { destroy: jest.fn() } as any,
+      { findOne: jest.fn() } as any,
+    );
+  });
+
+  it('他人的文件被拒绝，且不建会话、不挂关联', async () => {
+    fileModel.findByPk.mockResolvedValue({
+      userId: 2,
+      expireAt: future(),
+      update: jest.fn(),
+    });
+
+    await expect(service.createSession(1, dto)).rejects.toThrow(
+      /无权使用该文件/,
+    );
+    // 校验失败必须是「零副作用」的：不能留下孤儿会话，也不能改动别人的文件
+    expect(sessionModel.create).not.toHaveBeenCalled();
+    expect(fileModel.findByPk).toHaveBeenCalledTimes(1);
+    expect(fileModel.findByPk.mock.results[0].value).toBeTruthy();
+  });
+
+  it('归属为 null 的存量行同样被拒（迁移刻意选择的 fail-closed）', async () => {
+    fileModel.findByPk.mockResolvedValue({
+      userId: null,
+      expireAt: future(),
+      update: jest.fn(),
+    });
+
+    await expect(service.createSession(1, dto)).rejects.toThrow(
+      /无权使用该文件/,
+    );
+    expect(sessionModel.create).not.toHaveBeenCalled();
+  });
+
+  it('归属判断先于过期判断（不把别人文件的过期时间泄露出去）', async () => {
+    // 别人的 + 已过期：应当报「无权使用」而不是「已过期」——
+    // 后者会泄露「这个 fileId 确实存在且曾经有效」
+    fileModel.findByPk.mockResolvedValue({
+      userId: 2,
+      expireAt: new Date(Date.now() - 1000),
+      update: jest.fn(),
+    });
+
+    await expect(service.createSession(1, dto)).rejects.toThrow(/无权使用/);
+  });
+
+  it('本人的文件正常创建会话并挂上关联', async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    fileModel.findByPk.mockResolvedValue({
+      userId: 1,
+      expireAt: future(),
+      update,
+    });
+
+    const session = await service.createSession(1, dto);
+
+    expect(session).toEqual({ id: 'session-1' });
+    expect(update).toHaveBeenCalledWith({ analysisId: 'session-1' });
+  });
+
+  it('本人但已过期的文件仍报「已过期」', async () => {
+    fileModel.findByPk.mockResolvedValue({
+      userId: 1,
+      expireAt: new Date(Date.now() - 1000),
+      update: jest.fn(),
+    });
+
+    await expect(service.createSession(1, dto)).rejects.toThrow(/已过期/);
+    expect(sessionModel.create).not.toHaveBeenCalled();
+  });
+
+  it('fileId 查不到时仍建会话（既有语义不在此收紧）', async () => {
+    fileModel.findByPk.mockResolvedValue(null);
+
+    await expect(service.createSession(1, dto)).resolves.toEqual({
+      id: 'session-1',
+    });
+    expect(sessionModel.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('saveFileRecord 落归属并保留 24h 过期', async () => {
+    fileModel.create.mockImplementation((values: any) =>
+      Promise.resolve(values),
+    );
+
+    const before = Date.now();
+    await service.saveFileRecord(7, null, 'n.xlsx', 'uploads/a.xlsx', 12);
+    const values = fileModel.create.mock.calls[0][0];
+
+    // userId 是归属的唯一写入点，漏了它越权校验就形同虚设
+    expect(values.userId).toBe(7);
+    expect(values.analysisId).toBeNull();
+    expect(values.size).toBe(12);
+    const ttl = values.expireAt.getTime() - before;
+    expect(ttl).toBeGreaterThan(24 * 3600 * 1000 - 5000);
+    expect(ttl).toBeLessThan(24 * 3600 * 1000 + 5000);
+  });
+});

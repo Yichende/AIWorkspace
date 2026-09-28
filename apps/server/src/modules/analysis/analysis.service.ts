@@ -41,12 +41,15 @@ export class AnalysisService {
   // ── File Upload ─────────────────────────────────────────────
 
   async saveFileRecord(
+    userId: number,
     analysisId: string | null,
     fileName: string,
     fileUrl: string,
     size: number,
   ): Promise<AnalysisFile> {
+    // userId 是**归属的唯一写入点** —— createSession 的越权校验全靠它
     return this.fileModel.create({
+      userId,
       analysisId,
       fileName,
       fileUrl,
@@ -66,6 +69,26 @@ export class AnalysisService {
     userId: number,
     dto: { fileId: string; prompt: string; model: string; title: string },
   ): Promise<AnalysisSession> {
+    // 先校验文件、后建会话：校验失败时不留孤儿会话。
+    //
+    // fileId 是客户端传来的自增整数，不校验归属就是越权 ——
+    // 任何登录用户都能拿别人的 fileId 建会话、读别人的数据。
+    const file = await this.fileModel.findByPk(dto.fileId);
+    if (file) {
+      // 归属判断必须在过期判断**之前**：顺序反了会把「别人文件的过期时间」
+      // 泄露给攻击者（404 与 403 的区别本身就是信息）
+      //
+      // userId 为 null 的存量行同样在这里被拒 —— 这是迁移时刻意选择的
+      // fail-closed 行为，详见 20260928000000 迁移的注释
+      if (file.userId !== userId) {
+        throw new ForbiddenException('无权使用该文件，请重新上传');
+      }
+      // 过期文件已进入清理队列，此时再关联会被清理掉 → 直接拒绝
+      if (file.expireAt && file.expireAt.getTime() < Date.now()) {
+        throw new NotFoundException('文件已过期，请重新上传');
+      }
+    }
+
     const session = await this.sessionModel.create({
       id: randomUUID(),
       userId,
@@ -75,13 +98,9 @@ export class AnalysisService {
       model: dto.model,
     });
 
-    // 关联文件到 session
-    const file = await this.fileModel.findByPk(dto.fileId);
+    // fileId 查不到时仍建会话（既有语义，不在此收紧）：后续由 SSE 的
+    // error 帧兜底，移动端已经处理了那条路径
     if (file) {
-      // 过期文件已进入清理队列，此时再关联会被清理掉 → 直接拒绝
-      if (file.expireAt && file.expireAt.getTime() < Date.now()) {
-        throw new NotFoundException('文件已过期，请重新上传');
-      }
       await file.update({ analysisId: session.id });
     }
 

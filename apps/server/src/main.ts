@@ -5,6 +5,13 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { assertRequiredEnv } from './config/env-validation';
+import {
+  CORS_ORIGINS_ENV,
+  TRUST_PROXY_HOPS_ENV,
+  buildCorsOptions,
+  parseCorsOrigins,
+  resolveTrustProxyHops,
+} from './config/http.config';
 import { json, urlencoded } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -23,7 +30,21 @@ async function bootstrap() {
   });
   const logger = new Logger('Bootstrap');
 
-  app.enableCors();
+  // 反代跳数决定 req.ip，而 req.ip 同时是限流键与 refresh_tokens.ip_address 的来源。
+  // 配错会让所有用户共用一个限流桶 —— 所以只接受明确的整数，不接受 true。
+  app.set(
+    'trust proxy',
+    resolveTrustProxyHops(process.env[TRUST_PROXY_HOPS_ENV]),
+  );
+
+  const corsOrigins = parseCorsOrigins(process.env[CORS_ORIGINS_ENV]);
+  if (corsOrigins.length === 0) {
+    logger.warn(
+      `${CORS_ORIGINS_ENV} 未配置：CORS 仍对所有来源开放（生产环境应收敛白名单）`,
+    );
+  }
+  // 传 undefined 等价于原来的无参 enableCors()，保持未配置时的既有行为
+  app.enableCors(buildCorsOptions(corsOrigins));
 
   // 静态资源服务：只开放头像目录（uploads/analysis 等其他目录不暴露）
   app.useStaticAssets(path.join(process.cwd(), 'uploads', 'avatar'), {

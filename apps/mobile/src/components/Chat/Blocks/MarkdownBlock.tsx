@@ -3,6 +3,7 @@ import { parseMarkdownTokens } from '@repo/utils'
 import type { Token } from '@repo/utils'
 import { useMemo } from 'react'
 
+import { isSafeImageSrc, isSafeLinkHref } from '@/utils/url-safety'
 import './MarkdownBlock.scss'
 
 interface Props {
@@ -77,9 +78,23 @@ function renderInlines(tokens: Token[] | null, baseKey: string): React.ReactNode
         const close = findClose(tokens, i, 'link_close')
         const href = t.attrGet('href') ?? ''
         const children = tokens.slice(i + 1, close)
+
+        // 协议白名单不通过 → 退化成纯文本。
+        //
+        // 顺带说明：链接目前仍然**不可点击**（这里只负责让不安全的协议
+        // 不带上链接样式）。若要接跳转，必须先经过 isSafeLinkHref，
+        // 且小程序侧只能走 web-view（需后台配置业务域名白名单）或复制链接。
+        // 原先这里挂过一个 data-href 属性 —— 全仓没有任何读取点，是死代码，
+        // 已删除；它的存在反而会误导后来者以为链接是接通的。
+        if (!isSafeLinkHref(href)) {
+          out.push(<Text key={key}>{renderInlines(children, key)}</Text>)
+          i = close
+          break
+        }
+
         const hasText = children.some((c) => c.type === 'text')
         out.push(
-          <Text key={key} className='md-link' data-href={href}>
+          <Text key={key} className='md-link'>
             {renderInlines(children, key)}
             {hasText ? null : <Text className='md-link-url'>{href}</Text>}
           </Text>,
@@ -90,7 +105,24 @@ function renderInlines(tokens: Token[] | null, baseKey: string): React.ReactNode
 
       case 'image': {
         const src = t.attrGet('src') ?? ''
+        // markdown-it 把 alt 文本放在 token.content，attrs 里的 alt 恒为空串，
+        // 所以这里用 content 是对的（别改成 attrGet('alt')）
         const alt = t.content || ''
+
+        // 协议/来源白名单不通过 → 退化成 alt 文本。
+        // 渲染层不能替用户去请求任意协议、任意域名的资源：
+        // H5 下那是真实的网络请求（追踪像素 / IP 泄露），小程序下还会撞域名校验。
+        if (!isSafeImageSrc(src)) {
+          if (alt) {
+            out.push(
+              <Text key={key} className='md-text'>
+                {alt}
+              </Text>,
+            )
+          }
+          break
+        }
+
         out.push(
           <Image
             key={key}

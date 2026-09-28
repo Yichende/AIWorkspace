@@ -15,6 +15,7 @@ import {
   isStreamTimeout,
 } from '../chat/providers/stream-abort';
 import { AnalysisService } from './analysis.service';
+import { resolveUploadPath } from '../../common/fs.util';
 import type {
   ChartConfig,
   TableConfig,
@@ -75,7 +76,10 @@ export class AnalysisQueueService {
         throw new Error('文件记录不存在，请重新上传文件');
       }
 
-      const filePath = fileRecord.fileUrl;
+      // DB 里存的是相对 cwd 的路径，必须经 resolveUploadPath ——
+      // 其余读点都这么做了，只有这里漏了：cwd 一变就会把
+      // 「文件已过期」错报给用户（文件其实还在，只是按相对路径找不到）
+      const filePath = resolveUploadPath(fileRecord.fileUrl);
       if (!fs.existsSync(filePath)) {
         throw new Error('文件已过期，请重新上传');
       }

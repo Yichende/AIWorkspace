@@ -12,6 +12,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMITS } from '../../config/throttle.config';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/entities/user.entity';
@@ -72,6 +74,8 @@ export class ChatController {
 
   // ── AI Completions (SSE) ────────────────────────────────
 
+  /** SSE：守卫只在建连时跑一次，长连接的持续时长不消耗额度 */
+  @Throttle({ default: RATE_LIMITS.chatCompletion })
   @Post('completions')
   @UseGuards(JwtAuthGuard)
   async streamCompletion(

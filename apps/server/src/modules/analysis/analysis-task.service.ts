@@ -24,6 +24,19 @@ export const QUEUED_TIMEOUT_MS = 60 * 60 * 1000;
 export const MAX_ATTEMPTS = 2;
 
 /**
+ * 本服务全部查询一律不打印 SQL。
+ *
+ * 这里是**后台管家**的 DB 层：3 秒轮询、30 秒心跳、每个进度事件一次 UPDATE、
+ * 60 秒僵死回收。它们与用户操作无关，却会以极高频率刷屏 —— 实测一台完全空闲
+ * 的服务器 60 秒内产生 26 行日志，**全部**是 SQL，其中 24 行是这里的轮询，
+ * 单行 499 字符。不静音的话，即使开了 `DB_LOGGING` 也看不到真正想查的语句。
+ *
+ * 语义上这是「内部维护流量」与「业务查询」的分界，不是随手加的开关：
+ * 本服务不承载任何用户请求路径上的读。
+ */
+const QUIET = { logging: false } as const;
+
+/**
  * 分析任务的 DB 操作层。
  *
  * **所有状态跃迁都是带状态守卫的 CAS**（`WHERE id=? AND state=?`）——
@@ -59,6 +72,7 @@ export class AnalysisTaskService {
       // 若从 1 起，第一次 claim 就把它加到 2，`attempt >= MAX_ATTEMPTS` 立即成立，
       // 崩溃回收会直接落 FAILED —— 等于**一次重试都不会发生**。
       attempt: 0,
+      ...QUIET,
     } as any);
   }
 
@@ -67,6 +81,7 @@ export class AnalysisTaskService {
     return this.taskModel.findOne({
       where: { sessionId, state: { [Op.in]: ['QUEUED', 'RUNNING'] } },
       order: [['created_at', 'DESC']],
+      ...QUIET,
     });
   }
 
@@ -75,6 +90,7 @@ export class AnalysisTaskService {
     return this.taskModel.findOne({
       where: { sessionId },
       order: [['created_at', 'DESC']],
+      ...QUIET,
     });
   }
 
@@ -100,7 +116,7 @@ export class AnalysisTaskService {
         startedAt: task.startedAt ?? now,
         attempt: task.attempt + 1,
       } as any,
-      { where: { id: task.id, state: 'QUEUED', lockedAt: null } },
+      { where: { id: task.id, state: 'QUEUED', lockedAt: null }, ...QUIET },
     );
     return affected === 1;
   }
@@ -111,6 +127,7 @@ export class AnalysisTaskService {
       where: { state: 'QUEUED' },
       order: [['created_at', 'ASC']],
       limit,
+      ...QUIET,
     });
   }
 
@@ -119,6 +136,7 @@ export class AnalysisTaskService {
     try {
       await this.taskModel.update({ heartbeatAt: new Date() } as any, {
         where: { id: taskId, state: 'RUNNING' },
+        ...QUIET,
       });
     } catch (err: any) {
       this.logger.warn(
@@ -140,7 +158,7 @@ export class AnalysisTaskService {
   ): Promise<void> {
     await this.taskModel.update(
       { progressStage: stage, progressPercent: percent } as any,
-      { where: { id: taskId, state: 'RUNNING' } },
+      { where: { id: taskId, state: 'RUNNING' }, ...QUIET },
     );
   }
 
@@ -175,7 +193,10 @@ export class AnalysisTaskService {
         lockedAt: null,
         heartbeatAt: null,
       } as any,
-      { where: { id: taskId, state: { [Op.in]: ['QUEUED', 'RUNNING'] } } },
+      {
+        where: { id: taskId, state: { [Op.in]: ['QUEUED', 'RUNNING'] } },
+        ...QUIET,
+      },
     );
     return affected === 1;
   }
@@ -222,6 +243,7 @@ export class AnalysisTaskService {
     const cutoff = new Date(Date.now() - RUNNING_STALE_MS);
     const stale = await this.taskModel.findAll({
       where: { state: 'RUNNING', heartbeatAt: { [Op.lt]: cutoff } },
+      ...QUIET,
     });
 
     let requeued = 0;
@@ -243,7 +265,7 @@ export class AnalysisTaskService {
             lockedAt: null,
             heartbeatAt: null,
           } as any,
-          { where: { id: task.id, state: 'RUNNING' } },
+          { where: { id: task.id, state: 'RUNNING' }, ...QUIET },
         );
         if (n === 1) reconciled++;
         continue;
@@ -272,6 +294,7 @@ export class AnalysisTaskService {
             state: 'RUNNING',
             heartbeatAt: { [Op.lt]: cutoff },
           },
+          ...QUIET,
         },
       );
       if (n === 1) requeued++;
@@ -294,7 +317,7 @@ export class AnalysisTaskService {
         finishedAt: new Date(),
         errorMessage: '排队超时，请重试',
       } as any,
-      { where: { state: 'QUEUED', created_at: { [Op.lt]: cutoff } } },
+      { where: { state: 'QUEUED', created_at: { [Op.lt]: cutoff } }, ...QUIET },
     );
     if (n > 0)
       this.logger.warn(`[cleanup] ${n} 个排队任务超时，已置为 CANCELED`);
@@ -307,6 +330,7 @@ export class AnalysisTaskService {
     const rows = await this.taskModel.findAll({
       where: { state: 'RUNNING', heartbeatAt: { [Op.gte]: cutoff } },
       attributes: ['sessionId'],
+      ...QUIET,
     });
     return rows.map((r) => r.sessionId);
   }

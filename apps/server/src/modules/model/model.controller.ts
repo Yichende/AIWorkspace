@@ -8,6 +8,8 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMITS } from '../../config/throttle.config';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/entities/user.entity';
@@ -37,9 +39,9 @@ export class ModelController {
   }
 
   /** Test model connectivity (rate-limited: 10 req/min) */
+  @Throttle({ default: RATE_LIMITS.modelTest })
   @Post('test')
   @UseGuards(JwtAuthGuard)
-  // TODO: install @nestjs/throttler and add @Throttle({ default: { limit: 10, ttl: 60000 } })
   testModel(@CurrentUser() user: User, @Body() dto: TestModelDto) {
     return this.userModelService.testModel(user.id, dto);
   }

@@ -7,8 +7,10 @@ import {
   UploadedFile as UploadedFileDecorator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import * as fs from 'fs';
 import * as path from 'path';
+import { RATE_LIMITS } from '../../config/throttle.config';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AVATAR_FORMATS, detectImageFormat } from './upload.constants';
@@ -27,6 +29,8 @@ interface UploadedFile {
 
 @Controller('upload')
 export class UploadController {
+  /** 头像上传：整份文件先落盘再按魔数判定，限流挡的是磁盘写入放大 */
+  @Throttle({ default: RATE_LIMITS.avatarUpload })
   @Post('avatar')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
