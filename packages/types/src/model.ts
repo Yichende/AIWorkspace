@@ -17,11 +17,13 @@ export interface AIModel {
 // ── Model Registry ────────────────────────────────────────────
 
 export const AI_MODELS: AIModel[] = [
-  { id: 'DeepSeek-R1', provider: 'ollama', supportsThinking: true, apiModelName: 'deepseek-r1:latest' },
-  { id: 'DeepSeek-V3', provider: 'ollama', supportsThinking: false, apiModelName: 'deepseek-v3:latest' },
-  { id: 'Qwen3',       provider: 'ollama', supportsThinking: true, apiModelName: 'qwen3:latest' },
-  { id: 'GPT-4o',      provider: 'openai_compatible', supportsThinking: false, apiModelName: 'gpt-4o' },
-  { id: 'Claude 4',    provider: 'anthropic', supportsThinking: false, apiModelName: 'claude-sonnet-4-20250514' },
+  {
+    id: 'Qwen2.5-1.5B',
+    provider: 'ollama',
+    // Qwen2.5 非推理模型，不产出 thinking 内容
+    supportsThinking: false,
+    apiModelName: 'qwen2.5:1.5b',
+  },
 ]
 
 /** Lookup helper */

@@ -1,7 +1,7 @@
 // ── Model defaults ───────────────────────────────────────────
 
 /** Default AI model used for new chat sessions */
-export const DEFAULT_MODEL = 'DeepSeek-R1' as const
+export const DEFAULT_MODEL = 'Qwen2.5-1.5B' as const
 
 /** Default title for new chat sessions */
 export const DEFAULT_SESSION_TITLE = '新对话' as const
