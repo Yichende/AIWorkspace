@@ -7,7 +7,7 @@ export default function AnimatedLogo() {
     <View className='animated-logo'>
       <Image
         className='logo-image'
-        src='/images/aiworkspace-logo.webp'
+        src='/images/aiworkspace-logo.png'
         mode='aspectFit'
       />
     </View>

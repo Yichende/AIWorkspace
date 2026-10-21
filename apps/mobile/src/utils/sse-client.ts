@@ -20,6 +20,15 @@ export interface SseClientOptions {
 }
 
 /**
+ * 客户端请求超时，与服务端 SSE 连接的 30 分钟上限对齐。
+ *
+ * 小程序 `networkTimeout.request` 默认只有 60s。分析/聊天流虽然每 15s 有
+ * 心跳，但显式设置超时可以避免不同基础库对「流式请求超时」语义解释不一致
+ * 导致长分析被客户端提前掐断，从而误弹「重试」。
+ */
+const SSE_TIMEOUT_MS = 30 * 60 * 1000
+
+/**
  * 小程序端 SSE 请求骨架。
  *
  * 把此前在 chat.api 与 analysis.api 各写一遍的「建请求 + 挂 chunk 监听 + 收尾」
@@ -56,6 +65,7 @@ export async function createSSEClient(
     enableChunked: true,
     responseType: 'arraybuffer',
     enableHttp2: false,
+    timeout: SSE_TIMEOUT_MS,
     success: () => {
       // 流正常结束：flush 解码残留 + 可能没有以 \n\n 收尾的尾帧
       reader.end()

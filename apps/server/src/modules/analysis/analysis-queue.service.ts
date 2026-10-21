@@ -32,6 +32,28 @@ const MAX_CHARTS = 5;
 /** 表格最大数量（与图表分开控制，避免混用同一上限） */
 const MAX_TABLES = 5;
 
+/**
+ * 分析流程的模型超时。
+ *
+ * 默认值（30s TTFB / 90s idle）是为交互式聊天设计的；表格分析会把整张表的
+ * 摘要与统计塞进 prompt，小模型在 CPU 上仅 prompt 处理就可能超过 30 秒。
+ * 这里放宽到 5 分钟 / 3 分钟，并允许通过环境变量覆盖。
+ */
+function positiveIntEnv(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+const ANALYSIS_TTFB_TIMEOUT_MS = positiveIntEnv(
+  'ANALYSIS_TTFB_TIMEOUT_MS',
+  5 * 60 * 1000,
+);
+
+const ANALYSIS_IDLE_TIMEOUT_MS = positiveIntEnv(
+  'ANALYSIS_IDLE_TIMEOUT_MS',
+  3 * 60 * 1000,
+);
+
 @Injectable()
 export class AnalysisQueueService {
   private readonly logger = new Logger(AnalysisQueueService.name);
@@ -161,7 +183,15 @@ export class AnalysisQueueService {
       for await (const chunk of provider.streamChat(
         messages,
         { ...resolved.config },
-        { signal },
+        {
+          signal,
+          // 分析流程单独放宽：小模型处理大表格时，首字节和续写间隔都可能
+          // 远超聊天场景的默认超时。超时会被判成 FAILED 并弹出「重试」。
+          timeouts: {
+            ttfbMs: ANALYSIS_TTFB_TIMEOUT_MS,
+            idleMs: ANALYSIS_IDLE_TIMEOUT_MS,
+          },
+        },
       )) {
         // 诊断日志：逐 chunk 打，正常流程下噪音很大，降为 debug
         this.logger.debug(

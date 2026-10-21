@@ -1,4 +1,5 @@
 export default defineAppConfig({
+  lazyCodeLoading: 'requiredComponents',
   pages: [
     'pages/login/index',
     'pages/home/index',
@@ -17,4 +18,5 @@ export default defineAppConfig({
     navigationBarTextStyle: 'black',
   },
   subPackages: [{ root: 'pages/analysis', pages: ['index', 'list', 'detail'] }],
+  
 })

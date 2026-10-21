@@ -126,7 +126,7 @@ export default function HomePage() {
       <View className='decorate-area'>
         <Image
           className='decorate-image'
-          src='/images/decorateImage.webp'
+          src='/images/decorateImage.jpg'
           mode='aspectFill'
         />
       </View>

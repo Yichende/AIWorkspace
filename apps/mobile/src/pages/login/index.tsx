@@ -17,6 +17,16 @@ import './index.scss'
 
 type LoginMode = 'wechat' | 'password' | 'register'
 
+/** 与后端 LoginDto / RegisterDto 的 @MinLength(6) 保持一致 */
+const MIN_PASSWORD_LENGTH = 6
+
+/** 宽松邮箱校验，仅用于提交前拦截明显错误；最终以后端 @IsEmail 为准 */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const showTip = (title: string) => {
+  Taro.showToast({ title, icon: 'none' })
+}
+
 export default function LoginPage() {
   const theme = useSettingsStore((s) => s.theme)
   const [email, setEmail] = useState('')
@@ -52,13 +62,30 @@ export default function LoginPage() {
 
   // 密码登录
   const handlePwLogin = async () => {
+    const trimmedEmail = email.trim()
+
+    if (!trimmedEmail) {
+      showTip('请输入邮箱')
+      return
+    }
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      showTip('请输入正确的邮箱')
+      return
+    }
+    if (!password) {
+      showTip('请输入密码')
+      return
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      showTip(`密码至少 ${MIN_PASSWORD_LENGTH} 位`)
+      return
+    }
+
     try {
-      console.log('[Login] 发送登录请求:', { email, password })
       const res = await loginApi({
-        email,
+        email: trimmedEmail,
         password,
       })
-      console.log('[Login] 登录成功:', res)
 
       await saveTokens(res.access_token, res.refresh_token)
       useUserStore.getState().setUserInfo(profileToUserInfo(res.user))
@@ -79,7 +106,7 @@ export default function LoginPage() {
       const code = await requestWechatCode()
       console.log('[Login] 发送微信登录请求')
       const res = await wechatLoginApi({ code })
-      console.log('[Login] 微信登录成功:', res)
+      console.log('[Login] 微信登录成功')
 
       await saveTokens(res.access_token, res.refresh_token)
       // 绑定状态由后端 wechat_bound 驱动，前端不硬编码
@@ -96,18 +123,42 @@ export default function LoginPage() {
 
   // 注册
   const handleRegister = async () => {
+    const trimmedUsername = username.trim()
+    const trimmedEmail = email.trim()
+
+    if (!trimmedUsername) {
+      showTip('请输入用户名')
+      return
+    }
+    if (!trimmedEmail) {
+      showTip('请输入邮箱')
+      return
+    }
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      showTip('请输入正确的邮箱')
+      return
+    }
+    if (!password) {
+      showTip('请输入密码')
+      return
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      showTip(`密码至少 ${MIN_PASSWORD_LENGTH} 位`)
+      return
+    }
+    if (!confirmPassword) {
+      showTip('请再次输入密码')
+      return
+    }
     if (password !== confirmPassword) {
-      Taro.showToast({
-        title: '两次密码不一致',
-        icon: 'none',
-      })
+      showTip('两次密码不一致')
       return
     }
 
     try {
       const res = await registerApi({
-        username,
-        email,
+        username: trimmedUsername,
+        email: trimmedEmail,
         password,
       })
 

@@ -156,3 +156,4 @@ ehthumbs.db
 # =========================
 *.swp
 *.swo
+apps/server/scripts/seed-test01.cjs
